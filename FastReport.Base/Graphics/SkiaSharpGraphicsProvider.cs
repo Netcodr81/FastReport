@@ -9,7 +9,7 @@ namespace FastReport.Rendering
     /// Graphics provider implementation using SkiaSharp for cross-platform rendering.
     /// Wraps SkiaSharp's SKCanvas to provide a unified graphics interface.
     /// </summary>
-    public class SkiaSharpGraphicsProvider : IGraphicsProvider
+    internal class SkiaSharpGraphicsProvider : IGraphicsProvider
     {
         private readonly SKCanvas _canvas;
         private readonly Stack<SKAutoCanvasRestore> _saveStack;
@@ -96,26 +96,22 @@ namespace FastReport.Rendering
 
             var skiaFont = font as SkiaSharpFont ?? throw new ArgumentException("Font must be a SkiaSharpFont instance.");
             var skiaBrush = brush as SkiaSharpBrush ?? throw new ArgumentException("Brush must be a SkiaSharpBrush instance.");
+            var align = SKTextAlign.Left;
 
-            var paint = skiaBrush.Paint;
-            paint.Typeface = skiaFont.Typeface;
-            paint.TextSize = skiaFont.Size * _dpiScale;
-
-            // Apply string format if provided
             if (format is SkiaSharpStringFormat skiaFormat)
             {
-                // Apply text alignment
-                paint.TextAlign = skiaFormat.Alignment switch
+                align = skiaFormat.Alignment switch
                 {
                     StringAlignment.Center => SKTextAlign.Center,
                     StringAlignment.Far => SKTextAlign.Right,
                     _ => SKTextAlign.Left
                 };
 
-                // Note: Vertical alignment requires manual offset calculation using font metrics
+                // Note: Vertical alignment requires manual offset calculation using font metrics.
             }
 
-            _canvas.DrawText(text, x * _dpiScale, y * _dpiScale, paint);
+            using var skFont = new SKFont(skiaFont.Typeface, skiaFont.Size * _dpiScale);
+            _canvas.DrawText(text, x * _dpiScale, y * _dpiScale, align, skFont, skiaBrush.Paint);
         }
 
         public void DrawText(string text, IFont font, IBrush brush, float x, float y, float width, float height, IStringFormat format = null)
@@ -135,15 +131,10 @@ namespace FastReport.Rendering
 
             var skiaFont = font as SkiaSharpFont ?? throw new ArgumentException("Font must be a SkiaSharpFont instance.");
 
-            var paint = new SKPaint
-            {
-                Typeface = skiaFont.Typeface,
-                TextSize = skiaFont.Size * _dpiScale,
-                TextEncoding = SKTextEncoding.Utf8
-            };
-
-            var width = paint.MeasureText(text);
-            var metrics = paint.FontMetrics;
+            using var skFont = new SKFont(skiaFont.Typeface, skiaFont.Size * _dpiScale);
+            using var paint = new SKPaint();
+            var width = skFont.MeasureText(text, paint);
+            var metrics = skFont.Metrics;
             var height = metrics.Bottom - metrics.Top;
 
             return new SizeF(width / _dpiScale, height / _dpiScale);
@@ -250,14 +241,16 @@ namespace FastReport.Rendering
         public void DrawImage(IImage image, float x, float y)
         {
             var skiaImage = image as SkiaSharpImage ?? throw new ArgumentException("Image must be a SkiaSharpImage instance.");
-            _canvas.DrawImage(skiaImage.Image, x * _dpiScale, y * _dpiScale);
+            using var paint = new SKPaint();
+            _canvas.DrawImage(skiaImage.Image, x * _dpiScale, y * _dpiScale, SKSamplingOptions.Default, paint);
         }
 
         public void DrawImage(IImage image, float x, float y, float width, float height)
         {
             var skiaImage = image as SkiaSharpImage ?? throw new ArgumentException("Image must be a SkiaSharpImage instance.");
             var destRect = new SKRect(x * _dpiScale, y * _dpiScale, (x + width) * _dpiScale, (y + height) * _dpiScale);
-            _canvas.DrawImage(skiaImage.Image, destRect);
+            using var paint = new SKPaint();
+            _canvas.DrawImage(skiaImage.Image, destRect, SKSamplingOptions.Default, paint);
         }
 
         public void DrawImage(IImage image, float destX, float destY, float destWidth, float destHeight,
@@ -266,7 +259,8 @@ namespace FastReport.Rendering
             var skiaImage = image as SkiaSharpImage ?? throw new ArgumentException("Image must be a SkiaSharpImage instance.");
             var srcRect = new SKRect(srcX, srcY, srcX + srcWidth, srcY + srcHeight);
             var destRect = new SKRect(destX * _dpiScale, destY * _dpiScale, (destX + destWidth) * _dpiScale, (destY + destHeight) * _dpiScale);
-            _canvas.DrawImage(skiaImage.Image, srcRect, destRect);
+            using var paint = new SKPaint();
+            _canvas.DrawImage(skiaImage.Image, srcRect, destRect, SKSamplingOptions.Default, paint);
         }
 
         #endregion
@@ -298,7 +292,7 @@ namespace FastReport.Rendering
     /// <summary>
     /// SkiaSharp implementation of IFont.
     /// </summary>
-    public class SkiaSharpFont : IFont
+    internal class SkiaSharpFont : IFont
     {
         private SKTypeface _typeface;
 
@@ -331,7 +325,7 @@ namespace FastReport.Rendering
     /// <summary>
     /// SkiaSharp implementation of IBrush.
     /// </summary>
-    public class SkiaSharpBrush : IBrush
+    internal class SkiaSharpBrush : IBrush
     {
         public SKPaint Paint { get; }
 
@@ -364,7 +358,7 @@ namespace FastReport.Rendering
     /// <summary>
     /// SkiaSharp implementation of IPen.
     /// </summary>
-    public class SkiaSharpPen : IPen
+    internal class SkiaSharpPen : IPen
     {
         private DashStyle _dashStyle;
         public SKPaint Paint { get; }
@@ -419,7 +413,7 @@ namespace FastReport.Rendering
     /// <summary>
     /// SkiaSharp implementation of IColor.
     /// </summary>
-    public class SkiaSharpColor : IColor
+    internal class SkiaSharpColor : IColor
     {
         public SKColor Value { get; }
 
@@ -442,7 +436,7 @@ namespace FastReport.Rendering
     /// <summary>
     /// SkiaSharp implementation of IImage.
     /// </summary>
-    public class SkiaSharpImage : IImage
+    internal class SkiaSharpImage : IImage
     {
         public SKImage Image { get; }
 
@@ -463,9 +457,9 @@ namespace FastReport.Rendering
     /// <summary>
     /// SkiaSharp implementation of IGraphicsPath.
     /// </summary>
-    public class SkiaSharpPath : IGraphicsPath
+    internal class SkiaSharpPath : IGraphicsPath
     {
-        public SKPath Path { get; }
+        public SKPath Path { get; private set; }
 
         public bool IsEmpty => Path.IsEmpty;
 
@@ -475,19 +469,32 @@ namespace FastReport.Rendering
         }
 
         public void Reset() => Path.Reset();
-        public void MoveTo(float x, float y) => Path.MoveTo(x, y);
-        public void LineTo(float x, float y) => Path.LineTo(x, y);
+        public void MoveTo(float x, float y) => ReplacePath(BuildPath(builder => builder.MoveTo(x, y)));
+        public void LineTo(float x, float y) => ReplacePath(BuildPath(builder => builder.LineTo(x, y)));
         public void CubicTo(float x1, float y1, float x2, float y2, float x3, float y3) =>
-            Path.CubicTo(x1, y1, x2, y2, x3, y3);
+            ReplacePath(BuildPath(builder => builder.CubicTo(x1, y1, x2, y2, x3, y3)));
         public void QuadTo(float x1, float y1, float x2, float y2) =>
-            Path.QuadTo(x1, y1, x2, y2);
+            ReplacePath(BuildPath(builder => builder.QuadTo(x1, y1, x2, y2)));
         public void AddRectangle(float x, float y, float width, float height) =>
-            Path.AddRect(new SKRect(x, y, x + width, y + height));
+            ReplacePath(BuildPath(builder => builder.AddRect(new SKRect(x, y, x + width, y + height))));
         public void AddEllipse(float x, float y, float width, float height) =>
-            Path.AddOval(new SKRect(x, y, x + width, y + height));
+            ReplacePath(BuildPath(builder => builder.AddOval(new SKRect(x, y, x + width, y + height))));
         public void AddArc(float x, float y, float width, float height, float startAngle, float sweepAngle) =>
-            Path.AddArc(new SKRect(x, y, x + width, y + height), startAngle, sweepAngle);
-        public void CloseFigure() => Path.Close();
+            ReplacePath(BuildPath(builder => builder.AddArc(new SKRect(x, y, x + width, y + height), startAngle, sweepAngle)));
+        public void CloseFigure() => ReplacePath(BuildPath(builder => builder.Close()));
+
+        private void ReplacePath(SKPath newPath)
+        {
+            Path?.Dispose();
+            Path = newPath ?? throw new ArgumentNullException(nameof(newPath));
+        }
+
+        private static SKPath BuildPath(Action<SKPathBuilder> buildAction)
+        {
+            var builder = new SKPathBuilder();
+            buildAction(builder);
+            return builder.Detach();
+        }
 
         public void Dispose()
         {
@@ -498,7 +505,7 @@ namespace FastReport.Rendering
     /// <summary>
     /// SkiaSharp implementation of IStringFormat.
     /// </summary>
-    public class SkiaSharpStringFormat : IStringFormat
+    internal class SkiaSharpStringFormat : IStringFormat
     {
         public StringAlignment Alignment { get; set; }
         public StringAlignment LineAlignment { get; set; }

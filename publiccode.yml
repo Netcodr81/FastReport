@@ -82,8 +82,7 @@ localisation:
 description:
   it:
     shortDescription: FastReport Open Source - generatore di report per .NET CORE
-    documentation: 'https://github.com/FastReports/FastReport.Documentation'
-    longDescription: FastReport fornisce un generatore di report open source per .NET Core/.NET Framework.
+    documentation: 'https://github.com/FastReports/FastReport.Documentation'    
     screenshots:
       - assets/images/FastReport-screenshot2.png
       - assets/images/FastReport-screenshot1.png
@@ -110,8 +109,7 @@ description:
     
   en:
     shortDescription: FastReport provides open source report generator for .NET Core/.NET Framework. You can use the FastReport in MVC, Web API applications.
-    documentation: 'https://github.com/FastReports/FastReport.Documentation'
-    longDescription: FastReport provides open source report generator for .NET Core/.NET Framework.
+    documentation: 'https://github.com/FastReports/FastReport.Documentation'   
 
     screenshots:
       - assets/images/FastReport-screenshot2.png

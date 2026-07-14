@@ -3,10 +3,10 @@
   "operationId": "c6e087b2-0704-46d3-ac95-9fe29a5ac051",
   "description": "Upgrade .NET projects to newer .NET versions, including guidance on current release status, support lifecycle (LTS/STS), and recommended upgrade targets.",
   "startTime": "2026-07-14T13:53:26.3113765Z",
-  "lastUpdateTime": "2026-07-14T14:34:54.5295459Z",
+  "lastUpdateTime": "2026-07-14T19:29:53.0066681Z",
   "properties": {
     "taskStates": {
-      "02.02-opensource-angular": "InProgress"
+      "03-core-engine": "Completed"
     }
   },
   "folderPath": ""

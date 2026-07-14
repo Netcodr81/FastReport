@@ -38,6 +38,7 @@
 ## User Preferences
 ### Execution Style
 - Do not implement code/project changes until explicit user approval.
+- Avoid preview package versions; prefer stable releases only for package upgrades.
 
 ### Documentation Preferences
 - Create and use a dedicated migration docs folder for migration-related documents.

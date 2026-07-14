@@ -6,7 +6,7 @@
         <!-- WPF -->
         <FRWPFVersion>2025.2.0</FRWPFVersion>
 
-        <SkiaSharpVersion>[2.88.9,)</SkiaSharpVersion>
+        <SkiaSharpVersion>[4.150.1,)</SkiaSharpVersion>
         <HarfBuzzVersion>[2.88.9,)</HarfBuzzVersion>
 
         <!-- Avalonia -->
