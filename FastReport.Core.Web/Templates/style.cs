@@ -1,6 +1,4 @@
-﻿using System.Drawing;
-
-namespace FastReport.Web
+﻿namespace FastReport.Web
 {
     partial class WebReport
     {

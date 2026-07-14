@@ -2449,8 +2449,8 @@ namespace FastReport.Utils
                 if (height < 1) height = 1;
 
                 Bitmap bmp = new Bitmap((int)width, (int)height);
-                using (Graphics g = Graphics.FromImage(bmp))
-                    g.DrawImage(image, new PointF(x, y));
+                using (IGraphics g = FRPaintEventArgs.CreateGraphics(bmp))
+                    g.DrawImage(image, x, y);
                 width /= scaleX;
                 height /= scaleY;
                 return bmp;

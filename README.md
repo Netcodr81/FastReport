@@ -32,7 +32,7 @@ FastReport is written in C# and it is compatible with .NET Standard 2.0 and high
 
 ### Data Sources
 
-- You can get data from XML, CSV, Json, MS SQL, MySql, Oracle, Postgres, MongoDB, Couchbase, RavenDB, SQLite.
+- You can get data from XML, CSV, Json, MS SQL, MySql, Oracle, Postgres, MongoDB, RavenDB, SQLite.
 
 - FastReport has ability to get data from business objects of IEnumerable type. 
 

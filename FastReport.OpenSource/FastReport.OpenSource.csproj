@@ -37,7 +37,7 @@
       - Powerful, fully configurable Matrix object that can be used to print pivot tables.
       - Report inheritance. For creating many reports with common elements such as titles, logos or footers you can place all the common elements in a base report and inherit all other reports from this base.
       Data Sources:
-      - You can get data from XML, CSV, JSON, MS SQL, MySQL, Oracle, Postgres, MongoDB, Couchbase, Raven DB, SQLite.
+      - You can get data from XML, CSV, JSON, MS SQL, MySQL, Oracle, Postgres, MongoDB, Raven DB, SQLite.
       - FastReport has the ability to get data from business objects of IEnumerable type.
       - Report can contain data sources (tables, queries, DB connections).
       - Thus, you can not only use application-defined datasets but also connect to any database and use tables and queries directly within the report.

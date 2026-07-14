@@ -4,7 +4,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Net;
+using System.Net.Http;
 
 namespace FastReport.Utils
 {
@@ -43,6 +43,18 @@ namespace FastReport.Utils
     }
 
     /// <summary>
+    /// Interface allows to decode custom image formats to cross-platform image bytes.
+    /// </summary>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public interface IImageHelperDataLoader
+    {
+        bool CanLoad(byte[] imageData);
+        bool CanLoad(string fileName);
+        bool TryLoad(byte[] imageData, out byte[] result);
+        bool TryLoad(string fileName, out byte[] result);
+    }
+
+    /// <summary>
     /// Internal calss for image processing
     /// </summary>
     [EditorBrowsable(EditorBrowsableState.Never)]
@@ -50,6 +62,8 @@ namespace FastReport.Utils
     {
         private readonly static object _customLoadersLocker = new object();
         private readonly static List<IImageHelperLoader> _customLoaders = new List<IImageHelperLoader>();
+        private readonly static List<IImageHelperDataLoader> _customDataLoaders = new List<IImageHelperDataLoader>();
+        private readonly static HttpClient _httpClient = new HttpClient();
 
         /// <summary>
         /// Register a new custom loader
@@ -66,6 +80,22 @@ namespace FastReport.Utils
                 _customLoaders.Add(imageHelperLoader);
             }
         }
+
+        /// <summary>
+        /// Register a new custom image data loader.
+        /// </summary>
+        /// <param name="imageHelperDataLoader"></param>
+        public static void Register(IImageHelperDataLoader imageHelperDataLoader)
+        {
+            lock (_customLoadersLocker)
+            {
+                foreach (var loader in _customDataLoaders)
+                    if (loader == imageHelperDataLoader)
+                        return;
+
+                _customDataLoaders.Add(imageHelperDataLoader);
+            }
+        }
         internal static Bitmap CloneBitmap(Image source)
         {
             if (source == null)
@@ -74,9 +104,9 @@ namespace FastReport.Utils
             Bitmap image = new Bitmap(source.Width, source.Height);
             if (!Config.IsRunningOnMono) // mono fw bug workaround
                 image.SetResolution(source.HorizontalResolution, source.VerticalResolution);
-            using (Graphics g = Graphics.FromImage(image))
+            using (IGraphics g = FRPaintEventArgs.CreateGraphics(image))
             {
-                g.DrawImageUnscaled(source, 0, 0);
+                g.DrawImageUnscaled(source, new Rectangle(0, 0, source.Width, source.Height));
             }
             return image;
 
@@ -87,7 +117,7 @@ namespace FastReport.Utils
         internal static Bitmap CutImage(Bitmap src, RectangleF rect)
         {
             var bitmap = new Bitmap((int)rect.Width, (int)rect.Height);
-            using (var g = Graphics.FromImage(bitmap))
+            using (IGraphics g = FRPaintEventArgs.CreateGraphics(bitmap))
             {
                 g.DrawImage(src, new Rectangle(0, 0, bitmap.Width, bitmap.Height),
                     rect, GraphicsUnit.Pixel);
@@ -130,18 +160,40 @@ namespace FastReport.Utils
             }
             else if (image is Metafile)
             {
-                Metafile emf = null;
-                using (Bitmap bmp = new Bitmap(1, 1))
-                using (Graphics g = Graphics.FromImage(bmp))
+                using (Metafile emf = CreateMetafile(stream))
                 {
-                    IntPtr hdc = g.GetHdc();
-                    emf = new Metafile(stream, hdc);
+                    DrawImageToMetafile(image, emf);
+                }
+            }
+        }
+
+        internal static T CreateMetafileFromHdcContext<T>(Func<IntPtr, T> factory)
+        {
+            using (Bitmap bmp = new Bitmap(1, 1))
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                IntPtr hdc = g.GetHdc();
+                try
+                {
+                    return factory(hdc);
+                }
+                finally
+                {
                     g.ReleaseHdc(hdc);
                 }
-                using (Graphics g = Graphics.FromImage(emf))
-                {
-                    g.DrawImage(image, 0, 0);
-                }
+            }
+        }
+
+        private static Metafile CreateMetafile(Stream stream)
+        {
+            return CreateMetafileFromHdcContext(hdc => new Metafile(stream, hdc));
+        }
+
+        private static void DrawImageToMetafile(Image image, Metafile metafile)
+        {
+            using (IGraphics g = FRPaintEventArgs.CreateGraphics(metafile))
+            {
+                g.DrawImage(image, 0, 0);
             }
         }
 
@@ -166,11 +218,10 @@ namespace FastReport.Utils
                 using (Bitmap bitmap = new Bitmap(image.Width, image.Height))
                 {
                     bitmap.SetResolution(96F, 96F);
-                    using (Graphics g = Graphics.FromImage(bitmap))
+                    using (IGraphics g = FRPaintEventArgs.CreateGraphics(bitmap))
                     {
                         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                         g.DrawImage(metafile, 0, 0, (float)image.Width, (float)image.Height);
-                        g.Dispose();
                     }
                     bitmap.Save(stream, format);
                 }
@@ -185,17 +236,9 @@ namespace FastReport.Utils
             {
                 if (image is Metafile)
                 {
-                    Metafile emf = null;
-                    using (Bitmap bmp = new Bitmap(1, 1))
-                    using (Graphics g = Graphics.FromImage(bmp))
+                    using (Metafile emf = CreateMetafile(stream))
                     {
-                        IntPtr hdc = g.GetHdc();
-                        emf = new Metafile(stream, hdc);
-                        g.ReleaseHdc(hdc);
-                    }
-                    using (Graphics g = Graphics.FromImage(emf))
-                    {
-                        g.DrawImage(image, 0, 0);
+                        DrawImageToMetafile(image, emf);
                     }
                     return true;
                 }
@@ -220,53 +263,121 @@ namespace FastReport.Utils
         {
             if (bytes != null && bytes.Length > 0)
             {
-                try
-                {
-#if CROSSPLATFORM
-                    // TODO memory leaks image converter
-                    return Image.FromStream(new MemoryStream(bytes));
-#else
-                    return new ImageConverter().ConvertFrom(bytes) as Image;
-#endif
+                var image = LoadCore(bytes);
+                if (image != null)
+                    return image;
 
-                }
-                catch
-                {
-                    if (_customLoaders.Count > 0)
-                    {
-                        lock (_customLoadersLocker)
-                        {
-                            foreach (var loader in _customLoaders)
-                            {
-                                if (loader.CanLoad(bytes) && loader.TryLoad(bytes, out Image result))
-                                    return result;
-                            }
-                        }
-                    }
+                if (TryLoadUsingCustomDataLoaders(bytes, out image))
+                    return image;
 
-                    Bitmap errorBmp = new Bitmap(10, 10);
-                    using (Graphics g = Graphics.FromImage(errorBmp))
-                    {
-                        g.DrawLine(Pens.Red, 0, 0, 10, 10);
-                        g.DrawLine(Pens.Red, 0, 10, 10, 0);
-                    }
-                    return errorBmp;
+                if (TryLoadUsingLegacyCustomLoaders(bytes, out image))
+                    return image;
+
+                Bitmap errorBmp = new Bitmap(10, 10);
+                using (IGraphics g = FRPaintEventArgs.CreateGraphics(errorBmp))
+                {
+                    g.DrawLine(Pens.Red, 0, 0, 10, 10);
+                    g.DrawLine(Pens.Red, 0, 10, 10, 0);
                 }
+                return errorBmp;
             }
             return null;
+        }
+
+        private static Image LoadCore(byte[] bytes)
+        {
+            try
+            {
+#if CROSSPLATFORM
+                // TODO memory leaks image converter
+                return Image.FromStream(new MemoryStream(bytes));
+#else
+                return new ImageConverter().ConvertFrom(bytes) as Image;
+#endif
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool TryLoadUsingCustomDataLoaders(byte[] bytes, out Image result)
+        {
+            result = null;
+
+            lock (_customLoadersLocker)
+            {
+                foreach (var loader in _customDataLoaders)
+                {
+                    if (!loader.CanLoad(bytes) || !loader.TryLoad(bytes, out byte[] resultData) || resultData == null || resultData.Length == 0)
+                        continue;
+
+                    result = LoadCore(resultData);
+                    if (result != null)
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryLoadUsingCustomDataLoaders(string fileName, out Image result)
+        {
+            result = null;
+
+            lock (_customLoadersLocker)
+            {
+                foreach (var loader in _customDataLoaders)
+                {
+                    if (!loader.CanLoad(fileName) || !loader.TryLoad(fileName, out byte[] resultData) || resultData == null || resultData.Length == 0)
+                        continue;
+
+                    result = LoadCore(resultData);
+                    if (result != null)
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryLoadUsingLegacyCustomLoaders(byte[] bytes, out Image result)
+        {
+            result = null;
+
+            lock (_customLoadersLocker)
+            {
+                foreach (var loader in _customLoaders)
+                {
+                    if (loader.CanLoad(bytes) && loader.TryLoad(bytes, out result))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryLoadUsingLegacyCustomLoaders(string fileName, out Image result)
+        {
+            result = null;
+
+            lock (_customLoadersLocker)
+            {
+                foreach (var loader in _customLoaders)
+                {
+                    if (loader.CanLoad(fileName) && loader.TryLoad(fileName, out result))
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         internal static byte[] LoadURL(string url)
         {
             if (!String.IsNullOrEmpty(url))
             {
-                System.Net.ServicePointManager.SecurityProtocol = (SecurityProtocolType)(0xc0 | 0x300 | 0xc00);
-#pragma warning disable SYSLIB0014 // alternative is async only
-                using (WebClient web = new WebClient())
-#pragma warning restore SYSLIB0014
-                {
-                    return web.DownloadData(url);
-                }
+                return _httpClient.GetByteArrayAsync(url).GetAwaiter().GetResult();
             }
             return null;
         }
@@ -289,7 +400,7 @@ namespace FastReport.Utils
             Bitmap image = new Bitmap(width, height);
             image.SetResolution(source.HorizontalResolution, source.VerticalResolution);
 
-            using (Graphics g = Graphics.FromImage(image))
+            using (IGraphics g = FRPaintEventArgs.CreateGraphics(image))
             {
                 g.Clear(Color.Transparent);
                 g.DrawImage(
@@ -321,7 +432,7 @@ namespace FastReport.Utils
             attributes.SetColorMatrix(grayscaleMatrix);
 
             // Use a Graphics object from the new image
-            using (Graphics graphics = Graphics.FromImage(grayscaleBitmap))
+            using (IGraphics graphics = FRPaintEventArgs.CreateGraphics(grayscaleBitmap))
             {
                 // Draw the original image using the ImageAttributes we created
                 graphics.DrawImage(source,
@@ -411,23 +522,17 @@ namespace FastReport.Utils
 
         internal static Image LoadFromFile(string fileName)
         {
+            if (TryLoadUsingCustomDataLoaders(fileName, out Image customDataResult))
+                return customDataResult;
+
             try
             {
                 return Image.FromFile(fileName);
             }
             catch (Exception ex)
             {
-                if (_customLoaders.Count > 0)
-                {
-                    lock (_customLoadersLocker)
-                    {
-                        foreach (var loader in _customLoaders)
-                        {
-                            if (loader.CanLoad(fileName) && loader.TryLoad(fileName, out Image result))
-                                return result;
-                        }
-                    }
-                }
+                if (TryLoadUsingLegacyCustomLoaders(fileName, out Image legacyResult))
+                    return legacyResult;
 
                 throw new ImageLoadException(ex);
             }

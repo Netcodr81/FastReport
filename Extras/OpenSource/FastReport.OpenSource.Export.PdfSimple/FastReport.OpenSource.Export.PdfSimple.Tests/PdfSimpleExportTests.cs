@@ -72,10 +72,14 @@ namespace FastReport.Tests.OpenSource.Export.PdfSimple
             }
 
 #pragma warning disable xUnit2009 // Do not use boolean check to check for substrings
-            Assert.True(pdf.Contains("/Title (" + StringToPdfUnicode(export.Title) + ")"));
-            Assert.True(pdf.Contains("/Subject (" + StringToPdfUnicode(export.Subject) + ")"));
-            Assert.True(pdf.Contains("/Keywords (" + StringToPdfUnicode(export.Keywords) + ")"));
-            Assert.True(pdf.Contains("/Author (" + StringToPdfUnicode(export.Author) + ")"));
+            Assert.True(pdf.Contains("/Title (" + StringToPdfUnicode(export.Title) + ")") ||
+                pdf.Contains("/Title <" + StringToPdfUnicodeHex(export.Title) + ">"));
+            Assert.True(pdf.Contains("/Subject (" + StringToPdfUnicode(export.Subject) + ")") ||
+                pdf.Contains("/Subject <" + StringToPdfUnicodeHex(export.Subject) + ">"));
+            Assert.True(pdf.Contains("/Keywords (" + StringToPdfUnicode(export.Keywords) + ")") ||
+                pdf.Contains("/Keywords <" + StringToPdfUnicodeHex(export.Keywords) + ">"));
+            Assert.True(pdf.Contains("/Author (" + StringToPdfUnicode(export.Author) + ")") ||
+                pdf.Contains("/Author <" + StringToPdfUnicodeHex(export.Author) + ">"));
 #pragma warning restore xUnit2009 // Do not use boolean check to check for substrings
         }
 
@@ -143,6 +147,21 @@ namespace FastReport.Tests.OpenSource.Export.PdfSimple
             return sb.ToString();
         }
 
+        private string StringToPdfUnicodeHex(string s)
+        {
+            StringBuilder sb = new StringBuilder();
+            AppendHex(sb, (char)254);
+            AppendHex(sb, (char)255);
+
+            foreach (char c in s)
+            {
+                AppendHex(sb, (char)(c >> 8));
+                AppendHex(sb, (char)(c & 0xFF));
+            }
+
+            return sb.ToString();
+        }
+
         private void Append(StringBuilder sb, char c)
         {
             if (c < 127)
@@ -165,6 +184,11 @@ namespace FastReport.Tests.OpenSource.Export.PdfSimple
                 sb.Append("\\");
                 sb.Append((int)c);
             }
+        }
+
+        private void AppendHex(StringBuilder sb, char c)
+        {
+            sb.Append(((byte)c).ToString("X2"));
         }
     }
 }

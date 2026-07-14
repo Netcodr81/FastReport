@@ -21,31 +21,16 @@
     </Project>
   </Folder>
   <Folder Name="/Extras/Connections/">
-    <Project Path="Extras/Core/FastReport.Data/FastReport.Data.Cassandra/FastReport.OpenSource.Data.Cassandra.csproj">
-      <BuildType Solution="Academic|*" Project="Debug" />
-    </Project>
-    <Project Path="Extras/Core/FastReport.Data/FastReport.Data.ClickHouse/FastReport.OpenSource.Data.ClickHouse.csproj">
-      <BuildType Solution="Academic|*" Project="Debug" />
-    </Project>
-    <Project Path="Extras/Core/FastReport.Data/FastReport.Data.Couchbase/FastReport.OpenSource.Data.Couchbase.csproj">
-      <BuildType Solution="Academic|*" Project="Debug" />
-    </Project>
-    <Project Path="Extras/Core/FastReport.Data/FastReport.Data.ElasticSearch/FastReport.OpenSource.Data.ElasticSearch.csproj">
+                <Project Path="Extras/Core/FastReport.Data/FastReport.Data.ElasticSearch/FastReport.OpenSource.Data.ElasticSearch.csproj">
       <BuildType Solution="Academic|*" Project="Debug" />
     </Project>
     <Project Path="Extras/Core/FastReport.Data/FastReport.Data.Excel/FastReport.OpenSource.Data.Excel.csproj">
       <BuildType Solution="Academic|*" Project="Debug" />
     </Project>
-    <Project Path="Extras/Core/FastReport.Data/FastReport.Data.Firebird/FastReport.OpenSource.Data.Firebird.csproj">
-      <BuildType Solution="Academic|*" Project="Debug" />
-    </Project>
-    <Project Path="Extras/Core/FastReport.Data/FastReport.Data.GoogleSheets/FastReport.OpenSource.Data.GoogleSheets.csproj">
+        <Project Path="Extras/Core/FastReport.Data/FastReport.Data.GoogleSheets/FastReport.OpenSource.Data.GoogleSheets.csproj">
       <BuildType Solution="Academic|*" Project="Release" />
     </Project>
-    <Project Path="Extras/Core/FastReport.Data/FastReport.Data.Ignite/FastReport.OpenSource.Data.Ignite.csproj">
-      <BuildType Solution="Academic|*" Project="Release" />
-    </Project>
-    <Project Path="Extras/Core/FastReport.Data/FastReport.Data.Json/FastReport.OpenSource.Data.Json.csproj">
+        <Project Path="Extras/Core/FastReport.Data/FastReport.Data.Json/FastReport.OpenSource.Data.Json.csproj">
       <BuildType Solution="Academic|*" Project="Debug" />
     </Project>
     <Project Path="Extras/Core/FastReport.Data/FastReport.Data.MongoDB/FastReport.OpenSource.Data.MongoDB.csproj">
@@ -91,3 +76,4 @@
     <BuildType Solution="Academic|*" Project="Debug" />
   </Project>
 </Solution>
+

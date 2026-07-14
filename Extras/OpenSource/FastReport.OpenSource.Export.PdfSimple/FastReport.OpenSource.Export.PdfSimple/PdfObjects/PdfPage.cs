@@ -1,5 +1,4 @@
 ﻿using FastReport.Export.PdfSimple.PdfCore;
-using System.Drawing;
 
 namespace FastReport.Export.PdfSimple.PdfObjects
 {
@@ -16,17 +15,14 @@ namespace FastReport.Export.PdfSimple.PdfObjects
 
         #region Public Properties
 
-        public RectangleF MediaBox
+        public void SetMediaBox(float left, float top, float width, float height)
         {
-            set
-            {
-                PdfArray mediaBox = new PdfArray();
-                mediaBox.Add(new PdfNumeric(value.Left));
-                mediaBox.Add(new PdfNumeric(value.Top));
-                mediaBox.Add(new PdfNumeric(value.Right));
-                mediaBox.Add(new PdfNumeric(value.Bottom));
-                this["MediaBox"] = mediaBox;
-            }
+            PdfArray mediaBox = new PdfArray();
+            mediaBox.Add(new PdfNumeric(left));
+            mediaBox.Add(new PdfNumeric(top));
+            mediaBox.Add(new PdfNumeric(left + width));
+            mediaBox.Add(new PdfNumeric(top + height));
+            this["MediaBox"] = mediaBox;
         }
 
         /// <summary>

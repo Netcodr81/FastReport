@@ -1,0 +1,27 @@
+name: modernization-guard
+
+on:
+  pull_request:
+  push:
+    branches:
+      - upgrade-dotnet-10
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run modernization guard
+        shell: pwsh
+        run: ./.github/scripts/verify-modernization.ps1
+
+      - name: Build solution
+        run: dotnet build FastReport.OpenSource.slnx --configuration Release --nologo

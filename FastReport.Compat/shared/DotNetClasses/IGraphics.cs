@@ -111,6 +111,11 @@ namespace FastReport
         void SetClip(RectangleF rect, CombineMode combineMode);
         void SetClip(GraphicsPath path, CombineMode combineMode);
         #endregion
+
+        #region Surface
+        void Clear(Color color);
+        bool TryGetNativeGraphics(out Graphics graphics);
+        #endregion
     }
 
     /// <summary>

@@ -3,10 +3,8 @@ using System.Drawing;
 using System.IO;
 using FastReport.Table;
 using FastReport.Utils;
-using System.Windows.Forms;
 using FastReport.Export;
 using System.ComponentModel;
-using System.Drawing.Text;
 
 namespace FastReport.Export.Html
 {
@@ -490,7 +488,7 @@ namespace FastReport.Export.Html
                             (int)(Math.Abs(Math.Round(Height * Zoom * zoom)))
                             ))
                     {
-                        using (Graphics g = Graphics.FromImage(image))
+                        using (IGraphics g = FRPaintEventArgs.CreateGraphics(image))
                         {
                             var needClear = obj is TextObjectBase
 #if MSCHART
@@ -501,7 +499,7 @@ namespace FastReport.Export.Html
                             if (needClear)
                             {
                                 g.Clear(imageFormat == ImageFormat.Bmp ? Color.White : Color.Transparent);
-                                g.TextRenderingHint = TextRenderingHint.AntiAlias;
+                                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
                             }
 
                             float Left = Width > 0 ? obj.AbsLeft : obj.AbsLeft + Width;
@@ -513,7 +511,8 @@ namespace FastReport.Export.Html
 
                             BorderLines oldLines = obj.Border.Lines;
                             obj.Border.Lines = BorderLines.None;
-                            obj.Draw(new FRPaintEventArgs(g, Zoom * zoom, Zoom * zoom, Report.GraphicCache));
+                            FRPaintEventArgs paintArgs = new FRPaintEventArgs(g, Zoom * zoom, Zoom * zoom, Report.GraphicCache);
+                            obj.Draw(paintArgs);
                             obj.Border.Lines = oldLines;
                         }
 
@@ -522,7 +521,7 @@ namespace FastReport.Export.Html
                         (int)(Math.Abs(Math.Round(Height * Zoom)))
                         ))
                         {
-                            using (Graphics gr = Graphics.FromImage(b))
+                            using (IGraphics gr = FRPaintEventArgs.CreateGraphics(b))
                             {
                                 gr.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
                                 gr.DrawImage(image, 0, 0, (int)Math.Abs(Width) * Zoom, (int)Math.Abs(Height) * Zoom);
@@ -730,18 +729,18 @@ namespace FastReport.Export.Html
                 pictureWatermark.Width = (ExportUtils.GetPageWidth(page) - page.LeftMargin - page.RightMargin) * Units.Millimeters;
                 pictureWatermark.Height = (ExportUtils.GetPageHeight(page) - page.TopMargin - page.BottomMargin) * Units.Millimeters;
 
-                pictureWatermark.SizeMode = PictureBoxSizeMode.Normal;
                 pictureWatermark.Image = new Bitmap((int)pictureWatermark.Width, (int)pictureWatermark.Height);
 
-                using (Graphics g = Graphics.FromImage(pictureWatermark.Image))
+                using (IGraphics g = FRPaintEventArgs.CreateGraphics(pictureWatermark.Image))
                 {
                     g.Clear(Color.Transparent);
+                    FRPaintEventArgs paintArgs = new FRPaintEventArgs(g, 1f, 1f, Report.GraphicCache);
                     if (drawText)
-                        page.Watermark.DrawText(new FRPaintEventArgs(g, 1f, 1f, Report.GraphicCache),
+                        page.Watermark.DrawText(paintArgs,
                             new RectangleF(0, 0, pictureWatermark.Width, pictureWatermark.Height), Report, true);
                     else
                     {
-                        page.Watermark.DrawImage(new FRPaintEventArgs(g, 1f, 1f, Report.GraphicCache),
+                        page.Watermark.DrawImage(paintArgs,
                             new RectangleF(0, 0, pictureWatermark.Width, pictureWatermark.Height), Report, true);
                         pictureWatermark.Transparency = page.Watermark.ImageTransparency;
                     }

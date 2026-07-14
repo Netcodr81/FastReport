@@ -1,10 +1,10 @@
 ﻿using FastReport.Export.PdfSimple.PdfCore;
 using FastReport.Export.PdfSimple.PdfObjects;
 using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 
 namespace FastReport.Export.PdfSimple
@@ -49,24 +49,15 @@ namespace FastReport.Export.PdfSimple
             return Convert.ToBase64String(hash);
         }
 
-        private void DrawImage(RectangleF rectangleF, Bitmap image)
+        private void DrawImage(float left, float top, float width, float height, Bitmap image)
         {
             string imageLink = AppendPDFImage(image, JpegQuality);
             pageContent.Append("q").AppendLine();
-            pageContent.Append(rectangleF.Width).Append(" 0 0 ").Append(rectangleF.Height).Append(" ").Append(rectangleF.Left).Append(" ").Append(rectangleF.Top).Append(" cm").AppendLine();
+            pageContent.Append(width).Append(" 0 0 ").Append(height).Append(" ").Append(left).Append(" ").Append(top).Append(" cm").AppendLine();
             pageContent.Append(imageLink).Append(" Do").AppendLine();
             pageContent.Append("Q").AppendLine();
         }
 
-        private ImageCodecInfo GetCodec(string codec)
-        {
-            foreach (ImageCodecInfo ice in ImageCodecInfo.GetImageEncoders())
-            {
-                if (ice.MimeType == codec)
-                    return ice;
-            }
-            return null;
-        }
 
         private PdfIndirectObject GetImageByHash(string hash)
         {
@@ -103,21 +94,59 @@ namespace FastReport.Export.PdfSimple
 
         private int[] GetRawBitmap(Bitmap image)
         {
-            int raw_size = image.Width * image.Height;
-            int[] raw_picture = new int[raw_size];
-            BitmapData bmpdata = image.LockBits(new Rectangle(0, 0, image.Width, image.Height), ImageLockMode.ReadOnly, image.PixelFormat);
-            IntPtr ptr = bmpdata.Scan0;
-            System.Runtime.InteropServices.Marshal.Copy(ptr, raw_picture, 0, raw_size);
-            image.UnlockBits(bmpdata);
-            return raw_picture;
+            using (SKBitmap bitmap = ConvertToSkBitmap(image))
+            {
+                if (bitmap == null)
+                    return Array.Empty<int>();
+
+                int rawSize = bitmap.Width * bitmap.Height;
+                int[] rawPicture = new int[rawSize];
+                int index = 0;
+
+                for (int y = 0; y < bitmap.Height; y++)
+                {
+                    for (int x = 0; x < bitmap.Width; x++)
+                    {
+                        SKColor color = bitmap.GetPixel(x, y);
+                        rawPicture[index++] = (color.Alpha << 24) | (color.Red << 16) | (color.Green << 8) | color.Blue;
+                    }
+                }
+
+                return rawPicture;
+            }
         }
 
-        private void SaveJpeg(System.Drawing.Image image, Stream buff, int quality)
+        private void SaveJpeg(Bitmap image, Stream buff, int quality)
         {
-            ImageCodecInfo ici = GetCodec("image/jpeg");
-            EncoderParameters ep = new EncoderParameters();
-            ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
-            image.Save(buff, ici, ep);
+            using (SKBitmap bitmap = ConvertToSkBitmap(image))
+            {
+                if (bitmap == null)
+                    return;
+
+                using (SKImage skImage = SKImage.FromBitmap(bitmap))
+                using (SKData data = skImage.Encode(SKEncodedImageFormat.Jpeg, Math.Max(0, Math.Min(100, quality))))
+                {
+                    data?.SaveTo(buff);
+                }
+            }
+        }
+
+        private SKBitmap ConvertToSkBitmap(Bitmap image)
+        {
+            if (image == null)
+                return null;
+
+            SKBitmap bitmap = new SKBitmap(image.Width, image.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            for (int y = 0; y < image.Height; y++)
+            {
+                for (int x = 0; x < image.Width; x++)
+                {
+                    Color pixel = image.GetPixel(x, y);
+                    bitmap.SetPixel(x, y, new SKColor(pixel.R, pixel.G, pixel.B, pixel.A));
+                }
+            }
+
+            return bitmap;
         }
 
         private void SetImageByHash(string hash, PdfIndirectObject obj)

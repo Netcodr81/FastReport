@@ -25,17 +25,12 @@ partial class Program
       "MsSql",
       "MySql",
       "Json",
-      "Couchbase",
       "MongoDB",
       "OracleODPCore",
       "RavenDB",
       "SQLite",
-      "ClickHouse",
-      "Firebird",
       "Excel",
-      "Cassandra",
       "Odbc",
-      "Ignite",
     ];
 
     enum ProductType

@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Drawing;
 
 namespace FastReport.Utils
@@ -14,6 +12,28 @@ namespace FastReport.Utils
         private readonly float scaleX;
         private readonly float scaleY;
         private readonly GraphicCache cache;
+
+        public static Func<Graphics, IGraphics> GraphicsAdapterFactory { get; set; } = g => GdiGraphics.FromGraphics(g);
+        public static Func<Image, IGraphics> ImageAdapterFactory { get; set; } = image => GdiGraphics.FromImage(image);
+
+        public static IGraphics CreateGraphics(Graphics graphics)
+        {
+            return GraphicsAdapterFactory(graphics);
+        }
+
+        public static IGraphics CreateGraphics(Image image)
+        {
+            return ImageAdapterFactory(image);
+        }
+
+        public static bool TryGetNativeGraphics(IGraphics graphics, out Graphics nativeGraphics)
+        {
+            if (graphics != null)
+                return graphics.TryGetNativeGraphics(out nativeGraphics);
+
+            nativeGraphics = null;
+            return false;
+        }
 
         /// <summary>
         /// Gets a <b>Graphics</b> object to draw on.
@@ -70,7 +90,7 @@ namespace FastReport.Utils
         /// <param name="scaleY">Y scale factor.</param>
         /// <param name="cache">Cache that contains graphics objects.</param>
         public FRPaintEventArgs(Graphics g, float scaleX, float scaleY, GraphicCache cache) :
-            this(GdiGraphics.FromGraphics(g), scaleX, scaleY, cache)
+            this(CreateGraphics(g), scaleX, scaleY, cache)
         {
         }
     }

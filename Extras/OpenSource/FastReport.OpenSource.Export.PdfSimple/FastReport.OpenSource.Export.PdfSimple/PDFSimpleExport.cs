@@ -20,12 +20,16 @@ namespace FastReport.Export.PdfSimple
 
         private Bitmap pageBitmap;
         private PdfContents pageContent;
-        private Graphics pageGraphics;
+        private IGraphics pageGraphics;
         private PdfPage pdfPage;
         private PdfPages pdfPages;
         private PdfIndirectObject pdfPagesLink;
         private PdfWriter pdfWriter;
         private float scaleFactor = 1f;
+        private float pageBoundsLeft;
+        private float pageBoundsTop;
+        private float pageBoundsWidth;
+        private float pageBoundsHeight;
 
         #endregion Private Fields
 
@@ -68,9 +72,14 @@ namespace FastReport.Export.PdfSimple
             base.ExportPageBegin(page);
             pdfPage = new PdfPage();
             pdfPage.Parent = pdfPagesLink;
-            pdfPage.MediaBox = new System.Drawing.RectangleF(0, 0,
+            pdfPage.SetMediaBox(0, 0,
                 ExportUtils.GetPageWidth(page) * PdfWriter.PDF_PAGE_DIVIDER,
                 ExportUtils.GetPageHeight(page) * PdfWriter.PDF_PAGE_DIVIDER);
+
+            pageBoundsLeft = -page.LeftMargin * Units.Millimeters;
+            pageBoundsTop = -page.TopMargin * Units.Millimeters;
+            pageBoundsWidth = ExportUtils.GetPageWidth(page) * Units.Millimeters;
+            pageBoundsHeight = ExportUtils.GetPageHeight(page) * Units.Millimeters;
 
             // export page as one image
             {
@@ -79,17 +88,7 @@ namespace FastReport.Export.PdfSimple
                 scaleFactor = ImageDpi / 96f;
                 int width = (int)(ExportUtils.GetPageWidth(page) * scaleFactor * Units.Millimeters);
                 int height = (int)(ExportUtils.GetPageHeight(page) * scaleFactor * Units.Millimeters);
-                // check for max bitmap object size
-                // 2GB (max .net object size) / 4 (Format32bppArgb is 4 bytes)
-                // see http://stackoverflow.com/a/29175905/4667434
-                const ulong maxPixels = 536870912;
-                if ((ulong)width * (ulong)height < maxPixels)
-                {
-                    pageBitmap = new Bitmap(width, height);
-                    pageGraphics = Graphics.FromImage(pageBitmap);
-                    pageGraphics.TranslateTransform(this.scaleFactor * page.LeftMargin * Units.Millimeters, this.scaleFactor *  page.TopMargin * Units.Millimeters, System.Drawing.Drawing2D.MatrixOrder.Append);
-                    //pageGraphics.ScaleTransform(scale, scale, System.Drawing.Drawing2D.MatrixOrder.Append);
-                }
+                CreatePageCanvas(page, width, height);
             }
 
             pageContent = new PdfContents();
@@ -98,10 +97,10 @@ namespace FastReport.Export.PdfSimple
             using (TextObject pageFill = new TextObject())
             {
                 pageFill.Fill = page.Fill;
-                pageFill.Left = -page.LeftMargin * Units.Millimeters;
-                pageFill.Top = -page.TopMargin * Units.Millimeters;
-                pageFill.Width = ExportUtils.GetPageWidth(page) * Units.Millimeters;
-                pageFill.Height = ExportUtils.GetPageHeight(page) * Units.Millimeters;
+                pageFill.Left = pageBoundsLeft;
+                pageFill.Top = pageBoundsTop;
+                pageFill.Width = pageBoundsWidth;
+                pageFill.Height = pageBoundsHeight;
                 ExportObj(pageFill);
             }
 
@@ -137,11 +136,18 @@ namespace FastReport.Export.PdfSimple
             if (page.Watermark.Enabled && page.Watermark.ShowTextOnTop)
                 AddTextWatermark(page);
 
-            pageGraphics.Dispose();
-            pageGraphics = null;
-            DrawImage(new System.Drawing.RectangleF(0, 0,
-                ExportUtils.GetPageWidth(page) * PdfWriter.PDF_PAGE_DIVIDER,
-                ExportUtils.GetPageHeight(page) * PdfWriter.PDF_PAGE_DIVIDER), pageBitmap);
+            if (pageBitmap != null)
+            {
+                DrawImage(0, 0,
+                    ExportUtils.GetPageWidth(page) * PdfWriter.PDF_PAGE_DIVIDER,
+                    ExportUtils.GetPageHeight(page) * PdfWriter.PDF_PAGE_DIVIDER, pageBitmap);
+            }
+
+            if (pageGraphics != null)
+            {
+                pageGraphics.Dispose();
+                pageGraphics = null;
+            }
             pdfPage["Contents"] = pdfWriter.Write(pageContent);
 
             pdfPages.Kids.Add(pdfWriter.Write(pdfPage));
@@ -188,12 +194,37 @@ namespace FastReport.Export.PdfSimple
 
         #region Private Methods
 
+        private void CreatePageCanvas(ReportPage page, int width, int height)
+        {
+            // check for max bitmap object size
+            // 2GB (max .net object size) / 4 (Format32bppArgb is 4 bytes)
+            // see http://stackoverflow.com/a/29175905/4667434
+            const ulong maxPixels = 536870912;
+            if ((ulong)width * (ulong)height >= maxPixels)
+                return;
+
+            pageBitmap = new Bitmap(width, height);
+            pageGraphics = FRPaintEventArgs.CreateGraphics(pageBitmap);
+            pageGraphics.TranslateTransform(scaleFactor * page.LeftMargin * Units.Millimeters, scaleFactor * page.TopMargin * Units.Millimeters);
+            //pageGraphics.ScaleTransform(scale, scale);
+        }
+
+        private RectangleF CreatePageBoundsRectangle()
+        {
+            return new RectangleF(pageBoundsLeft, pageBoundsTop, pageBoundsWidth, pageBoundsHeight);
+        }
+
+        private FRPaintEventArgs CreatePaintEventArgs()
+        {
+            return new FRPaintEventArgs(pageGraphics, scaleFactor, scaleFactor, Report.GraphicCache);
+        }
+
         private void AddImageWatermark(ReportPage page)
         {
             if (pageGraphics != null)
             {
-                page.Watermark.DrawImage(new FRPaintEventArgs(pageGraphics, scaleFactor, scaleFactor, Report.GraphicCache),
-                    new RectangleF(-page.LeftMargin * Units.Millimeters, -page.TopMargin * Units.Millimeters, ExportUtils.GetPageWidth(page) * Units.Millimeters, ExportUtils.GetPageHeight(page) * Units.Millimeters),
+                page.Watermark.DrawImage(CreatePaintEventArgs(),
+                    CreatePageBoundsRectangle(),
                     page.Report, false);
             }
         }
@@ -204,9 +235,9 @@ namespace FastReport.Export.PdfSimple
             {
                 if (string.IsNullOrEmpty(page.Watermark.Text))
                     return;
-                
-                page.Watermark.DrawText(new FRPaintEventArgs(pageGraphics, scaleFactor, scaleFactor, Report.GraphicCache),
-                    new RectangleF(-page.LeftMargin * Units.Millimeters, -page.TopMargin * Units.Millimeters, ExportUtils.GetPageWidth(page) * Units.Millimeters, ExportUtils.GetPageHeight(page) * Units.Millimeters),
+
+                page.Watermark.DrawText(CreatePaintEventArgs(),
+                    CreatePageBoundsRectangle(),
                     page.Report, false);
             }
         }
@@ -230,7 +261,7 @@ namespace FastReport.Export.PdfSimple
             if (pageGraphics != null)
             {
                 if (obj is ReportComponentBase && (obj as ReportComponentBase).Exportable)
-                    (obj as ReportComponentBase).Draw(new FRPaintEventArgs(pageGraphics, scaleFactor, scaleFactor, Report.GraphicCache));
+                    (obj as ReportComponentBase).Draw(CreatePaintEventArgs());
             }
         }
 

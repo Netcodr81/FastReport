@@ -2279,13 +2279,17 @@ namespace FastReport.Utils
 
                 destImage.SetResolution(image.HorizontalResolution, image.VerticalResolution);
 
-                using (Graphics graphics = System.Drawing.Graphics.FromImage(destImage))
+                using (IGraphics graphics = FRPaintEventArgs.CreateGraphics(destImage))
                 {
-                    graphics.CompositingMode = CompositingMode.SourceCopy;
+                    if (FRPaintEventArgs.TryGetNativeGraphics(graphics, out Graphics nativeGraphics))
+                    {
+                        nativeGraphics.CompositingMode = CompositingMode.SourceCopy;
+                        nativeGraphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    }
+
                     graphics.CompositingQuality = CompositingQuality.HighQuality;
                     graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
                     graphics.SmoothingMode = SmoothingMode.HighQuality;
-                    graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
                     using (System.Drawing.Imaging.ImageAttributes wrapMode = new System.Drawing.Imaging.ImageAttributes())
                     {

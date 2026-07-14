@@ -84,6 +84,17 @@ namespace FastReport
         }
         #endregion
 
+        public void Clear(Color color)
+        {
+            graphics.Clear(color);
+        }
+
+        public bool TryGetNativeGraphics(out Graphics nativeGraphics)
+        {
+            nativeGraphics = graphics;
+            return nativeGraphics != null;
+        }
+
         #region Draw and measure text
         public void DrawString(string text, Font drawFont, Brush brush, float left, float top)
         {

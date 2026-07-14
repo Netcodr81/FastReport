@@ -59,20 +59,20 @@ namespace FastReport.Export.Image
         private EncoderValue monochromeTiffCompression;
         private System.Drawing.Image masterTiffImage;
         private System.Drawing.Image bigImage;
-        private Graphics bigGraphics;
+        private IGraphics bigGraphics;
         private float curOriginY;
         private bool firstPage;
         private int paddingNonSeparatePages;
         private int pageNumber;
         private System.Drawing.Image image;
-        private Graphics g;
+        private IGraphics g;
         private int height;
         private int width;
         private int widthK;
         private string fileSuffix;
         private float zoomX;
         private float zoomY;
-        private System.Drawing.Drawing2D.GraphicsState state;
+        private IGraphicsState state;
         private string imageExtensionFormat;
         private string documentTitle;
 
@@ -254,22 +254,11 @@ namespace FastReport.Export.Image
             string extension = Path.GetExtension(FileName);
             string targetFileName = Path.ChangeExtension(FileName, suffix + extension);
 
-            System.Drawing.Image image;
-            using (Bitmap bmp = new Bitmap(1, 1))
-            using (Graphics g = Graphics.FromImage(bmp))
-            {
-                IntPtr hdc = g.GetHdc();
-                if (suffix == "")
-                    image = new Metafile(Stream, hdc);
-                else
-                {
-                    image = new Metafile(targetFileName, hdc);
-                    if (!GeneratedFiles.Contains(targetFileName))
-                        GeneratedFiles.Add(targetFileName);
-                }
-                g.ReleaseHdc(hdc);
-            }
-            return image;
+            if (suffix != "" && !GeneratedFiles.Contains(targetFileName))
+                GeneratedFiles.Add(targetFileName);
+
+            return ImageHelper.CreateMetafileFromHdcContext(hdc =>
+                suffix == "" ? new Metafile(Stream, hdc) : new Metafile(targetFileName, hdc));
         }
 
         private Bitmap ConvertToBitonal(Bitmap original)
@@ -281,9 +270,9 @@ namespace FastReport.Export.Image
             {
                 source = new Bitmap(original.Width, original.Height, PixelFormat.Format32bppArgb);
                 source.SetResolution(original.HorizontalResolution, original.VerticalResolution);
-                using (Graphics g = Graphics.FromImage(source))
+                using (IGraphics g = FRPaintEventArgs.CreateGraphics(source))
                 {
-                    g.DrawImageUnscaled(original, 0, 0);
+                    g.DrawImageUnscaled(original, new Rectangle(0, 0, original.Width, original.Height));
                 }
             }
             else
@@ -533,7 +522,7 @@ namespace FastReport.Export.Image
                 w += paddingNonSeparatePages * 2;
 
                 bigImage = CreateImage((int)(w * ResolutionX / 96f), (int)(h * ResolutionY / 96f), "");
-                bigGraphics = Graphics.FromImage(bigImage);
+                bigGraphics = FRPaintEventArgs.CreateGraphics(bigImage);
                 bigGraphics.Clear(Color.Transparent);
             }
             pageNumber = 0;
@@ -562,7 +551,7 @@ namespace FastReport.Export.Image
             if (bigGraphics != null)
                 g = bigGraphics;
             else
-                g = Graphics.FromImage(image);
+                g = FRPaintEventArgs.CreateGraphics(image);
 
             state = g.Save();
 
