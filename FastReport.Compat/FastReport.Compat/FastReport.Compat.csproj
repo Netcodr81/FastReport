@@ -1,13 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net462;net6.0</TargetFrameworks>
+    <TargetFrameworks>net462;net6.0;net10.0</TargetFrameworks>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
-    <TargetFrameworks>$(TargetFrameworks);net6.0-windows7.0</TargetFrameworks>
+    <TargetFrameworks>$(TargetFrameworks);net6.0-windows7.0;net10.0-windows7.0</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)'!='net462'">
@@ -16,7 +16,7 @@
 
   <PropertyGroup>
     <WindowsFormsReplacement>true</WindowsFormsReplacement>
-    <WindowsFormsReplacement Condition="'$(TargetFramework)'=='net462' or '$(TargetFramework)'=='net6.0-windows7.0'">false</WindowsFormsReplacement>
+    <WindowsFormsReplacement Condition="'$(TargetFramework)'=='net462' or '$(TargetFramework)'=='net6.0-windows7.0' or '$(TargetFramework)'=='net10.0-windows7.0'">false</WindowsFormsReplacement>
   </PropertyGroup>
 
   <!--Explicit import Directory.Build.props (for old-style csproj)-->
