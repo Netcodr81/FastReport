@@ -4,4 +4,10 @@ Upgrade the level-2 dependent projects that consume the core engine, including d
 
 The scope includes compatibility updates in projects with known API and package signals (for example Web, Odbc/MsSql/GoogleSheets providers, PdfSimple export, and related test/integration projects).
 
+## Research Findings (current slice)
+- `Extras/Core/FastReport.Data/FastReport.Data.MsSql/FastReport.OpenSource.Data.MsSql.csproj` already references `Microsoft.Data.SqlClient`.
+- `Extras/Core/FastReport.Data/FastReport.Data.MsSql/MsSqlDataConnection.cs` still used `System.Data.SqlClient` namespace and needed alignment to `Microsoft.Data.SqlClient`.
+- `Extras/Core/FastReport.Data/FastReport.Data.MsSql/Shared.props` still referenced `System.Data.SqlClient` and needed removal to avoid mixed provider packages.
+- xUnit test projects in scope were on v2 package ids (`xunit`) and required migration to stable v3 package id (`xunit.v3`).
+
 **Done when**: All level-2 projects are upgraded with required package/API changes, targeted build validation passes, and migration issues are reduced to expected remaining level-3 scope.

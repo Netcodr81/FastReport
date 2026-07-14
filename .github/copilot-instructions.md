@@ -433,6 +433,7 @@ Before recommending a package:
 3. Evaluate maintenance activity.
 4. Evaluate license.
 5. Consider long-term support.
+6. Use stable releases only; avoid preview package versions.
 
 ---
 

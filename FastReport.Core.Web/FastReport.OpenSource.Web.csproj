@@ -74,12 +74,12 @@
   <Import Project="..\UsedPackages.version" />
   <ItemGroup>
     <!--For buildScript only (it can't implicitly restore System.Drawing.Common)-->
-    <PackageReference Include="System.Drawing.Common" Version="$(SystemDrawingCommonVersion)" PrivateAssets="All" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.10" PrivateAssets="All" />
   </ItemGroup>
 
   <!--Source Link-->
   <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.301" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
@@ -106,7 +106,7 @@
     <None Remove="$(WebBaseDir)\node_modules\**" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Resources\*.svg" >
+    <EmbeddedResource Include="Resources\*.svg">
       <LogicalName>$(AssemblyName).Resources.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
@@ -121,7 +121,7 @@
 
   <ItemGroup>
     <Compile Remove="obj\**" />
-    <None Remove="obj\**"/>
+    <None Remove="obj\**" />
     <Content Remove="obj\**" />
   </ItemGroup>
 </Project>

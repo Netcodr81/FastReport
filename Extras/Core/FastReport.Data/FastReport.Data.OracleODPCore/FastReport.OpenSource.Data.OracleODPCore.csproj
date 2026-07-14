@@ -5,6 +5,10 @@
   </PropertyGroup>
   
   <Import Project="Shared.props" />
+  
+  <ItemGroup>
+    <PackageReference Include="Google.Apis.Auth" Version="1.75.0" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\FastReport.OpenSource\FastReport.OpenSource.csproj" />
