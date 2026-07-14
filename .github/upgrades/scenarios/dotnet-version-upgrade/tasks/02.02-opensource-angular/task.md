@@ -10,11 +10,25 @@ Upgrade `FastReport.OpenSource.Angular` to .NET 10 and align SPA-related package
 - Assessment signals: `Project.0002` (mandatory), `NuGet.0002` (2 package upgrade recommendations)
 - Package focus: `Microsoft.AspNetCore.SpaProxy` and `Microsoft.AspNetCore.SpaServices.Extensions` modernization guidance
 
+## Research Findings
+
+### Assessment/package findings
+- TFM change required from `net6.0` to `net10.0`.
+- Package upgrade recommendations detected for:
+  - `Microsoft.AspNetCore.SpaProxy` (`6.0.11` → `10.0.9`)
+  - `Microsoft.AspNetCore.SpaServices.Extensions` (`6.0.1` → `10.0.9`)
+
+### Source/config findings
+- `Program.cs` already uses endpoint fallback (`MapFallbackToFile("index.html")`) and does not use legacy `UseSpa()` middleware.
+- `launchSettings.json` already contains `ASPNETCORE_HOSTINGSTARTUPASSEMBLIES=Microsoft.AspNetCore.SpaProxy` for both profiles.
+- `ClientApp/package.json` and `angular.json` already contain SpaProxy-compatible dev/proxy configuration.
+- Post-restart environment check confirmed `node --version` is available, enabling DebugEnsureNodeEnv to run successfully.
+
 ## Steps
-1. Update target framework to net10.0 for the project.
-2. Update/replace SPA-related package references as indicated by assessment and restore/build requirements.
-3. Apply any minimal config/startup adjustments needed for package changes to compile.
-4. Build and validate the project.
+1. Update project TFM to net10.0.
+2. Upgrade SPA package references to .NET 10-compatible versions.
+3. Build and validate project compile/restore behavior.
+4. Record completion details and any remaining follow-up notes.
 
 ## Done when
 - Project targets net10.0 as planned.

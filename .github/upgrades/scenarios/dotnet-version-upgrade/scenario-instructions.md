@@ -48,3 +48,5 @@
 - 2026-07-14: User approved the assessment and requested progression to planning.
 - 2026-07-14: User confirmed upgrade-options.md selections for strategy and migration constraints.
 - 2026-07-14: User approved execution stage start after reviewing plan and tasks.
+- 2026-07-14: During 02.02, user chose to install Node.js and retry build instead of skipping debug validation or marking blocked.
+- 2026-07-14: User resumed after restart; Node.js was detected and 02.02 debug build succeeded.

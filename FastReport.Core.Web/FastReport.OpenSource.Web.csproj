@@ -5,7 +5,7 @@
 
     <Designer>true</Designer>
 
-    <TargetFrameworks>net6.0</TargetFrameworks>
+    <TargetFrameworks>net10.0</TargetFrameworks>
     <DefineConstants>OPENSOURCE;</DefineConstants>
     <Version>1.0.0</Version>
     <PackageLicenseFile>FastReport MIT license.md</PackageLicenseFile>
@@ -38,9 +38,7 @@
     <SignAssembly>true</SignAssembly>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
-    <TargetFrameworks>$(TargetFrameworks);net6.0-windows</TargetFrameworks>
-  </PropertyGroup>
+
     <PropertyGroup Condition="$(Dialogs) == 'true'">
         <DefineConstants>$(DefineConstants);DIALOGS</DefineConstants>
     </PropertyGroup>
