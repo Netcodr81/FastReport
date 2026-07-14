@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="FastReport.OpenSource.Export.PdfSimple.Tests/FastReport.OpenSource.Export.PdfSimple.Tests.csproj" />
+  <Project Path="FastReport.OpenSource.Export.PdfSimple/FastReport.OpenSource.Export.PdfSimple.csproj" />
+</Solution>

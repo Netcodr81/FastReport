@@ -1,0 +1,11 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Academic" />
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+  </Configurations>
+  <Project Path="../../FastReport.OpenSource/FastReport.OpenSource.csproj" />
+  <Project Path="FastReport.Tests.OpenSource.csproj">
+    <BuildType Solution="Academic|*" Project="Debug" />
+  </Project>
+</Solution>

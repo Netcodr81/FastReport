@@ -1,0 +1,25 @@
+<Solution>
+  <Folder Name="/Console apps/">
+    <Project Path="Console apps/DataFromArray/DataFromArray.csproj" />
+    <Project Path="Console apps/DataFromBusinessObject/DataFromBusinessObject.csproj" />
+    <Project Path="Console apps/DataFromDataSet/DataFromDataSet.csproj" />
+    <Project Path="Console apps/ReportFromCode/ReportFromCode.csproj" />
+    <Project Path="Console apps/UserFunctions/UserFunctions.csproj" />
+  </Folder>
+  <Folder Name="/Extra/">
+    <Project Path="Extra/FastReport.OpenSource.AvaloniaViewer/FastReport.OpenSource.AvaloniaViewer.csproj" />
+  </Folder>
+  <Folder Name="/MVC/">
+    <Project Path="MVC/FastReport.OpenSource.MVC.6.0/FastReport.OpenSource.MVC.6.0.csproj" />
+    <Project Path="MVC/FastReport.OpenSource.MVC.DataBase/FastReport.OpenSource.MVC.DataBase.csproj" />
+  </Folder>
+  <Folder Name="/SPA/">
+    <Project Path="SPA/FastReport.Core.React/FastReport.OpenSource.React.csproj" />
+    <Project Path="SPA/FastReport.Core.Vue/FastReport.OpenSource.Vue.csproj" />
+    <Project Path="SPA/FastReport.OpenSource.Angular/FastReport.OpenSource.Angular.csproj" />
+  </Folder>
+  <Folder Name="/_Shared/">
+    <File Path="_Shared/DataSetService.cs" />
+    <File Path="_Shared/Utils.cs" />
+  </Folder>
+</Solution>
