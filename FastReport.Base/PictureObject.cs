@@ -429,9 +429,9 @@ namespace FastReport
                         while (x < drawRect.Right)
                         {
                             if (transparentImage != null)
-                                g.DrawImage(transparentImage, x, y, width, height);
+                                g.DrawImage(new ImagePaint(transparentImage), new RectangleF(x, y, width, height));
                             else
-                                g.DrawImage(Image, x, y, width, height);
+                                g.DrawImage(new ImagePaint(Image), new RectangleF(x, y, width, height));
                             x += width;
                         }
                         y += height;
@@ -496,7 +496,7 @@ namespace FastReport
             float m21 = (p2.X - p0.X) / rect.Height;
             float m22 = (p2.Y - p0.Y) / rect.Height;
             g.MultiplyTransform(new System.Drawing.Drawing2D.Matrix(m11, m12, m21, m22, p0.X, p0.Y), MatrixOrder.Prepend);
-            g.DrawImage(image, rect);
+            g.DrawImage(new ImagePaint(image), rect);
         }
 
         /// <summary>

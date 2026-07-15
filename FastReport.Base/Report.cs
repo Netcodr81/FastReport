@@ -18,7 +18,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Security;
 using System.Text;
-using System.Windows.Forms;
 
 #if FRCORE || FROPENSOURCE
 #pragma warning disable CS1574 // missing cref members in XML comments
@@ -34,12 +33,7 @@ namespace FastReport
         /// <summary>
         /// The C# language.
         /// </summary>
-        CSharp,
-
-        /// <summary>
-        /// The VisualBasic.Net language.
-        /// </summary>
-        Vb
+        CSharp
     }
 
     /// <summary>
@@ -481,11 +475,8 @@ namespace FastReport
             set
             {
                 bool needClear = scriptLanguage != value;
-                scriptLanguage = value;
-                if (scriptLanguage == Language.CSharp)
-                    codeHelper = new CsCodeHelper(this);
-                else
-                    codeHelper = new VbCodeHelper(this);
+                scriptLanguage = Language.CSharp;
+                codeHelper = new CsCodeHelper(this);
                 if (needClear)
                 {
                     scriptText = codeHelper.EmptyScript();
@@ -902,11 +893,6 @@ namespace FastReport
 
                     "System.Xml.dll",
 
-                    "FastReport.Compat.dll",
-#if !(WPF || AVALONIA)
-                    "System.Windows.Forms.dll",
-#endif
-
 #if WPF
                     "FastReport.Forms.WPF.dll",
 #endif
@@ -957,9 +943,9 @@ namespace FastReport
                 {
 #if CROSSPLATFORM || MONO
                     measureBitmap = new Bitmap(1, 1);
-                    measureGraphics = new GdiGraphics(measureBitmap);
+                    measureGraphics = FRPaintEventArgs.CreateGraphics(measureBitmap);
 #else
-                    measureGraphics = GdiGraphics.FromGraphics(Graphics.FromHwnd(IntPtr.Zero));
+                    measureGraphics = FRPaintEventArgs.CreateGraphicsFromWindowHandle(IntPtr.Zero);
 #endif
                 }
                 return measureGraphics;

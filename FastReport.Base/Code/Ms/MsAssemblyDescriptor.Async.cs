@@ -1,6 +1,7 @@
 using System;
 #if NETSTANDARD || NETCOREAPP
 using FastReport.Code.CodeDom.Compiler;
+using FastReport.Code.Compilation;
 #else
 using System.CodeDom.Compiler;
 #pragma warning disable CS1998
@@ -29,7 +30,7 @@ namespace FastReport.Code.Ms
                 if (string.IsNullOrEmpty(aLocation))
                 {
                     // try fix SFA in FastReport.Compat
-                    string fixedReference = await CodeDomProvider.TryFixAssemblyReferenceAsync(assembly, token);
+                    string fixedReference = await CodeCompilationBridge.TryFixAssemblyReferenceAsync(assembly, token);
                     if (!string.IsNullOrEmpty(fixedReference))
                         aLocation = fixedReference;
                 }
@@ -92,7 +93,7 @@ namespace FastReport.Code.Ms
         private async Task<CompilerParameters> GetCompilerParametersAsync(CancellationToken ct)
         {
             // configure compiler options
-            CompilerParameters cp = new CompilerParameters();
+            CompilerParameters cp = CodeCompilationBridge.CreateCompilerParameters();
             await AddFastReportAssemblies(cp.ReferencedAssemblies, ct);   // 2
             AddReferencedAssemblies(cp.ReferencedAssemblies, _currentFolder);    // 9
             ReviewReferencedAssemblies(cp.ReferencedAssemblies);

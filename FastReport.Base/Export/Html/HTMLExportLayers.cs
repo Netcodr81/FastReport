@@ -524,7 +524,7 @@ namespace FastReport.Export.Html
                             using (IGraphics gr = FRPaintEventArgs.CreateGraphics(b))
                             {
                                 gr.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                                gr.DrawImage(image, 0, 0, (int)Math.Abs(Width) * Zoom, (int)Math.Abs(Height) * Zoom);
+                                gr.DrawImage(new ImagePaint(image), new RectangleF(0, 0, (int)Math.Abs(Width) * Zoom, (int)Math.Abs(Height) * Zoom));
                             }
 
                             if (FPictureFormat == System.Drawing.Imaging.ImageFormat.Jpeg)

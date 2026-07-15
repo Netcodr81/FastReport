@@ -57,7 +57,6 @@ namespace FastReport.Export.Image
         private bool multiFrameTiff;
         private bool monochromeTiff;
         private EncoderValue monochromeTiffCompression;
-        private System.Drawing.Image masterTiffImage;
         private System.Drawing.Image bigImage;
         private IGraphics bigGraphics;
         private float curOriginY;
@@ -211,11 +210,6 @@ namespace FastReport.Export.Image
             set { paddingNonSeparatePages = value; }
         }
 
-        private bool IsMultiFrameTiff
-        {
-            get { return ImageFormat == ImageExportFormat.Tiff && MultiFrameTiff; }
-        }
-
         /// <summary>
         /// Enable or disable saving streams in GeneratedStreams collection.
         /// </summary>
@@ -231,8 +225,7 @@ namespace FastReport.Export.Image
         private System.Drawing.Image CreateImage(int width, int height, string suffix)
         {
             widthK = width;
-            if (ImageFormat == ImageExportFormat.Metafile)
-                return CreateMetafile(suffix);
+            // Cross-platform migration: render into bitmap surface for all export modes.
             return new Bitmap(width, height);
         }
         private void GeneratedUpdate(string filename, Stream stream)
@@ -249,17 +242,6 @@ namespace FastReport.Export.Image
             }
         }
 
-        private System.Drawing.Image CreateMetafile(string suffix)
-        {
-            string extension = Path.GetExtension(FileName);
-            string targetFileName = Path.ChangeExtension(FileName, suffix + extension);
-
-            if (suffix != "" && !GeneratedFiles.Contains(targetFileName))
-                GeneratedFiles.Add(targetFileName);
-
-            return ImageHelper.CreateMetafileFromHdcContext(hdc =>
-                suffix == "" ? new Metafile(Stream, hdc) : new Metafile(targetFileName, hdc));
-        }
 
         private Bitmap ConvertToBitonal(Bitmap original)
         {
@@ -272,7 +254,7 @@ namespace FastReport.Export.Image
                 source.SetResolution(original.HorizontalResolution, original.VerticalResolution);
                 using (IGraphics g = FRPaintEventArgs.CreateGraphics(source))
                 {
-                    g.DrawImageUnscaled(original, new Rectangle(0, 0, original.Width, original.Height));
+                    g.DrawImage(new ImagePaint(original), new RectangleF(0, 0, original.Width, original.Height));
                 }
             }
             else
@@ -369,104 +351,71 @@ namespace FastReport.Export.Image
             // Call this method after actual draw because it may affect drawing the text
             if (image is Bitmap)
                 (image as Bitmap).SetResolution(ResolutionX, ResolutionY);
-            if (IsMultiFrameTiff)
-            {
-                // select the image encoder
-                ImageCodecInfo info = ExportUtils.GetCodec("image/tiff");
-                EncoderParameters ep = new EncoderParameters(2);
-                ep.Param[0] = new EncoderParameter(Encoder.Compression, MonochromeTiff ?
-                  (long)MonochromeTiffCompression : (long)EncoderValue.CompressionLZW);
 
-                if (image == masterTiffImage)
+            Stream stream;
+            string targetFileName;
+            if (saveStreams)
+            {
+                targetFileName = string.IsNullOrEmpty(suffix)
+                    ? Path.ChangeExtension(documentTitle, imageExtensionFormat)
+                    : Path.ChangeExtension(documentTitle + $" ({suffix})", imageExtensionFormat);
+                stream = new MemoryStream();
+            }
+            else
+            {
+                string extension = Path.GetExtension(FileName);
+                targetFileName = Path.ChangeExtension(FileName, suffix + extension);
+
+                // empty suffix means that we should use the Stream that was created in the ExportBase
+                stream = suffix == "" ? Stream : new FileStream(targetFileName, FileMode.Create);
+
+                if (suffix != "")
                 {
-                    // save the master bitmap
-                    if (MonochromeTiff)
-                        masterTiffImage = ConvertToBitonal(image as Bitmap);
-                    ep.Param[1] = new EncoderParameter(Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
-                    masterTiffImage.Save(Stream, info, ep);
-                }
-                else
-                {
-                    // save the frame
-                    if (MonochromeTiff)
-                    {
-                        System.Drawing.Image oldImage = image;
-                        image = ConvertToBitonal(image as Bitmap);
-                        oldImage.Dispose();
-                    }
-                    ep.Param[1] = new EncoderParameter(Encoder.SaveFlag, (long)EncoderValue.FrameDimensionPage);
-                    masterTiffImage.SaveAdd(image, ep);
+                    GeneratedFiles.Add(targetFileName);
                 }
             }
-            else if (ImageFormat != ImageExportFormat.Metafile)
+
+            if (ImageFormat == ImageExportFormat.Jpeg)
             {
-                Stream stream;
-                string targetFileName;
-                if (saveStreams)
+                ExportUtils.SaveJpeg(image, stream, JpegQuality);
+            }
+            else
+            {
+                var format = System.Drawing.Imaging.ImageFormat.Bmp;
+                switch (ImageFormat)
                 {
-                    targetFileName = string.IsNullOrEmpty(suffix)
-                        ? Path.ChangeExtension(documentTitle, imageExtensionFormat) 
-                        : Path.ChangeExtension(documentTitle + $" ({suffix})", imageExtensionFormat);
-                    stream = new MemoryStream();
+                    case ImageExportFormat.Gif:
+                        format = System.Drawing.Imaging.ImageFormat.Gif;
+                        break;
+                    case ImageExportFormat.Png:
+                        format = System.Drawing.Imaging.ImageFormat.Png;
+                        break;
+                    case ImageExportFormat.Tiff:
+                        format = System.Drawing.Imaging.ImageFormat.Tiff;
+                        break;
+                    case ImageExportFormat.Metafile:
+                        // Cross-platform fallback: export as PNG instead of EMF/WMF surface.
+                        format = System.Drawing.Imaging.ImageFormat.Png;
+                        break;
                 }
-                else
+
+                if (ImageFormat == ImageExportFormat.Tiff && MonochromeTiff)
                 {
-                    string extension = Path.GetExtension(FileName);
-                    targetFileName = Path.ChangeExtension(FileName, suffix + extension);
-
-                    // empty suffix means that we should use the Stream that was created in the ExportBase
-                    stream = suffix == "" ? Stream : new FileStream(targetFileName, FileMode.Create);
-
-                    if (suffix != "")
-                    {
-                        GeneratedFiles.Add(targetFileName);
-                    }
-                }
-
-                if (ImageFormat == ImageExportFormat.Jpeg)
-                {
-                    ExportUtils.SaveJpeg(image, stream, JpegQuality);
-                }
-                else if (ImageFormat == ImageExportFormat.Tiff && MonochromeTiff)
-                {
-                    // handle monochrome tiff separately
-                    ImageCodecInfo info = ExportUtils.GetCodec("image/tiff");
-                    EncoderParameters ep = new EncoderParameters();
-                    ep.Param[0] = new EncoderParameter(Encoder.Compression, (long)MonochromeTiffCompression);
-
                     using (Bitmap bwImage = ConvertToBitonal(image as Bitmap))
-                    {
-                        bwImage.Save(stream, info, ep);
-                    }
+                        bwImage.Save(stream, format);
                 }
                 else
                 {
-                    ImageFormat format = System.Drawing.Imaging.ImageFormat.Bmp;
-                    switch (ImageFormat)
-                    {
-                        case ImageExportFormat.Gif:
-                            format = System.Drawing.Imaging.ImageFormat.Gif;
-                            break;
-
-                        case ImageExportFormat.Png:
-                            format = System.Drawing.Imaging.ImageFormat.Png;
-                            break;
-
-                        case ImageExportFormat.Tiff:
-                            format = System.Drawing.Imaging.ImageFormat.Tiff;
-                            break;
-                    }
                     image.Save(stream, format);
                 }
-
-                if (saveStreams)
-                    GeneratedUpdate(targetFileName, stream);
-                else if (suffix != "")
-                    stream.Dispose();
             }
 
-            if (image != masterTiffImage)
-                image.Dispose();
+            if (saveStreams)
+                GeneratedUpdate(targetFileName, stream);
+            else if (suffix != "")
+                stream.Dispose();
+
+            image.Dispose();
         }
         #endregion
 
@@ -505,7 +454,7 @@ namespace FastReport.Export.Image
                 documentTitle = !String.IsNullOrEmpty(Report.ReportInfo.Name) ?
                     Report.ReportInfo.Name : Path.GetFileNameWithoutExtension(Report.FileName);
             }
-            if (!SeparateFiles && !IsMultiFrameTiff)
+            if (!SeparateFiles)
             {
                 // create one big image. To do this, calculate max width and sum of pages height
                 float w = 0;
@@ -539,11 +488,9 @@ namespace FastReport.Export.Image
             height = (int)(ExportUtils.GetPageHeight(page) * Units.Millimeters * zoomY);
             int suffixDigits = Pages[Pages.Length - 1].ToString().Length;
             fileSuffix = firstPage ? "" : (pageNumber + 1).ToString("".PadLeft(suffixDigits, '0'));
-            if (SeparateFiles || IsMultiFrameTiff)
+            if (SeparateFiles)
             {
                 image = CreateImage(width, height, fileSuffix);
-                if (IsMultiFrameTiff && masterTiffImage == null)
-                    masterTiffImage = image;
             }
             else
                 image = bigImage;
@@ -628,7 +575,7 @@ namespace FastReport.Export.Image
             g.Restore(state);
             if (g != bigGraphics)
                 g.Dispose();
-            if (SeparateFiles || IsMultiFrameTiff)
+            if (SeparateFiles)
                 SaveImage(image, fileSuffix);
             else
                 curOriginY += height + paddingNonSeparatePages * 2;
@@ -655,24 +602,13 @@ namespace FastReport.Export.Image
         /// <inheritdoc/>
         protected override void Finish()
         {
-            if (IsMultiFrameTiff)
-            {
-                // close the file.
-                EncoderParameters ep = new EncoderParameters(1);
-                ep.Param[0] = new EncoderParameter(Encoder.SaveFlag, (long)EncoderValue.Flush);
-                masterTiffImage.SaveAdd(ep);
-            }
-            else if (!SeparateFiles)
+            if (!SeparateFiles)
             {
                 bigGraphics.Dispose();
                 bigGraphics = null;
                 SaveImage(bigImage, "");
             }
-            if (masterTiffImage != null)
-            {
-                masterTiffImage.Dispose();
-                masterTiffImage = null;
-            }
+
         }
         #endregion
 

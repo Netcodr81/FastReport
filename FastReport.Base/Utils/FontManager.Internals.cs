@@ -53,14 +53,12 @@ namespace FastReport
         }
 
         // used in the FR FontConverter to look up family name in all font collections
-        private class FontFamilyMatcher : FastReport.TypeConverters.FontConverter.IFontFamilyMatcher
+        private class FontFamilyMatcher
         {
             public FontFamilyMatcher()
             {
-                FastReport.TypeConverters.FontConverter.FontFamilyMatcher = this;
+                FastReport.Utils.TypeConverterBridge.SetFontFamilyMatcher(FontManager.GetFontFamilyOrDefault);
             }
-
-            public FontFamily GetFontFamilyOrDefault(string name) => FontManager.GetFontFamilyOrDefault(name);
         }
     }
 }

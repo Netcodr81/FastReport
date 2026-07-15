@@ -3,11 +3,10 @@ using System;
 #if NETSTANDARD || NETCOREAPP
 using FastReport.Code.CodeDom.Compiler;
 using FastReport.Code.CSharp;
-using FastReport.Code.VisualBasic;
+using FastReport.Code.Compilation;
 #else
 using System.CodeDom.Compiler;
 using Microsoft.CSharp;
-using Microsoft.VisualBasic;
 #endif
 
 using System.Collections;
@@ -69,7 +68,7 @@ namespace FastReport.Code.Ms
                 if (string.IsNullOrEmpty(aLocation))
                 {
                     // try fix SFA in FastReport.Compat
-                    string fixedReference = CodeDomProvider.TryFixAssemblyReference(assembly);
+                    string fixedReference = CodeCompilationBridge.TryFixAssemblyReference(assembly);
                     if (!string.IsNullOrEmpty(fixedReference))
                         aLocation = fixedReference;
                 }
@@ -226,7 +225,7 @@ namespace FastReport.Code.Ms
         private CompilerParameters GetCompilerParameters()
         {
             // configure compiler options
-            CompilerParameters cp = new CompilerParameters();
+            CompilerParameters cp = CodeCompilationBridge.CreateCompilerParameters();
             AddFastReportAssemblies(cp.ReferencedAssemblies);   // 2
             AddReferencedAssemblies(cp.ReferencedAssemblies, _currentFolder);    // 9
             ReviewReferencedAssemblies(cp.ReferencedAssemblies);
@@ -259,8 +258,7 @@ namespace FastReport.Code.Ms
 
         private CodeDomProvider GetCodeProvider()
         {
-            return Report.ScriptLanguage == Language.CSharp ?
-                new CSharpCodeProvider() : new VBCodeProvider();
+            return CodeCompilationBridge.CreateCSharpProvider();
         }
 
         /// <summary>

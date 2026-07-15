@@ -2386,9 +2386,9 @@ namespace FastReport.Utils
                 if (image != null)
                 {
                     if (renderer.rightToLeft)
-                        renderer.graphics.DrawImage(image, new RectangleF(Left - Width, Top, Width, Height));
+                        renderer.graphics.DrawImage(new ImagePaint(image), new RectangleF(Left - Width, Top, Width, Height));
                     else
-                        renderer.graphics.DrawImage(image, new RectangleF(Left, Top, Width, Height));
+                        renderer.graphics.DrawImage(new ImagePaint(image), new RectangleF(Left, Top, Width, Height));
                 }
             }
 
@@ -2450,7 +2450,7 @@ namespace FastReport.Utils
 
                 Bitmap bmp = new Bitmap((int)width, (int)height);
                 using (IGraphics g = FRPaintEventArgs.CreateGraphics(bmp))
-                    g.DrawImage(image, x, y);
+                    g.DrawImage(new ImagePaint(image), x, y);
                 width /= scaleX;
                 height /= scaleY;
                 return bmp;

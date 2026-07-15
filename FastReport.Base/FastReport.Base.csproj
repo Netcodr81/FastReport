@@ -8,5 +8,6 @@
     <Compile Include="$(FastReportBaseIncludePattern)">
       <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
     </Compile>
+    <Compile Remove="$(FastReportBaseDir)\CompatMigration\DotNetClasses\GdiGraphics.cs" />
   </ItemGroup>
 </Project>

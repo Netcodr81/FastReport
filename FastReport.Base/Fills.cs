@@ -6,6 +6,7 @@ using FastReport.Utils;
 using System.Drawing.Design;
 using System.IO;
 using System.Drawing.Imaging;
+using SkiaSharp;
 
 namespace FastReport
 {
@@ -521,6 +522,19 @@ namespace FastReport
         }
     }
 
+    public enum HatchStyle
+    {
+        BackwardDiagonal,
+        DarkUpwardDiagonal
+    }
+
+    public enum WrapMode
+    {
+        Tile,
+        Clamp,
+        TileFlipXY
+    }
+
     /// <summary>
     /// Class represents the hatch fill.
     /// </summary>
@@ -587,7 +601,7 @@ namespace FastReport
         /// <inheritdoc/>
         public override Brush CreateBrush(RectangleF rect)
         {
-            return new HatchBrush(Style, ForeColor, BackColor);
+            return new SolidBrush(ForeColor);
         }
 
         /// <inheritdoc/>
@@ -707,8 +721,7 @@ namespace FastReport
             // draw hatch
             if (Hatch)
             {
-                using (HatchBrush b = new HatchBrush(HatchStyle.DarkUpwardDiagonal,
-                  Color.FromArgb(40, Color.White), Color.Transparent))
+                using (SolidBrush b = new SolidBrush(Color.FromArgb(40, Color.White)))
                 {
                     e.Graphics.FillRectangle(b, rect.Left, rect.Top, rect.Width, rect.Height);
                 }
@@ -769,7 +782,7 @@ namespace FastReport
     {
         #region Fields
 
-        private Image image;
+        private SKBitmap image;
         private int imageWidth;
         private int imageHeight;
         private bool preserveAspectRatio;
@@ -852,6 +865,16 @@ namespace FastReport
             set { wrapMode = value; }
         }
 
+        public void SetWrapMode(System.Drawing.Drawing2D.WrapMode value)
+        {
+            WrapMode = value switch
+            {
+                System.Drawing.Drawing2D.WrapMode.Clamp => WrapMode.Clamp,
+                System.Drawing.Drawing2D.WrapMode.TileFlipXY => WrapMode.TileFlipXY,
+                _ => WrapMode.Tile
+            };
+        }
+
         /// <summary>
         /// Gets or sets the image index
         /// </summary>
@@ -913,12 +936,20 @@ namespace FastReport
         {
             if (imageData == null || width <= 0 || height <= 0)
                 return;
-            else
+
+            using var source = SKBitmap.Decode(imageData);
+            if (source == null)
+                return;
+
+            var resized = new SKBitmap(width, height, source.ColorType, source.AlphaType);
+            if (!source.ScalePixels(resized, SKSamplingOptions.Default))
             {
-                image = ImageHelper.Load(imageData);
-                image = new Bitmap(image, width, height);
+                resized.Dispose();
+                return;
             }
 
+            image?.Dispose();
+            image = resized;
         }
         private void ResetImageIndex()
         {
@@ -929,9 +960,14 @@ namespace FastReport
             byte[] data = imageData;
             if (data == null)
                 return;
-            byte[] saveImageData = data;
-            // imageData will be reset after this line, keep it
-            image = ImageHelper.Load(data);
+
+            var loaded = SKBitmap.Decode(data);
+            if (loaded == null)
+                return;
+
+            image?.Dispose();
+            image = loaded;
+
             if (imageWidth <= 0 && imageHeight <= 0)
             {
                 imageWidth = image.Width;
@@ -941,7 +977,6 @@ namespace FastReport
             {
                 ResizeImage(imageWidth, imageHeight);
             }
-            data = saveImageData;
         }
 
         #endregion // Private Methods
@@ -964,13 +999,17 @@ namespace FastReport
         /// Set image
         /// </summary>
         /// <param name="image">input image</param>
-        public void SetImage(Image image)
+        public void SetImage(SKBitmap image)
         {
-            using (MemoryStream ms = new MemoryStream())
+            if (image == null)
             {
-                image.Save(ms, image.RawFormat);
-                SetImageData(ms.ToArray());
+                SetImageData(null);
+                return;
             }
+
+            using var skImage = SKImage.FromBitmap(image);
+            using var encoded = skImage.Encode(SKEncodedImageFormat.Png, 100);
+            SetImageData(encoded?.ToArray());
         }
 
         /// <inheritdoc/>
@@ -1011,9 +1050,7 @@ namespace FastReport
         {
             if (image == null)
                 ForceLoadImage();
-            TextureBrush brush = new TextureBrush(image, WrapMode);
-            brush.TranslateTransform(rect.Left + ImageOffsetX, rect.Top + ImageOffsetY);
-            return brush;
+            return new SolidBrush(Color.White);
         }
 
         /// <inheritdoc/>
@@ -1021,10 +1058,7 @@ namespace FastReport
         {
             if (image == null)
                 ForceLoadImage();
-            TextureBrush brush = new TextureBrush(image, WrapMode);
-            brush.TranslateTransform(rect.Left + ImageOffsetX * scaleX, rect.Top + ImageOffsetY * scaleY);
-            brush.ScaleTransform(scaleX, scaleY);
-            return brush;
+            return new SolidBrush(Color.White);
         }
 
         /// <inheritdoc/>
@@ -1060,8 +1094,9 @@ namespace FastReport
                         {
                             using (MemoryStream stream = new MemoryStream())
                             {
-                                ImageHelper.Save(image, stream, ImageFormat.Png);
-                                bytes = stream.ToArray();
+                                using var skImage = SKImage.FromBitmap(image);
+                                using var encoded = skImage.Encode(SKEncodedImageFormat.Png, 100);
+                                bytes = encoded?.ToArray();
                             }
                         }
                         if (bytes != null)

@@ -72,10 +72,6 @@
   </ItemGroup>
 
   <Import Project="..\UsedPackages.version" />
-  <ItemGroup>
-    <!--For buildScript only (it can't implicitly restore System.Drawing.Common)-->
-    <PackageReference Include="System.Drawing.Common" Version="10.0.10" PrivateAssets="All" />
-  </ItemGroup>
 
   <!--Source Link-->
   <ItemGroup>

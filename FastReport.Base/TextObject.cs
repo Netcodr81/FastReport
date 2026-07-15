@@ -1742,7 +1742,7 @@ namespace FastReport
             if (renderer == null)
             {
                 using (Bitmap b = new Bitmap(1, 1))
-                using (IGraphics g = new GdiGraphics(b))
+                using (IGraphics g = FRPaintEventArgs.CreateGraphics(b))
                 {
                     RectangleF textRect = new RectangleF(
                       (AbsLeft + Padding.Left),

@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>net10.0</TargetFrameworks>
     <LangVersion>9.0</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
 
@@ -73,6 +74,7 @@
   <!--SkiaSharp for cross-platform graphics rendering-->
   <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="$(SkiaSharpVersion)" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="$(CodeAnalysisCSharpVersion)" />
   </ItemGroup>
 
   <!--Import version-info of referenced packages-->
@@ -105,9 +107,4 @@
     </None>
   </ItemGroup>
 
-
-  <ItemGroup>
-    <ProjectReference Include="..\FastReport.Compat\FastReport.Compat\FastReport.Compat.csproj" />
-  </ItemGroup>
-
-</Project>
+  </Project>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.ComponentModel;
 using FastReport.Utils;
 
@@ -765,11 +766,12 @@ namespace FastReport.Table
                         {
                             using (var cellImage = ImageHelper.CutImage(image, cell.Bounds))
                             {
-                                cell.Fill = new TextureFill(ImageHelper.ToByteArray(cellImage, cellImage.GetImageFormat()))
+                                var textureFill = new TextureFill(ImageHelper.ToByteArray(cellImage, ImageFormat.Png))
                                 {
-                                    WrapMode = System.Drawing.Drawing2D.WrapMode.Clamp,
                                     PreserveAspectRatio = false,
                                 };
+                                textureFill.SetWrapMode(System.Drawing.Drawing2D.WrapMode.Clamp);
+                                cell.Fill = textureFill;
                             }
                         }
                     }

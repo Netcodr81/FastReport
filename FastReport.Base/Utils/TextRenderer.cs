@@ -316,8 +316,9 @@ namespace FastReport.Utils
 
         internal static float CalculateSpaceSize(IGraphics g, Font f)
         {
-            float w_ab = g.MeasureString(ab, f).Width;
-            float w_a40b = g.MeasureString(a40b, f).Width;
+            var paint = new TextPaint(f, Brushes.Black, StringFormat.GenericTypographic);
+            float w_ab = g.MeasureText(ab, paint).Width;
+            float w_a40b = g.MeasureText(a40b, paint).Width;
             return (w_a40b - w_ab) / 40;
         }
 
@@ -1667,7 +1668,7 @@ namespace FastReport.Utils
                         }
                         else
                         {
-                            width = Renderer.Graphics.MeasureString(text, Renderer.Font, 10000, StringFormat.GenericTypographic).Width;
+                            width = Renderer.Graphics.MeasureText(text, new TextPaint(Renderer.Font, Brushes.Black, StringFormat.GenericTypographic), 10000).Width;
                         }
                     }
                     return width;
@@ -1758,7 +1759,7 @@ namespace FastReport.Utils
 
                     if (Renderer.OutlinePen == null)
                     {
-                        Renderer.Graphics.DrawString(Text, font, Renderer.Brush, Left, Top, Renderer.Format);
+                        Renderer.Graphics.DrawText(Text, new TextPaint(font, Renderer.Brush, Renderer.Format), Left, Top);
                     }
                     else
                     {
@@ -2187,7 +2188,7 @@ namespace FastReport.Utils
                 using (Font font = GetFont(true))
                 using (Brush brush = GetBrush())
                 {
-                    Renderer.Graphics.DrawString(text, font, brush, Left, Top, Renderer.Format);
+                    Renderer.Graphics.DrawText(text, new TextPaint(font, brush, Renderer.Format), Left, Top);
                 }
             }
             #endregion
@@ -2205,7 +2206,7 @@ namespace FastReport.Utils
 
                 using (Font font = GetFont())
                 {
-                    width = Renderer.Graphics.MeasureString(text, font, 10000, StringFormat.GenericTypographic).Width;
+                    width = Renderer.Graphics.MeasureText(text, new TextPaint(font, Brushes.Black, StringFormat.GenericTypographic), 10000).Width;
                 }
             }
         }
@@ -2265,7 +2266,7 @@ namespace FastReport.Utils
                     base.Draw();
                     return;
                 }
-                Renderer.Graphics.DrawImage(Image, Left, Top);// (FText, font, brush, Left, Top, Renderer.Format);
+                Renderer.Graphics.DrawImage(new ImagePaint(Image), Left, Top);// (FText, font, brush, Left, Top, Renderer.Format);
             }
 
             public static Bitmap ResizeImage(Image image, float scale)
@@ -2293,8 +2294,8 @@ namespace FastReport.Utils
 
                     using (System.Drawing.Imaging.ImageAttributes wrapMode = new System.Drawing.Imaging.ImageAttributes())
                     {
-                        wrapMode.SetWrapMode(WrapMode.TileFlipXY);
-                        graphics.DrawImage(image, destRect, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, wrapMode);
+                        wrapMode.SetWrapMode(System.Drawing.Drawing2D.WrapMode.TileFlipXY);
+                        graphics.DrawImage(new ImagePaint(image), destRect, new RectangleF(0, 0, image.Width, image.Height));
                     }
                 }
 

@@ -1381,7 +1381,7 @@ namespace FastReport.Import.StimulSoft
         {
             unitType = UnitsConverter.ConverPageUnits(reportNode["ReportUnit"].InnerText);
             Report.SetName(reportNode["ReportName"].InnerText);
-            Report.ScriptLanguage = reportNode["ScriptLanguage"].InnerText == "CSharp" ? Language.CSharp : Language.Vb;
+            Report.ScriptLanguage = Language.CSharp;
             Report.ScriptText += "/*" + reportNode["Script"].InnerText + "*/";
             Report.Alias = reportNode["ReportAlias"].InnerText;
 

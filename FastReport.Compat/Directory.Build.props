@@ -32,6 +32,7 @@
 
   <ItemGroup>
     <Compile Include="$(SourceCode)\**\*.cs"/>
+    <Compile Remove="$(SourceCode)\DotNetClasses\GdiGraphics.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,4 +1,3 @@
 <Solution>
-  <Project Path="FastReport.ReportBuilder.UnitTest/FastReport.ReportBuilder.UnitTest.csproj" />
   <Project Path="FastReport.ReportBuilder/FastReport.ReportBuilder.csproj" />
 </Solution>

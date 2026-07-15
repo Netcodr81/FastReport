@@ -74,7 +74,7 @@ namespace FastReport.Utils
             }
             if (value is Font)
             {
-                return new TypeConverters.FontConverter().ConvertToInvariantString(value);
+                return TypeConverterBridge.FontToInvariantString((Font)value);
             }
             if (value is System.Drawing.Imaging.ImageFormat)
             {
@@ -129,9 +129,9 @@ namespace FastReport.Utils
                 return value.Split('\r');
             }
             if (type == typeof(Font))
-                return new TypeConverters.FontConverter().ConvertFromInvariantString(value) as Font;
+                return TypeConverterBridge.FontFromInvariantString(value);
             if (type == typeof(Color))
-                return new ColorConverter().ConvertFromInvariantString(value);
+                return TypeConverterBridge.ColorFromInvariantString(value);
             return TypeDescriptor.GetConverter(type).ConvertFromInvariantString(value);
         }
 

@@ -2,6 +2,7 @@
 #if CROSSPLATFORM || COREWIN
 using FastReport.Code.CodeDom.Compiler;
 using FastReport.Code.CSharp;
+using FastReport.Code.Compilation;
 #else
 using System.CodeDom.Compiler;
 using Microsoft.CSharp;
@@ -26,9 +27,9 @@ namespace FastReport.Utils
         /// <returns></returns>
         public static Assembly GenerateAssemblyInMemory(string sourceCode, params string[] assemblyPaths)
         {
-            using (CSharpCodeProvider compiler = new CSharpCodeProvider())
+            using (CSharpCodeProvider compiler = CodeCompilationBridge.CreateCSharpProvider())
             {
-                CompilerParameters parameters = new CompilerParameters();
+                CompilerParameters parameters = CodeCompilationBridge.CreateCompilerParameters();
                 parameters.GenerateInMemory = true;
 
                 foreach (string asm in assemblyPaths)

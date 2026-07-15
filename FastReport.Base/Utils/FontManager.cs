@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Text;
 using System.Linq;
 
 namespace FastReport
@@ -12,13 +11,13 @@ namespace FastReport
     public static partial class FontManager
     {
         // NOT THREAD SAFE!
-        private static PrivateFontCollection PrivateFontCollection { get; } = new PrivateFontCollection();
+        private static List<FontFamily> PrivateFontCollection { get; } = new List<FontFamily>();
 
         // NOT THREAD SAFE!
         // Do not update PrivateFontCollection at realtime, you must update property value then dispose previous.
-        private static PrivateFontCollection TemporaryFontCollection { get; set; } = null;
+        private static List<FontFamily> TemporaryFontCollection { get; set; } = null;
 
-        private static InstalledFontCollection InstalledFontCollection { get; } = new InstalledFontCollection();
+        private static List<FontFamily> InstalledFontCollection { get; } = new List<FontFamily>(FontFamily.Families ?? Array.Empty<FontFamily>());
 
         private static List<FontSubstitute> SubstituteFonts { get; } = new List<FontSubstitute>();
 
@@ -35,11 +34,11 @@ namespace FastReport
             {
                 var families = new List<FontFamily>();
 
-                families.AddRange(InstalledFontCollection.Families);
-                families.AddRange(PrivateFontCollection.Families);
+                families.AddRange(InstalledFontCollection);
+                families.AddRange(PrivateFontCollection);
                 if (TemporaryFontCollection != null)
                 {
-                    families.AddRange(TemporaryFontCollection.Families);
+                    families.AddRange(TemporaryFontCollection);
                 }
 
                 families.Sort((x, y) => x.Name.CompareTo(y.Name));
@@ -109,8 +108,8 @@ namespace FastReport
             }
             return family;
 
-            FontFamily Find(FontCollection collection) =>
-                collection?.Families.Where(f => f.Name.Equals(name, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+            FontFamily Find(IEnumerable<FontFamily> collection) =>
+                collection?.FirstOrDefault(f => f.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>

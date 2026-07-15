@@ -1,5 +1,5 @@
 ---
-applyTo: "**"
+ch fapplyTo: "**"
 ---
 
 # FastReport Modernization Copilot Instructions
@@ -78,6 +78,8 @@ Instead:
 Whenever there are two possible approaches:
 
 Prefer the one that produces the cleanest architecture five years from now.
+
+**Execute broad migrations iteratively to maintain momentum without repeating the same validation loop.**
 
 ---
 
@@ -279,7 +281,9 @@ If Avalonia code can be replaced with significantly better architecture, recomme
 
 Prefer modern graphics abstractions.
 
-Avoid direct GDI+ dependencies.
+Avoid direct GDI+ dependencies and the System.Drawing package.
+
+When replacing System.Drawing image types during migration, prefer SkiaSharp SKBitmap and SKImage equivalents.
 
 Evaluate:
 
@@ -289,6 +293,8 @@ Evaluate:
 Keep rendering engine UI independent.
 
 Rendering should not depend on UI frameworks.
+
+For migration work, move the entire solution (including Extras/Demos/Tests) from System.Drawing to SkiaSharp; keep existing public APIs for now with internal mapping; use IGraphics-abstraction-first strategy; remove System.Drawing.Common package references as soon as the build passes.
 
 ---
 

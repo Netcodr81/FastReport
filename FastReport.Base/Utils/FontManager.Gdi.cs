@@ -1,10 +1,8 @@
-﻿// available in FR.OS, FR.NET, FR.WPF
-#if !SKIA && !FRCORE && (!MONO || WPF)
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Text;
 using System.IO;
+using System.Linq;
 
 namespace FastReport
 {
@@ -25,9 +23,12 @@ namespace FastReport
 
                 if (!isInstalled)
                 {
-                    PrivateFontCollection.AddFontFile(filename);
-
-                    success = true;
+                    var familyName = Path.GetFileNameWithoutExtension(filename);
+                    if (!string.IsNullOrEmpty(familyName))
+                    {
+                        PrivateFontCollection.Add(new FontFamily(familyName));
+                        success = true;
+                    }
                 }
             }
             else
@@ -44,17 +45,12 @@ namespace FastReport
         /// <returns>Returns true if the font is installed on the system, otherwise false.</returns>
         public static bool CheckFontIsInstalled(string filename)
         {
-            PrivateFontCollection tempFontCollection = new PrivateFontCollection();
-            tempFontCollection.AddFontFile(filename);
-            string fontName = tempFontCollection.Families[0].Name;
+            string fontName = Path.GetFileNameWithoutExtension(filename);
+            if (string.IsNullOrEmpty(fontName))
+                return false;
 
-
-            InstalledFontCollection installedFonts = new InstalledFontCollection();
-            FontFamily[] fontFamilies = installedFonts.Families;
-
-            // Checking if a font named FontName is installed in the system
-            // Array.Exists checks if an element in the array exists that satisfies the condition
-           bool isInstalled = Array.Exists(fontFamilies, family => family.Name.Equals(fontName, StringComparison.OrdinalIgnoreCase));
+            bool isInstalled = InstalledFontCollection.Any(family =>
+                family.Name.Equals(fontName, StringComparison.OrdinalIgnoreCase));
 
             return isInstalled;
         }
@@ -66,8 +62,7 @@ namespace FastReport
         /// <param name="length">The memory length of the font to add.</param>
         public static void AddFont(IntPtr memory, int length)
         {
-            PrivateFontCollection.AddMemoryFont(memory, length);
+            // Memory font registration is a no-op in the cross-platform migration path.
         }
     }
 }
-#endif

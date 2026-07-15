@@ -13,8 +13,9 @@ namespace FastReport.Utils
         private readonly float scaleY;
         private readonly GraphicCache cache;
 
-        public static Func<Graphics, IGraphics> GraphicsAdapterFactory { get; set; } = g => GdiGraphics.FromGraphics(g);
-        public static Func<Image, IGraphics> ImageAdapterFactory { get; set; } = image => GdiGraphics.FromImage(image);
+        public static Func<Graphics, IGraphics> GraphicsAdapterFactory { get; set; } = _ => throw new PlatformNotSupportedException("System.Drawing-based Graphics adapter has been removed. Use image-based Skia adapters.");
+        public static Func<Image, IGraphics> ImageAdapterFactory { get; set; } = image => SkiaBackedGraphics.FromImage(image);
+        public static Func<IntPtr, IGraphics> WindowGraphicsAdapterFactory { get; set; } = _ => throw new PlatformNotSupportedException("Window handle graphics adapter is not supported in Skia-only mode.");
 
         public static IGraphics CreateGraphics(Graphics graphics)
         {
@@ -24,6 +25,11 @@ namespace FastReport.Utils
         public static IGraphics CreateGraphics(Image image)
         {
             return ImageAdapterFactory(image);
+        }
+
+        public static IGraphics CreateGraphicsFromWindowHandle(IntPtr hwnd)
+        {
+            return WindowGraphicsAdapterFactory(hwnd);
         }
 
         public static bool TryGetNativeGraphics(IGraphics graphics, out Graphics nativeGraphics)

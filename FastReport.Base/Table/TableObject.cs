@@ -250,23 +250,11 @@ namespace FastReport.Table
         {
             string result = "";
 
-            switch (Report.ScriptLanguage)
-            {
-                case Language.CSharp:
-                    result =
-                      "    private object " + function + "(TableCell cell)\r\n" +
-                      "    {\r\n" +
-                      "      return cell.Table." + function + "(cell);\r\n" +
-                      "    }\r\n\r\n";
-                    break;
-
-                case Language.Vb:
-                    result =
-                      "    Private Function " + function + "(ByVal cell As TableCell) As Object\r\n" +
-                      "      Return cell.Table." + function + "(cell)\r\n" +
-                      "    End Function\r\n\r\n";
-                    break;
-            }
+            result =
+              "    private object " + function + "(TableCell cell)\r\n" +
+              "    {\r\n" +
+              "      return cell.Table." + function + "(cell);\r\n" +
+              "    }\r\n\r\n";
 
             return result;
         }
