@@ -10,6 +10,7 @@ namespace FastReport
         private readonly SKBitmap skBitmap;
         private readonly SKCanvas canvas;
         private bool disposed;
+        private SKMatrix transform;
 
         private SkiaBackedGraphics(SKBitmap bitmap)
         {
@@ -35,6 +36,15 @@ namespace FastReport
 
         public SKCanvas Graphics => null;
         public float DpiY => bitmapTarget.VerticalResolution;
+
+        SKMatrix IGraphics.Transform
+        {
+            get => transform;
+            set => transform = value;
+        }
+
+        public bool Antialias { get; set; }
+        public SKSamplingOptions FilterQuality { get; set; }
         public TextRenderingHint TextRenderingHint { get; set; } = TextRenderingHint.AntiAlias;
         public InterpolationMode InterpolationMode { get; set; } = InterpolationMode.HighQualityBicubic;
         public SmoothingMode SmoothingMode { get; set; } = SmoothingMode.AntiAlias;
@@ -53,6 +63,7 @@ namespace FastReport
         }
 
         public GraphicsUnit PageUnit { get; set; } = GraphicsUnit.Pixel;
+        public SKRect ClipBounds { get; }
         public bool IsClipEmpty => false;
         public Region Clip
         {
@@ -69,6 +80,7 @@ namespace FastReport
             }
         }
 
+        public SKCanvas Canvas { get; }
         public float DpiX => bitmapTarget.HorizontalResolution;
         public CompositingQuality CompositingQuality { get; set; } = CompositingQuality.HighQuality;
 
@@ -91,6 +103,71 @@ namespace FastReport
             using var skFont = new SKFont(typeface, paint.Font.Size * 96f / 72f);
 
             canvas.DrawText(text, left, top + skFont.Size, SKTextAlign.Left, skFont, skPaint);
+        }
+
+        SKSize IGraphics.MeasureText(string text, TextPaint paint)
+        {
+            throw new NotImplementedException();
+        }
+
+        SKSize IGraphics.MeasureText(string text, TextPaint paint, float maxWidth)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawString(string text, SKFont font, SKPaint brush, float left, float top)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawString(string text, SKFont font, SKPaint brush, float left, float top, SKPaint format)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawString(string text, SKFont font, SKPaint brush, SKRect rectangleF)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawString(string text, SKFont font, SKPaint textBrush, SKRect textRect, SKPaint format)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawString(string s, SKFont font, SKPaint brush, SKPoint point, SKPaint format)
+        {
+            throw new NotImplementedException();
+        }
+
+        public SKRect[] MeasureCharacterRanges(string text, SKFont font, SKRect textRect, SKPaint format)
+        {
+            throw new NotImplementedException();
+        }
+
+        public SKSize MeasureString(string text, SKFont font)
+        {
+            throw new NotImplementedException();
+        }
+
+        public SKSize MeasureString(string text, SKFont font, SKSize size)
+        {
+            throw new NotImplementedException();
+        }
+
+        public SKSize MeasureString(string text, SKFont font, int v, SKPaint format)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void MeasureString(string text, SKFont font, SKSize size, SKPaint format, out int charsFit, out int linesFit)
+        {
+            throw new NotImplementedException();
+        }
+
+        public SKSize MeasureString(string text, SKFont font, SKSize layoutArea, SKPaint stringFormat)
+        {
+            throw new NotImplementedException();
         }
 
         public SizeF MeasureText(string text, TextPaint paint)
@@ -196,6 +273,146 @@ namespace FastReport
                 return;
 
             DrawImage(paint, new RectangleF(x, y, paint.Image.Width, paint.Image.Height));
+        }
+
+        public void DrawImage(ImagePaint paint, SKRect destRect)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawImage(ImagePaint paint, SKRect destRect, SKRect srcRect)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawArc(SKPaint pen, float x, float y, float width, float height, float startAngle, float sweepAngle)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawCurve(SKPaint pen, SKPoint[] points, int offset, int numberOfSegments, float tension)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawEllipse(SKPaint pen, float left, float top, float width, float height)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawEllipse(SKPaint pen, SKRect rect)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawLine(SKPaint pen, float x1, float y1, float x2, float y2)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawLine(SKPaint pen, SKPoint p1, SKPoint p2)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawLines(SKPaint pen, SKPoint[] points)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawPath(SKPaint outlinePen, SKPath path)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawPie(SKPaint pen, float x, float y, float width, float height, float startAngle, float sweepAngle)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawPolygon(SKPaint pen, SKPoint[] points)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawRectangle(SKPaint pen, float left, float top, float width, float height)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DrawRectangle(SKPaint pen, SKRect rectangle)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillEllipse(SKPaint brush, float left, float top, float width, float height)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillEllipse(SKPaint brush, SKRect rect)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillPath(SKPaint brush, SKPath path)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillPie(SKPaint brush, float x, float y, float width, float height, float startAngle, float sweepAngle)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillPolygon(SKPaint brush, SKPoint[] points)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillRectangle(SKPaint brush, SKRect rect)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillRectangle(SKPaint brush, float left, float top, float width, float height)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillRegion(SKPaint brush, SKRegion region)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillAndDrawPath(SKPaint pen, SKPaint brush, SKPath path)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillAndDrawEllipse(SKPaint pen, SKPaint brush, SKRect rect)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillAndDrawEllipse(SKPaint pen, SKPaint brush, float left, float top, float width, float height)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillAndDrawPolygon(SKPaint pen, SKPaint brush, SKPoint[] points)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void FillAndDrawRectangle(SKPaint pen, SKPaint brush, float left, float top, float width, float height)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void MultiplyTransform(SKMatrix matrix, MatrixOrder prepend)
+        {
+            throw new NotImplementedException();
         }
 
         public void DrawImage(ImagePaint paint, RectangleF destRect)
@@ -506,12 +723,37 @@ namespace FastReport
         }
 
         public IGraphicsState Save() => new SkiaGraphicsState(canvas.Save());
+        public bool IsVisible(SKRect rect)
+        {
+            throw new NotImplementedException();
+        }
+
         public bool IsVisible(RectangleF rect) => true;
 
         public void ResetClip()
         {
             canvas.Restore();
             canvas.Save();
+        }
+
+        public void SetClip(SKRect rect)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SetClip(SKRect rect, SKClipOperation operation)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SetClip(SKPath path)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SetClip(SKPath path, ClipOperation operation)
+        {
+            throw new NotImplementedException();
         }
 
         public void SetClip(RectangleF rect)
