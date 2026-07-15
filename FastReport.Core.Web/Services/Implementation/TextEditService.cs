@@ -1,10 +1,12 @@
-﻿using System;
+﻿using FastReport.Web.Application;
+using FastReport.Web.Services.Abstract;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Web;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Implementation
 {
     internal sealed class TextEditService : ITextEditService
     {

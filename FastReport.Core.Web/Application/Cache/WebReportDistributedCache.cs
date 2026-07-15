@@ -10,7 +10,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Diagnostics;
 
-namespace FastReport.Web.Cache
+namespace FastReport.Web.Application.Cache
 {
 
     internal class WebReportDistributedCache : IWebReportCache

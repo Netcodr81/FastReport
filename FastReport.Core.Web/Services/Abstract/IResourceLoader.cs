@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Abstract
 {
     /// <summary>
     /// Loads necessary WebReport resources such as toolbar images, scripts and other

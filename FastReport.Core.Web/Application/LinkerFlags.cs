@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application
 {
     internal static class LinkerFlags
     {

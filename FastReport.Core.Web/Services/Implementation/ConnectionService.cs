@@ -1,6 +1,8 @@
 ﻿using FastReport.Data;
 using FastReport.Utils;
-using FastReport.Web.Infrastructure;
+using FastReport.Web.Application;
+
+using FastReport.Web.Services.Abstract;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
@@ -12,7 +14,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Implementation
 {
     internal sealed class ConnectionService : IConnectionsService
     {
@@ -301,7 +303,7 @@ namespace FastReport.Web.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error in creating tables. Please verify your connection string. {(webReport.Debug ? $"InnerException: {ex.Message}" : "" )}");
+                throw new Exception($"Error in creating tables. Please verify your connection string. {(webReport.Debug ? $"InnerException: {ex.Message}" : "")}");
             }
         }
 
@@ -310,7 +312,7 @@ namespace FastReport.Web.Services
             var dataSource = webReport.Report.GetDataSource(parameters.TableName) as TableDataSource
                              ?? throw new Exception("Table not found");
 
-            if(HasDuplicateParamName(parameters.Parameters))
+            if (HasDuplicateParamName(parameters.Parameters))
                 throw new Exception("Duplicate parameters");
 
             try
@@ -320,7 +322,7 @@ namespace FastReport.Web.Services
                     ApplyParameterToDataSource(dataSource, parameter, webReport);
                 }
 
-                if(!string.IsNullOrEmpty(parameters.SqlQuery))
+                if (!string.IsNullOrEmpty(parameters.SqlQuery))
                     dataSource.SelectCommand = parameters.SqlQuery;
                 dataSource.RefreshTable();
 
@@ -328,7 +330,7 @@ namespace FastReport.Web.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error in creating tables. Please verify your parameters. {(webReport.Debug ? $"InnerException: {ex.Message}" : "" )}", ex);
+                throw new Exception($"Error in creating tables. Please verify your parameters. {(webReport.Debug ? $"InnerException: {ex.Message}" : "")}", ex);
             }
         }
 
@@ -505,10 +507,10 @@ namespace FastReport.Web.Services
                     var paramType = conn.GetParameterType();
                     if (paramType != null)
                         values = Enum.GetValues(paramType);
-                    else 
+                    else
                         values = Enum.GetValues<DbType>();
 
-                    foreach (var par in values) 
+                    foreach (var par in values)
                     {
                         result.Add(par.ToString(), (int)par);
                     }

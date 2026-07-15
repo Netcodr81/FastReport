@@ -1,5 +1,6 @@
 ﻿#if !WASM
-using FastReport.Web.Infrastructure;
+using FastReport.Web.Application.Infrastructure;
+
 #endif
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application
 {
     static class WebUtils
     {

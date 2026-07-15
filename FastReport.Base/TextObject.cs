@@ -1,15 +1,12 @@
-using System;
-using System.Text;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Text;
-using System.Drawing.Drawing2D;
-using System.ComponentModel;
-using FastReport.Utils;
-using FastReport.Format;
 using FastReport.Code;
-using System.Windows.Forms;
-using System.Drawing.Design;
+using FastReport.Format;
+using FastReport.Utils;
+using SkiaSharp;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Text;
+
 
 namespace FastReport
 {
@@ -299,7 +296,7 @@ namespace FastReport
         private bool rightToLeft;
         private bool wordWrap;
         private bool underlines;
-        private Font font;
+        private SKFont font;
         private FillBase textFill;
         private TextOutline textOutline;
         private StringTrimming trimming;
@@ -317,7 +314,7 @@ namespace FastReport
         private float autoShrinkMinSize;
         private float paragraphOffset;
         private FillBase savedTextFill;
-        private Font savedFont;
+        private SKFont savedFont;
         private string savedText;
         private FormatBase savedFormat;
         private InlineImageCache inlineImageCache;
@@ -450,7 +447,7 @@ namespace FastReport
         /// Gets or sets the font settings for this object.
         /// </summary>
         [Category("Appearance")]
-        public Font Font
+        public SKFont Font
         {
             get { return font; }
             set
@@ -769,7 +766,7 @@ namespace FastReport
                 return;
 
             IGraphics g = e.Graphics;
-            float lineHeight = LineHeight == 0 ? Font.GetHeight() * DrawUtils.ScreenDpiFX : LineHeight;
+            float lineHeight = LineHeight == 0 ? DrawUtils.MeasureString("Wg", Font).Height * DrawUtils.ScreenDpiFX : LineHeight;
             lineHeight *= e.ScaleY;
             float curY = AbsTop * e.ScaleY + lineHeight + 1;
             Pen pen = e.Cache.GetPen(Border.Color, Border.Width * e.ScaleY, DashStyle.Solid);
@@ -1188,9 +1185,10 @@ namespace FastReport
             context.widthRatio = FontWidthRatio;
             context.text = text;
             context.g = g;
-            context.font = font.FontFamily;
-            context.size = font.Size;
-            context.style = font.Style; // no keep
+            var contextGdiFont = DrawUtils.ToSystemDrawingFont(font);
+            context.font = contextGdiFont.FontFamily;
+            context.size = contextGdiFont.Size;
+            context.style = contextGdiFont.Style; // no keep
             context.color = TextColor; // no keep
             context.underlineColor = textOutline.Color;
             context.rect = textRect;
@@ -1237,9 +1235,9 @@ namespace FastReport
                     text = MakeParagraphOffset(text);
                 StringFormat format = GetStringFormat(e.Cache, 0, e.ScaleX);
 
-                Font font = e.Cache.GetFont(Font.FontFamily,
-                  IsPrinting ? Font.Size : Font.Size * e.ScaleX * 96f / DrawUtils.ScreenDpi,
-                  Font.Style);
+                SKFont font = DrawUtils.ResizeFont(Font,
+                  IsPrinting ? Font.Size : Font.Size * e.ScaleX * 96f / DrawUtils.ScreenDpi);
+                Font gdiFont = DrawUtils.ToSystemDrawingFont(font);
 
                 Brush textBrush = null;
                 if (TextFill is SolidFill)
@@ -1260,7 +1258,7 @@ namespace FastReport
                     switch (TextRenderType)
                     {
                         case TextRenderType.Inline:
-                            g.DrawString(text, font, textBrush, textRect.X, textRect.Y, StringFormat.GenericTypographic);
+                            g.DrawString(text, gdiFont, textBrush, textRect.X, textRect.Y, StringFormat.GenericTypographic);
                             break;
                         case TextRenderType.HtmlParagraph:
                             try
@@ -1281,7 +1279,7 @@ namespace FastReport
                             if (IsAdvancedRendererNeeded)
                             {
                                 // use advanced rendering
-                                AdvancedTextRenderer advancedRenderer = new AdvancedTextRenderer(text, g, font, textBrush,
+                                AdvancedTextRenderer advancedRenderer = new AdvancedTextRenderer(text, g, gdiFont, textBrush,
                                     outlinePen, textRect, format, HorzAlign, VertAlign, LineHeight * e.ScaleY, Angle,
                                     FontWidthRatio, ForceJustify, Wysiwyg, HasHtmlTags, false,
                                     e.ScaleX * 96f / DrawUtils.ScreenDpi,
@@ -1326,7 +1324,7 @@ namespace FastReport
                                     }
                                 }
                                 else
-                                    StandardTextRenderer.Draw(text, g, font, textBrush, outlinePen, textRect, format, Angle,
+                                    StandardTextRenderer.Draw(text, g, gdiFont, textBrush, outlinePen, textRect, format, Angle,
                                         FontWidthRatio);
 
                             }
@@ -1529,7 +1527,7 @@ namespace FastReport
                                 {
                                     if (major < 2016)
                                     {
-                                        Font = new Font("Arial", 10);
+                                        Font = DrawUtils.CreateFont("Arial", 10);
                                     }
                                 }
                             }
@@ -1750,7 +1748,7 @@ namespace FastReport
                       (Width - Padding.Horizontal),
                       (Height - Padding.Vertical));
                     StringFormat format = GetStringFormat(Report.GraphicCache, StringFormatFlags.LineLimit);
-                    renderer = new AdvancedTextRenderer(Text, g, Font, Brushes.Black, Pens.Black,
+                    renderer = new AdvancedTextRenderer(Text, g, DrawUtils.ToSystemDrawingFont(Font), Brushes.Black, Pens.Black,
                         textRect, format, HorzAlign, VertAlign, LineHeight, Angle, FontWidthRatio,
                         ForceJustify, Wysiwyg, HasHtmlTags, false, 1, 1,
                         InlineImageCache);

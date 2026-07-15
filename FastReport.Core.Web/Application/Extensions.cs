@@ -1,10 +1,9 @@
 ﻿using FastReport.Table;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Text;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application
 {
     public static partial class Extensions
     {
@@ -28,7 +27,8 @@ namespace FastReport.Web
                 if (page != null)
                 {
                     ObjectCollection allObjects = page.AllObjects;
-                    var point = new System.Drawing.PointF(left + 1, top + 1);
+                    float pointX = left + 1;
+                    float pointY = top + 1;
                     foreach (Base obj in allObjects)
                     {
                         if (obj is ReportComponentBase)
@@ -44,11 +44,11 @@ namespace FastReport.Web
                                         TableCell textcell = table[j, i];
                                         if (textcell.Name == objectName)
                                         {
-                                            RectangleF rect = new RectangleF(table.Columns[j].AbsLeft,
-                                                table.Rows[i].AbsTop,
-                                                textcell.Width,
-                                                textcell.Height);
-                                            if (rect.Contains(point))
+                                            float rectLeft = table.Columns[j].AbsLeft;
+                                            float rectTop = table.Rows[i].AbsTop;
+                                            float rectRight = rectLeft + textcell.Width;
+                                            float rectBottom = rectTop + textcell.Height;
+                                            if (pointX >= rectLeft && pointX <= rectRight && pointY >= rectTop && pointY <= rectBottom)
                                             {
                                                 action(textcell as T, page, pageN);
                                                 found = true;
@@ -57,12 +57,11 @@ namespace FastReport.Web
                                         }
                                         else if (textcell.FindObject(objectName) is ReportComponentBase innerObj && innerObj is T)
                                         {
-                                            RectangleF rect =
-                                                new RectangleF(table.Columns[j].AbsLeft + innerObj.Left,
-                                                table.Rows[i].AbsTop + innerObj.Top,
-                                                innerObj.Width,
-                                                innerObj.Height);
-                                            if (rect.Contains(point))
+                                            float rectLeft = table.Columns[j].AbsLeft + innerObj.Left;
+                                            float rectTop = table.Rows[i].AbsTop + innerObj.Top;
+                                            float rectRight = rectLeft + innerObj.Width;
+                                            float rectBottom = rectTop + innerObj.Height;
+                                            if (pointX >= rectLeft && pointX <= rectRight && pointY >= rectTop && pointY <= rectBottom)
                                             {
                                                 action(innerObj as T, page, pageN);
                                                 found = true;
@@ -76,7 +75,9 @@ namespace FastReport.Web
                             }
                             else if (c is T)
                             {
-                                if (c.Name == objectName && c.AbsBounds.Contains(point))
+                                if (c.Name == objectName &&
+                                    pointX >= c.AbsBounds.Left && pointX <= c.AbsBounds.Right &&
+                                    pointY >= c.AbsBounds.Top && pointY <= c.AbsBounds.Bottom)
                                 {
                                     action(c as T, page, pageN);
                                     found = true;

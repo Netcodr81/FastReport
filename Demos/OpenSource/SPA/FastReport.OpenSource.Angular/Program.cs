@@ -1,6 +1,6 @@
 using MVC.Service;
 
-namespace Demo.SPA.Angular
+namespace FastReport.OpenSource.Angular
 {
     public class Program
     {

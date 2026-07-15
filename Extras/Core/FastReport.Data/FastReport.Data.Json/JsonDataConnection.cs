@@ -3,13 +3,12 @@ using System.Data;
 using System.ComponentModel;
 using System.Data.Common;
 using System.Net;
-using FastReport.Json;
 using Newtonsoft.Json;
 using System.Collections;
 using System.Text;
-using FastReport.JsonClassGenerator;
 using System.Threading;
 using System.Threading.Tasks;
+using FastReport.Data.JsonClassGenerator;
 
 namespace FastReport.Data
 {

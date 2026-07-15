@@ -6,6 +6,8 @@ using System;
 using System.Threading.Tasks;
 using System.Net.Mime;
 using System.Threading;
+using FastReport.Web.Services.Abstract;
+using FastReport.Web.Application;
 
 namespace FastReport.Web.Controllers
 {

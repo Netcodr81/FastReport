@@ -1,21 +1,17 @@
-using System;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
-using System.Drawing.Text;
-using System.Runtime.InteropServices;
 using SkiaSharp;
+using System;
+using System.Runtime.InteropServices;
 
 namespace FastReport
 {
     internal sealed class SkiaBackedGraphics : IGraphics
     {
-        private readonly Bitmap bitmapTarget;
+        private readonly SKBitmap bitmapTarget;
         private readonly SKBitmap skBitmap;
         private readonly SKCanvas canvas;
         private bool disposed;
 
-        private SkiaBackedGraphics(Bitmap bitmap)
+        private SkiaBackedGraphics(SKBitmap bitmap)
         {
             bitmapTarget = bitmap ?? throw new ArgumentNullException(nameof(bitmap));
             skBitmap = new SKBitmap(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
@@ -23,21 +19,21 @@ namespace FastReport
             ReloadFromBitmap();
         }
 
-        internal static IGraphics FromImage(Image image)
+        internal static IGraphics FromImage(SKImage image)
         {
             if (image == null)
                 throw new ArgumentNullException(nameof(image));
 
-            if (image is Bitmap bitmap)
+            if (image is SKBitmap bitmap)
                 return new SkiaBackedGraphics(bitmap);
 
-            var target = new Bitmap(image.Width, image.Height, PixelFormat.Format32bppPArgb);
+            var target = new SKBitmap(image.Width, image.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
             var graphics = new SkiaBackedGraphics(target);
             graphics.DrawImage(new ImagePaint(image), 0, 0);
             return graphics;
         }
 
-        public Graphics Graphics => null;
+        public SKCanvas Graphics => null;
         public float DpiY => bitmapTarget.VerticalResolution;
         public TextRenderingHint TextRenderingHint { get; set; } = TextRenderingHint.AntiAlias;
         public InterpolationMode InterpolationMode { get; set; } = InterpolationMode.HighQualityBicubic;
@@ -551,12 +547,12 @@ namespace FastReport
             canvas.ClipPath(skPath, SKClipOperation.Intersect, true);
         }
 
-        public void Clear(Color color)
+        public void Clear(SKColor color)
         {
-            canvas.Clear(ToSKColor(color));
+            canvas.Clear(color);
         }
 
-        public bool TryGetNativeGraphics(out Graphics graphics)
+        public bool TryGetNativeGraphics(out SKCanvas graphics)
         {
             graphics = null;
             return false;

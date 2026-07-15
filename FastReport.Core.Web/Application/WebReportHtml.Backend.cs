@@ -10,7 +10,8 @@ using System.Linq;
 using System.Globalization;
 using FastReport.Web.Services;
 using FastReport.Export.Html;
-using FastReport.Web.Infrastructure;
+using FastReport.Web.Application;
+using FastReport.Web.Application.Infrastructure;
 
 namespace FastReport.Web
 {
@@ -318,7 +319,8 @@ namespace FastReport.Web
                     if (page != null)
                     {
                         ObjectCollection allObjects = page.AllObjects;
-                        System.Drawing.PointF point = new System.Drawing.PointF(left + 1, top + 1);
+                        float pointX = left + 1;
+                        float pointY = top + 1;
                         foreach (Base obj in allObjects)
                         {
                             if (obj is ReportComponentBase)
@@ -334,12 +336,11 @@ namespace FastReport.Web
                                             TableCell textcell = table[j, i];
                                             if (textcell.Name == objectName)
                                             {
-                                                System.Drawing.RectangleF rect =
-                                                    new System.Drawing.RectangleF(table.Columns[j].AbsLeft,
-                                                    table.Rows[i].AbsTop,
-                                                    textcell.Width,
-                                                    textcell.Height);
-                                                if (rect.Contains(point))
+                                                float rectLeft = table.Columns[j].AbsLeft;
+                                                float rectTop = table.Rows[i].AbsTop;
+                                                float rectRight = rectLeft + textcell.Width;
+                                                float rectBottom = rectTop + textcell.Height;
+                                                if (pointX >= rectLeft && pointX <= rectRight && pointY >= rectTop && pointY <= rectBottom)
                                                 {
                                                     Click(textcell, page, pageN);
                                                     found = true;
@@ -348,12 +349,11 @@ namespace FastReport.Web
                                             }
                                             else if (textcell.FindObject(objectName) is ReportComponentBase innerObj)
                                             {
-                                                System.Drawing.RectangleF rect =
-                                                    new System.Drawing.RectangleF(table.Columns[j].AbsLeft + innerObj.Left,
-                                                    table.Rows[i].AbsTop + innerObj.Top,
-                                                    innerObj.Width,
-                                                    innerObj.Height);
-                                                if (rect.Contains(point))
+                                                float rectLeft = table.Columns[j].AbsLeft + innerObj.Left;
+                                                float rectTop = table.Rows[i].AbsTop + innerObj.Top;
+                                                float rectRight = rectLeft + innerObj.Width;
+                                                float rectBottom = rectTop + innerObj.Height;
+                                                if (pointX >= rectLeft && pointX <= rectRight && pointY >= rectTop && pointY <= rectBottom)
                                                 {
                                                     Click(innerObj, page, pageN);
                                                     found = true;
@@ -368,7 +368,8 @@ namespace FastReport.Web
                                 else
                                 if (c.Name == objectName &&
                                   //#if FRCORE
-                                  c.AbsBounds.Contains(point))
+                                  pointX >= c.AbsBounds.Left && pointX <= c.AbsBounds.Right &&
+                                  pointY >= c.AbsBounds.Top && pointY <= c.AbsBounds.Bottom)
                                 //#else
                                 //                                  c.PointInObject(point))
                                 //#endif

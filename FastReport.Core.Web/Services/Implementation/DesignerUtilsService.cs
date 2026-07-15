@@ -1,4 +1,10 @@
-﻿using System;
+﻿using FastReport.Export.Html;
+using FastReport.Utils;
+using FastReport.Utils.Json;
+using FastReport.Web.Application;
+using FastReport.Web.Services.Abstract;
+using FastReport.Web.Services.Helpers;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -6,13 +12,8 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
-using FastReport.Export.Html;
-using FastReport.Utils;
-using FastReport.Utils.Json;
-using FastReport.Web.Infrastructure;
-using FastReport.Web.Services.Helpers;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Implementation
 {
     internal sealed class DesignerUtilsService : IDesignerUtilsService
     {

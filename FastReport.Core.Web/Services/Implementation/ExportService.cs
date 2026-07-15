@@ -1,12 +1,13 @@
-﻿using System;
+﻿using FastReport.Web.Application;
+using FastReport.Web.Services.Abstract;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using FastReport.Web.Infrastructure;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Implementation
 {
     internal sealed class ExportService : IExportsService
     {

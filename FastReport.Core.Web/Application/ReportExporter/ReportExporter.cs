@@ -1,4 +1,6 @@
 ﻿using FastReport.Export;
+using FastReport.Web.Application;
+using FastReport.Web.Application.ReportExporter.Strategies;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -6,7 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application.ReportExporter
 {
     internal sealed class ReportExporter
     {

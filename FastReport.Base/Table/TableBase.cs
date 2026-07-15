@@ -652,7 +652,7 @@ namespace FastReport.Table
                     if (String.IsNullOrEmpty(cell.Name))
                     {
                         nameCreator.CreateUniqueName(cell);
-                        cell.Font = DrawUtils.DefaultReportFont;
+                        cell.Font = DrawUtils.ToSystemDrawingFont(DrawUtils.DefaultReportFont);
                     }
                     if (cell.Objects != null)
                     {

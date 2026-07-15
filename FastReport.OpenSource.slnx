@@ -63,9 +63,6 @@
       <BuildType Solution="Academic|*" Project="Debug" />
     </Project>
   </Folder>
-  <Project Path="FastReport.Compat/FastReport.Compat/FastReport.Compat.csproj">
-    <BuildType Solution="Academic|*" Project="Debug" />
-  </Project>
   <Project Path="FastReport.Core.Web/FastReport.OpenSource.Web.csproj">
     <BuildType Solution="Academic|*" Project="Debug" />
   </Project>

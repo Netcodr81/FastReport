@@ -1,5 +1,5 @@
 ﻿using FastReport.Utils;
-using System.Drawing;
+using SkiaSharp;
 
 namespace FastReport
 {
@@ -7,7 +7,7 @@ namespace FastReport
     {
         #region Private Methods
 
-        private Font GetDefaultFontInternal()
+        private SKFont GetDefaultFontInternal()
         {
             return DrawUtils.DefaultFont;
         }

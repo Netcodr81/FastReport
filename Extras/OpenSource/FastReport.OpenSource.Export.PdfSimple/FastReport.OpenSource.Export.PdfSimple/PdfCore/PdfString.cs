@@ -1,9 +1,9 @@
-﻿using FastReport.Export.PdfSimple.PdfObjects;
+﻿using FastReport.OpenSource.Export.PdfSimple.PdfObjects;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace FastReport.Export.PdfSimple.PdfCore
+namespace FastReport.OpenSource.Export.PdfSimple.PdfCore
 {
     /// <summary>
     /// The string object of pdf

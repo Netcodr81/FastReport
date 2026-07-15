@@ -1,15 +1,12 @@
-﻿using System;
+﻿using FastReport.Web.Application;
+using SkiaSharp;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Linq;
-using FastReport.Web.Application;
-using System.Drawing;
-using System.ComponentModel;
-#if !WASM
-using FastReport.Web.Cache;
-#endif
 
 namespace FastReport.Web
 {
@@ -30,7 +27,7 @@ namespace FastReport.Web
         internal Dialog Dialog { get; }
 #endif
 
-#region Public Properties
+        #region Public Properties
 
         /// <summary>
         /// Unique ID of this instance.
@@ -54,7 +51,7 @@ namespace FastReport.Web
         /// </summary>
         public Report Report
         {
-            get => Tabs[CurrentTabIndex].Report; 
+            get => Tabs[CurrentTabIndex].Report;
             set => Tabs[CurrentTabIndex].Report = value;
         }
 
@@ -129,7 +126,7 @@ namespace FastReport.Web
         /// <summary>
         /// Toolbar settings
         /// </summary>
-        public ToolbarSettings Toolbar { get; set; } = ToolbarSettings.Default; 
+        public ToolbarSettings Toolbar { get; set; } = ToolbarSettings.Default;
 
 
         [Obsolete("Please, use Toolbar.Show")]
@@ -177,7 +174,7 @@ namespace FastReport.Web
 
         [Obsolete("Please, use Toolbar.Color")]
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public Color ToolbarColor { get => Toolbar.Color; set => Toolbar.Color = value; }
+        public SKColor ToolbarColor { get => Toolbar.Color; set => Toolbar.Color = value; }
 
         /// <summary>
         /// Toolbar height in pixels
@@ -203,9 +200,9 @@ namespace FastReport.Web
         /// </summary>
         public bool Outline { get; set; } = true;
 
-#endregion
+        #endregion
 
-#region Non-public
+        #region Non-public
 
         internal readonly Dictionary<string, byte[]> PictureCache = new Dictionary<string, byte[]>();
 
@@ -231,7 +228,7 @@ namespace FastReport.Web
             --multi-page-margin: {(EnableMultiPagePreview ? "10px" : "")};
             --page-border: {(!EnableMultiPagePreview || !SinglePage ? "0px 2px 4px rgba(0, 0, 0, 0.25)" : "none")};
             --user-font: {Toolbar.UserFontSettings};
-            --toolbar-color: {ColorTranslator.ToHtml(Toolbar.Color)};
+            --toolbar-color: {ToCssColor(Toolbar.Color)};
             --toolbar-direction: {Toolbar.RowOrColumn};
             --toolbar-position: {Toolbar.TopOrBottom} ;
             --toolbar-content-align: {Toolbar.Content};
@@ -240,16 +237,16 @@ namespace FastReport.Web
             --toolbar-icon-color: {Toolbar.ColorIcon};
             --searchform-margin-left: {Toolbar.SearchFormLeft};
             --searchform-margin-top: {Toolbar.SearchFormTop};
-            --search-highlight-color: {ColorTranslator.ToHtml(Toolbar.SearchHighlight)};
-            --toolbar-dropdownmenu-color: {ColorTranslator.ToHtml(Toolbar.DropDownMenuColor)};
-            --toolbar-dropdownmenu-text-color: {ColorTranslator.ToHtml(Toolbar.DropDownMenuTextColor)};
+            --search-highlight-color: {ToCssColor(Toolbar.SearchHighlight)};
+            --toolbar-dropdownmenu-color: {ToCssColor(Toolbar.DropDownMenuColor)};
+            --toolbar-dropdownmenu-text-color: {ToCssColor(Toolbar.DropDownMenuTextColor)};
             --toolbar-dropdownlist-border: {Toolbar.DropDownListBorder};
             --modal-container-position: {Toolbar.ModalContainerPosition};
             --toolbar-user-font-style: {Toolbar.Exports.UserFontSettingsStyle};
             --toolbar-user-font-family: {Toolbar.Exports.UserFontSettingsFamily};
-            --exports-button-color: {ColorTranslator.ToHtml(Toolbar.Exports.Color)};
+            --exports-button-color: {ToCssColor(Toolbar.Exports.Color)};
             --select-arrow-icon: #ffffff url(../Resources/select-arrow.svg) no-repeat;
-            --exports-font-color: {ColorTranslator.ToHtml(Toolbar.Exports.FontColor)};
+            --exports-font-color: {ToCssColor(Toolbar.Exports.FontColor)};
             --toolbar-narrow: {Toolbar.ToolbarNarrow};
             --button-active-icon: url(../Resources/button-active.svg) no-repeat;
             --report-max-width: {ReportMaxWidth}px;
@@ -262,6 +259,11 @@ namespace FastReport.Web
             {Toolbar.StickyToolbarTags}
             {Toolbar.DropDownMenuPosition}
             ";
+        }
+
+        private static string ToCssColor(SKColor color)
+        {
+            return $"#{color.Red:X2}{color.Green:X2}{color.Blue:X2}";
         }
 
         #endregion
@@ -310,7 +312,7 @@ namespace FastReport.Web
             //}
             PictureCache.Clear();
 
-            foreach(var tab in Tabs)
+            foreach (var tab in Tabs)
             {
                 tab.Report.Dispose();
             }
@@ -326,7 +328,7 @@ namespace FastReport.Web
         // void ReportLoad()
         // void RegisterData()
 
-#region Navigation
+        #region Navigation
 
         /// <summary>
         /// Force go to next report page
@@ -416,7 +418,7 @@ namespace FastReport.Web
 
             if (SplitReportPagesInTabs && Tabs.Count > 1)
             {
-                for(int i = 0; i < Tabs.Count; i++)
+                for (int i = 0; i < Tabs.Count; i++)
                 {
                     // can be better
                     if (Tabs[i].MinPageIndex <= value)
@@ -471,12 +473,12 @@ namespace FastReport.Web
             return false;
         }
 #endif
-#endregion
+        #endregion
 
         #region Script Security
 
         private static ScriptSecurity ScriptSecurity = null;
 
-#endregion
+        #endregion
     }
 }

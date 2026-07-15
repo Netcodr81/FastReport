@@ -1,4 +1,4 @@
-﻿namespace FastReport.Web
+﻿namespace FastReport.Web.Services
 {
     /// <summary>
     /// SMTP server options for sending the report by mail

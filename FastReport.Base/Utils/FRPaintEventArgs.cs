@@ -1,5 +1,6 @@
+using SkiaSharp;
 using System;
-using System.Drawing;
+
 
 namespace FastReport.Utils
 {
@@ -13,16 +14,16 @@ namespace FastReport.Utils
         private readonly float scaleY;
         private readonly GraphicCache cache;
 
-        public static Func<Graphics, IGraphics> GraphicsAdapterFactory { get; set; } = _ => throw new PlatformNotSupportedException("System.Drawing-based Graphics adapter has been removed. Use image-based Skia adapters.");
-        public static Func<Image, IGraphics> ImageAdapterFactory { get; set; } = image => SkiaBackedGraphics.FromImage(image);
+        public static Func<SKCanvas, IGraphics> GraphicsAdapterFactory { get; set; } = _ => throw new PlatformNotSupportedException("System.Drawing-based Graphics adapter has been removed. Use image-based Skia adapters.");
+        public static Func<SKImage, IGraphics> ImageAdapterFactory { get; set; } = image => SkiaBackedGraphics.FromImage(image);
         public static Func<IntPtr, IGraphics> WindowGraphicsAdapterFactory { get; set; } = _ => throw new PlatformNotSupportedException("Window handle graphics adapter is not supported in Skia-only mode.");
 
-        public static IGraphics CreateGraphics(Graphics graphics)
+        public static IGraphics CreateGraphics(SKCanvas graphics)
         {
             return GraphicsAdapterFactory(graphics);
         }
 
-        public static IGraphics CreateGraphics(Image image)
+        public static IGraphics CreateGraphics(SKImage image)
         {
             return ImageAdapterFactory(image);
         }
@@ -32,7 +33,7 @@ namespace FastReport.Utils
             return WindowGraphicsAdapterFactory(hwnd);
         }
 
-        public static bool TryGetNativeGraphics(IGraphics graphics, out Graphics nativeGraphics)
+        public static bool TryGetNativeGraphics(IGraphics graphics, out SKCanvas nativeGraphics)
         {
             if (graphics != null)
                 return graphics.TryGetNativeGraphics(out nativeGraphics);
@@ -95,7 +96,7 @@ namespace FastReport.Utils
         /// <param name="scaleX">X scale factor.</param>
         /// <param name="scaleY">Y scale factor.</param>
         /// <param name="cache">Cache that contains graphics objects.</param>
-        public FRPaintEventArgs(Graphics g, float scaleX, float scaleY, GraphicCache cache) :
+        public FRPaintEventArgs(SKCanvas g, float scaleX, float scaleY, GraphicCache cache) :
             this(CreateGraphics(g), scaleX, scaleY, cache)
         {
         }

@@ -1,6 +1,5 @@
-﻿using FastReport.Web.Infrastructure;
-using FastReport.Web.Services;
-
+﻿
+using FastReport.Web.Services.Abstract;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 

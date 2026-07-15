@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Drawing;
+using SkiaSharp;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application
 {
     public class ExportMenuSettings
     {
@@ -18,15 +18,15 @@ namespace FastReport.Web
         /// <summary>
         /// Used to change font family, style in export settings.
         /// </summary>
-        public Font FontSettings { get; set; } = null;
+        public SKFont FontSettings { get; set; } = null;
         /// <summary>
         /// Used to change font color in export settings.
         /// </summary>
-        public Color FontColor { get; set; } = Color.White;
+        public SKColor FontColor { get; set; } = SKColors.White;
         /// <summary>
         /// Used to change window, buttons color in export settings.
         /// </summary>
-        public Color Color { get; set; } = Color.Maroon;
+        public SKColor Color { get; set; } = SKColors.Maroon;
 
         /// <summary>
         /// Used to on/off export settings.
@@ -51,7 +51,7 @@ namespace FastReport.Web
             {
                 if (FontSettings != null)
                 {
-                    return  FontSettings.Style + " ";
+                    return GetFontStyle(FontSettings) + " ";
                 }
                 else
                     return "";
@@ -66,7 +66,7 @@ namespace FastReport.Web
 
         internal string FixedContainerTags
         {
-            get => PinnedSettingsPosition ? 
+            get => PinnedSettingsPosition ?
                 "--fixed-container-position: fixed; --fixed-container-top: 50%; --fixed-container-left: 50%; --fixed-container-transform: translate(-50%, -50%);" : "";
         }
 
@@ -76,12 +76,23 @@ namespace FastReport.Web
             {
                 if (FontSettings != null)
                 {
-                    return " " + FontSettings.OriginalFontName;
+                    return " " + (FontSettings.Typeface?.FamilyName ?? "Verdana,Arial");
                 }
                 else
                     return "Verdana,Arial";
-              
+
             }
+        }
+
+        private static string GetFontStyle(SKFont font)
+        {
+            if (font?.Typeface == null)
+                return "normal";
+
+            var style = font.Typeface.FontStyle;
+            string slant = style.Slant == SKFontStyleSlant.Italic || style.Slant == SKFontStyleSlant.Oblique ? "italic" : "normal";
+            string weight = style.Weight >= (int)SKFontStyleWeight.SemiBold ? "bold" : "normal";
+            return $"{slant} {weight}";
         }
 
         /// <summary>
@@ -103,7 +114,7 @@ namespace FastReport.Web
 
         };
 
-      
+
         /// <summary>
         /// Switch a visibility of prepared report export in toolbar
         /// </summary>

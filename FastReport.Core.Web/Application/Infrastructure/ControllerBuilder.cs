@@ -17,7 +17,7 @@ using Microsoft.Extensions.Logging;
 using System.IO;
 using System.Text.Json;
 
-namespace FastReport.Web.Infrastructure
+namespace FastReport.Web.Application.Infrastructure
 {
     internal static partial class ControllerBuilder
     {

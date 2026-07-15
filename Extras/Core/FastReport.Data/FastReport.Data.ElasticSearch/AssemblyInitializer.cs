@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using FastReport.Utils;
 
-namespace FastReport.Data.ElasticSearch
+namespace FastReport.Data
 {
     public class ElasticSearchAssemblyInitializer : AssemblyInitializerBase
     {

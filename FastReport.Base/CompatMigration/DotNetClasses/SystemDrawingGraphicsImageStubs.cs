@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
+using SkiaSharp;
 
 namespace System.Drawing
 {
@@ -20,11 +22,39 @@ namespace System.Drawing
         public virtual Imaging.PixelFormat PixelFormat => Imaging.PixelFormat.Format32bppArgb;
         public virtual Imaging.ImageFormat RawFormat { get; protected set; } = Imaging.ImageFormat.Png;
 
-        public static Image FromStream(Stream stream) => new Bitmap(1, 1);
-        public static Image FromFile(string fileName) => new Bitmap(1, 1);
+        public static Image FromStream(Stream stream)
+        {
+            if (stream == null)
+                return new Bitmap(1, 1);
+
+            using var managed = new MemoryStream();
+            stream.CopyTo(managed);
+            managed.Position = 0;
+
+            using var decoded = SKBitmap.Decode(managed);
+            if (decoded == null)
+                return new Bitmap(1, 1);
+
+            var bitmap = new Bitmap(decoded.Width, decoded.Height, Imaging.PixelFormat.Format32bppPArgb);
+            bitmap.CopyFromSkia(decoded);
+            return bitmap;
+        }
+
+        public static Image FromFile(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName) || !File.Exists(fileName))
+                return new Bitmap(1, 1);
+
+            using var stream = File.OpenRead(fileName);
+            return FromStream(stream);
+        }
 
         public virtual void Save(Stream stream, Imaging.ImageFormat format) { }
-        public virtual void Save(string fileName, Imaging.ImageFormat format) { }
+        public virtual void Save(string fileName, Imaging.ImageFormat format)
+        {
+            using var stream = File.Create(fileName);
+            Save(stream, format);
+        }
         public virtual void Save(Stream stream, Imaging.ImageCodecInfo encoder, Imaging.EncoderParameters encoderParams) { }
         public virtual void SaveAdd(Image image, Imaging.EncoderParameters encoderParams) { }
         public virtual void SaveAdd(Imaging.EncoderParameters encoderParams) { }
@@ -35,16 +65,216 @@ namespace System.Drawing
 
     public class Bitmap : Image
     {
-        public Bitmap(int width, int height) { Width = width; Height = height; }
-        public Bitmap(int width, int height, Imaging.PixelFormat pixelFormat) : this(width, height) { }
-        public Bitmap(Image original) : this(original?.Width ?? 1, original?.Height ?? 1) { }
-        public Bitmap(Image original, Size newSize) : this(newSize.Width, newSize.Height) { }
-        public void SetResolution(float xDpi, float yDpi) { HorizontalResolution = xDpi; VerticalResolution = yDpi; }
-        public void MakeTransparent(Color transparentColor) { }
-        public Imaging.BitmapData LockBits(Rectangle rect, Imaging.ImageLockMode flags, Imaging.PixelFormat format) => new Imaging.BitmapData();
-        public void UnlockBits(Imaging.BitmapData bitmapdata) { }
-        public Color GetPixel(int x, int y) => Color.Empty;
-        public void SetPixel(int x, int y, Color color) { }
+        private byte[] pixels;
+        private GCHandle lockHandle;
+        private bool isLocked;
+
+        public Bitmap(int width, int height)
+            : this(width, height, Imaging.PixelFormat.Format32bppPArgb)
+        {
+        }
+
+        public Bitmap(int width, int height, Imaging.PixelFormat pixelFormat)
+        {
+            Width = Math.Max(1, width);
+            Height = Math.Max(1, height);
+            RawFormat = Imaging.ImageFormat.Png;
+            PixelFormat = pixelFormat;
+            pixels = new byte[GetStride() * Height];
+        }
+
+        public Bitmap(Image original)
+            : this(original?.Width ?? 1, original?.Height ?? 1)
+        {
+            if (original is Bitmap src)
+            {
+                src.EnsurePixels();
+                Buffer.BlockCopy(src.pixels, 0, pixels, 0, Math.Min(src.pixels.Length, pixels.Length));
+            }
+        }
+
+        public Bitmap(Image original, Size newSize)
+            : this(newSize.Width, newSize.Height)
+        {
+            if (original is Bitmap src)
+            {
+                using var srcSk = src.ToSkBitmap();
+                using var resized = srcSk.Resize(new SKImageInfo(Width, Height), SKSamplingOptions.Default);
+                if (resized != null)
+                    CopyFromSkia(resized);
+            }
+        }
+
+        public override Imaging.PixelFormat PixelFormat { get; }
+
+        public void SetResolution(float xDpi, float yDpi)
+        {
+            HorizontalResolution = xDpi;
+            VerticalResolution = yDpi;
+        }
+
+        public void MakeTransparent(Color transparentColor)
+        {
+        }
+
+        public Imaging.BitmapData LockBits(Rectangle rect, Imaging.ImageLockMode flags, Imaging.PixelFormat format)
+        {
+            EnsurePixels();
+            ReleaseLock();
+
+            lockHandle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+            isLocked = true;
+
+            return new Imaging.BitmapData
+            {
+                Scan0 = lockHandle.AddrOfPinnedObject(),
+                Stride = GetStride(),
+                Height = Height
+            };
+        }
+
+        public void UnlockBits(Imaging.BitmapData bitmapdata)
+        {
+            ReleaseLock();
+        }
+
+        public Color GetPixel(int x, int y)
+        {
+            EnsurePixels();
+            x = Math.Clamp(x, 0, Width - 1);
+            y = Math.Clamp(y, 0, Height - 1);
+
+            int index = (y * GetStride()) + (x * 4);
+            byte b = pixels[index + 0];
+            byte g = pixels[index + 1];
+            byte r = pixels[index + 2];
+            byte a = pixels[index + 3];
+            return Color.FromArgb(a, r, g, b);
+        }
+
+        public void SetPixel(int x, int y, Color color)
+        {
+            EnsurePixels();
+            if (x < 0 || y < 0 || x >= Width || y >= Height)
+                return;
+
+            int index = (y * GetStride()) + (x * 4);
+            pixels[index + 0] = color.B;
+            pixels[index + 1] = color.G;
+            pixels[index + 2] = color.R;
+            pixels[index + 3] = color.A;
+        }
+
+        public override void Save(Stream stream, Imaging.ImageFormat format)
+        {
+            EnsurePixels();
+
+            using var skBitmap = ToSkBitmap();
+            var skFormat = ToSkEncodedFormat(format);
+            using var image = SKImage.FromBitmap(skBitmap);
+            using var data = image.Encode(skFormat, 100);
+            if (data != null)
+                data.SaveTo(stream);
+        }
+
+        public override void Save(Stream stream, Imaging.ImageCodecInfo encoder, Imaging.EncoderParameters encoderParams)
+        {
+            Save(stream, RawFormat);
+        }
+
+        public override void Save(string fileName, Imaging.ImageFormat format)
+        {
+            using var fs = File.Create(fileName);
+            Save(fs, format);
+        }
+
+        public override object Clone()
+        {
+            var clone = new Bitmap(Width, Height, PixelFormat)
+            {
+                HorizontalResolution = HorizontalResolution,
+                VerticalResolution = VerticalResolution,
+                RawFormat = RawFormat
+            };
+
+            EnsurePixels();
+            Buffer.BlockCopy(pixels, 0, clone.pixels, 0, pixels.Length);
+            return clone;
+        }
+
+        public override void Dispose()
+        {
+            ReleaseLock();
+            pixels = Array.Empty<byte>();
+        }
+
+        internal void CopyFromSkia(SKBitmap source)
+        {
+            EnsurePixels();
+            if (source == null)
+                return;
+
+            int width = Math.Min(Width, source.Width);
+            int height = Math.Min(Height, source.Height);
+            int dstStride = GetStride();
+
+            using var pixmap = source.PeekPixels();
+            if (pixmap == null)
+                return;
+
+            int srcStride = pixmap.RowBytes;
+            int copyBytes = Math.Min(width * 4, Math.Min(srcStride, dstStride));
+
+            unsafe
+            {
+                byte* srcBase = (byte*)pixmap.GetPixels().ToPointer();
+                for (int y = 0; y < height; y++)
+                {
+                    Marshal.Copy((IntPtr)(srcBase + (y * srcStride)), pixels, y * dstStride, copyBytes);
+                }
+            }
+        }
+
+        private SKBitmap ToSkBitmap()
+        {
+            EnsurePixels();
+            var skBitmap = new SKBitmap(Width, Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            IntPtr dst = skBitmap.GetPixels();
+            if (dst == IntPtr.Zero)
+                return skBitmap;
+
+            Marshal.Copy(pixels, 0, dst, pixels.Length);
+            return skBitmap;
+        }
+
+        private int GetStride() => Width * 4;
+
+        private void EnsurePixels()
+        {
+            int required = GetStride() * Height;
+            if (pixels == null || pixels.Length != required)
+                pixels = new byte[required];
+        }
+
+        private void ReleaseLock()
+        {
+            if (isLocked)
+            {
+                lockHandle.Free();
+                isLocked = false;
+            }
+        }
+
+        private static SKEncodedImageFormat ToSkEncodedFormat(Imaging.ImageFormat format)
+        {
+            if (format == Imaging.ImageFormat.Jpeg)
+                return SKEncodedImageFormat.Jpeg;
+            if (format == Imaging.ImageFormat.Gif)
+                return SKEncodedImageFormat.Gif;
+            if (format == Imaging.ImageFormat.Bmp)
+                return SKEncodedImageFormat.Bmp;
+            return SKEncodedImageFormat.Png;
+        }
     }
 
     public sealed class Metafile : Image

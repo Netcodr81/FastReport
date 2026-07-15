@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Abstract
 {
     /// <summary>
     /// Interface for interacting with reports. Allows you to design and save WebReport

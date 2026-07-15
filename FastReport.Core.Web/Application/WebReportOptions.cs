@@ -1,5 +1,7 @@
 ﻿#if !WASM
-using FastReport.Web.Cache;
+using FastReport.Web.Application.Cache;
+using FastReport.Web.Services;
+
 #endif
 
 using System;
@@ -7,7 +9,7 @@ using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Net.Http;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application
 {
     public sealed class WebReportOptions
     {

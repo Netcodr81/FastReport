@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using Newtonsoft.Json.Linq;
 
-namespace FastReport.JsonClassGenerator
+namespace FastReport.Data.JsonClassGenerator
 {
     internal static class JsonClassHelper
     {

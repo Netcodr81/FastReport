@@ -8,7 +8,7 @@ using System.Text;
 using Newtonsoft.Json.Linq;
 using System.Globalization;
 
-namespace FastReport.JsonClassGenerator
+namespace FastReport.Data.JsonClassGenerator
 {
     public class JsonType
     {

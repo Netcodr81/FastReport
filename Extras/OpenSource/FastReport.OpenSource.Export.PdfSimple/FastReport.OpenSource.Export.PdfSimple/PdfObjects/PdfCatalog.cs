@@ -1,6 +1,6 @@
-﻿using FastReport.Export.PdfSimple.PdfCore;
+﻿using FastReport.OpenSource.Export.PdfSimple.PdfCore;
 
-namespace FastReport.Export.PdfSimple.PdfObjects
+namespace FastReport.OpenSource.Export.PdfSimple.PdfObjects
 {
     /// <summary>
     /// The catalog element for the pdf document

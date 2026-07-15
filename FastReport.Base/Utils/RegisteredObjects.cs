@@ -1249,19 +1249,19 @@ namespace FastReport.Utils
             if (info is SystemVariable)
             {
                 descr.Append("<b>").Append((info as SystemVariable).Name).Append("</b>")
-                    .Append("<br/><br/>").Append(Editor.Syntax.Parsers.ReflectionRepository.DescriptionHelper.GetDescription(info.GetType()));
+                    .Append("<br/><br/>").Append(DescriptionHelper.GetDescription(info.GetType()));
             }
             else if (info is MethodInfo)
             {
                 descr.Append(report.CodeHelper.GetMethodSignature(info as MethodInfo, true))
-                    .Append("<br/><br/>").Append(Editor.Syntax.Parsers.ReflectionRepository.DescriptionHelper.GetDescription(info as MethodInfo));
+                    .Append("<br/><br/>").Append(DescriptionHelper.GetDescription(info as MethodInfo));
 
                 foreach (ParameterInfo parInfo in (info as MethodInfo).GetParameters())
                 {
                     // special case - skip "thisReport" parameter
                     if (parInfo.Name == "thisReport")
                         continue;
-                    descr.Append("<br/><br/>").Append(Editor.Syntax.Parsers.ReflectionRepository.DescriptionHelper.GetDescription(parInfo));
+                    descr.Append("<br/><br/>").Append(DescriptionHelper.GetDescription(parInfo));
                 }
             }
 

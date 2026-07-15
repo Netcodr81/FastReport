@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace FastReport.Web.Toolbar
+namespace FastReport.Web.Application.Toolbar
 {
     /// <summary>
     /// Element that opens a drop-down list when you hover over it
@@ -46,8 +46,8 @@ namespace FastReport.Web.Toolbar
     /// </summary> 
     public class ToolbarSelectItem
     {
-        public ToolbarSelectItem() 
-        { 
+        public ToolbarSelectItem()
+        {
             Name = ID.ToString();
         }
 

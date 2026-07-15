@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Abstract
 {
     /// <summary>
     /// The interface may change over time

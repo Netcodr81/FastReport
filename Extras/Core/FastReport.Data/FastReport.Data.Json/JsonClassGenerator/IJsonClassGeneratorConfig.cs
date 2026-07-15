@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace FastReport.JsonClassGenerator
+namespace FastReport.Data.JsonClassGenerator
 {
     public interface IJsonClassGeneratorConfig
     {

@@ -1,6 +1,6 @@
-﻿using FastReport.Export.PdfSimple.PdfObjects;
+﻿using FastReport.OpenSource.Export.PdfSimple.PdfObjects;
 
-namespace FastReport.Export.PdfSimple.PdfCore
+namespace FastReport.OpenSource.Export.PdfSimple.PdfCore
 {
     /// <summary>
     /// The inderect object for pdf like "12 0 R"

@@ -2,6 +2,9 @@
 using System.IO;
 using System.Text;
 using System.Collections.Generic;
+using FastReport.Web.Application;
+using FastReport.Web.Application.ReportExporter.Strategies;
+using FastReport.Web.Application.ReportExporter;
 
 #if !OPENSOURCE
 using FastReport.AdvMatrix;

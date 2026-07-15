@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Abstract
 {
     /// <summary>
     /// Interface for working with connections. Allows to get connection string properties, connected tables, connection types and create a connection string.

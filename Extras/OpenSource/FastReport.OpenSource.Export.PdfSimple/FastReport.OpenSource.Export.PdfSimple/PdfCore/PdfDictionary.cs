@@ -1,8 +1,8 @@
-﻿using FastReport.Export.PdfSimple.PdfObjects;
+﻿using FastReport.OpenSource.Export.PdfSimple.PdfObjects;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace FastReport.Export.PdfSimple.PdfCore
+namespace FastReport.OpenSource.Export.PdfSimple.PdfCore
 {
     /// <summary>
     /// The dictionary object of pdf

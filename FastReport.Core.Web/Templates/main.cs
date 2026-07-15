@@ -1,5 +1,6 @@
 ﻿using System;
-using FastReport.Web.Infrastructure;
+using FastReport.Web.Application;
+using FastReport.Web.Application.Infrastructure;
 
 namespace FastReport.Web
 {

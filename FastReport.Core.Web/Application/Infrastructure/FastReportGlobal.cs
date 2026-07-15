@@ -1,11 +1,9 @@
-﻿#if !WASM
-using FastReport.Web.Cache;
-
+﻿using FastReport.Web.Services;
 using Microsoft.AspNetCore.Hosting;
 using System;
 using System.Collections.Generic;
 
-namespace FastReport.Web.Infrastructure
+namespace FastReport.Web.Application.Infrastructure
 {
     internal static class FastReportGlobal
     {
@@ -18,4 +16,3 @@ namespace FastReport.Web.Infrastructure
 
     }
 }
-#endif

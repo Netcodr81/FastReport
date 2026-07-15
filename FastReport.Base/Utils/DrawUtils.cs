@@ -1,5 +1,6 @@
+using SkiaSharp;
 using System;
-using System.Drawing;
+
 using System.Linq;
 
 namespace FastReport.Utils
@@ -16,10 +17,10 @@ namespace FastReport.Utils
     /// </summary>
     public static partial class DrawUtils
     {
-        private static Font FDefaultFont;
-        private static Font FDefaultReportFont;
-        private static Font FDefaultTextObjectFont;
-        private static Font FFixedFont;
+        private static SKFont FDefaultFont;
+        private static SKFont FDefaultReportFont;
+        private static SKFont FDefaultTextObjectFont;
+        private static SKFont FFixedFont;
         private static int FScreenDpi;
         private static float FDpiFX;
         private static MonoRendering FMonoRendering = MonoRendering.Undefined;
@@ -52,15 +53,13 @@ namespace FastReport.Utils
 
         private static int GetDpi()
         {
-            using (Bitmap bmp = new Bitmap(1, 1))
-            using (Graphics g = Graphics.FromImage(bmp))
-            {
-                return (int)g.DpiX;
-            }
+            // SkiaSharp canvas does not expose monitor DPI directly.
+            // Keep the conventional logical DPI used across .NET UI stacks.
+            return 96;
         }
 
         private static float _uiScale = 1;
-        
+
         /// <summary>
         /// Gets or sets a value that determines additional scale factor applied to FR forms.
         /// Used if you change the <see cref="DefaultFont"/> property.
@@ -71,9 +70,7 @@ namespace FastReport.Utils
             set
             {
                 _uiScale = Math.Min(Math.Max(1f, value), 1.5f); // valid range is 1..1,5
-#if (WPF || AVALONIA)
-                System.Windows.Forms.SWFGlobals.UIScale = _uiScale;
-#endif
+
             }
         }
 
@@ -84,26 +81,13 @@ namespace FastReport.Utils
         /// FR UI is optimized for "Tahoma 8.25pt" metrics. If you use larger font, set <see cref="UIScale"/>
         /// property to scale forms.
         /// </remarks>
-        public static Font DefaultFont
+        public static SKFont DefaultFont
         {
             get
             {
                 if (FDefaultFont == null)
                 {
-#if AVALONIA
-                    if (OperatingSystem.IsWindows())
-                    {
-                        FDefaultFont = new Font("Segoe UI", 8.5f);
-                    }
-                    else if (OperatingSystem.IsMacOS())
-                    {
-                        FDefaultFont = new Font("Helvetica Neue", 8.5f);
-                    }
-                    else if (OperatingSystem.IsLinux())
-                    {
-                        FDefaultFont = new Font("Liberation Sans", 8.5f);
-                    }
-#else
+
                     switch (System.Globalization.CultureInfo.CurrentCulture.TwoLetterISOLanguageName)
                     {
                         case "ja":
@@ -115,14 +99,10 @@ namespace FastReport.Utils
                             break;
 
                         default:
-#if WPF
                             FDefaultFont = CreateFont("Segoe UI", 8.5f);
-#else
-                            FDefaultFont = CreateFont("Tahoma", 8.25f);
-#endif
                             break;
                     }
-#endif
+
                 }
                 return FDefaultFont;
             }
@@ -130,12 +110,9 @@ namespace FastReport.Utils
             {
                 if (value == null)
                     throw new ArgumentNullException("value");
-                
+
                 FDefaultFont = value;
-#if (WPF || AVALONIA)
-                System.Windows.Forms.SWFGlobals.DefaultFontName = value.Name;
-                System.Windows.Forms.SWFGlobals.DefaultFontSize = value.Size;
-#endif
+
             }
         }
 
@@ -145,7 +122,7 @@ namespace FastReport.Utils
         /// <remarks>
         /// On most locales this is Arial,10. ja,zh locales use different fonts (MS UI Gothic,9 and SimSun,9).
         /// </remarks>
-        public static Font DefaultReportFont
+        public static SKFont DefaultReportFont
         {
             get
             {
@@ -173,7 +150,7 @@ namespace FastReport.Utils
         /// <summary>
         /// Gets the default text object's font (Arial, 10). 
         /// </summary>
-        public static Font DefaultTextObjectFont
+        public static SKFont DefaultTextObjectFont
         {
             get
             {
@@ -186,7 +163,7 @@ namespace FastReport.Utils
         /// <summary>
         /// Gets default fixed font.
         /// </summary>
-        public static Font FixedFont
+        public static SKFont FixedFont
         {
             get
             {
@@ -213,13 +190,54 @@ namespace FastReport.Utils
             }
         }
 
-        internal static Font CreateFont(string familyName, float emSize,
-            FontStyle style = FontStyle.Regular,
-            GraphicsUnit unit = GraphicsUnit.Point,
-            byte gdiCharSet = 1,
-            bool gdiVerticalFont = false)
+        internal static SKFont CreateFont(string familyName, float emSize,
+            SKFontStyleWeight weight = SKFontStyleWeight.Normal,
+            SKFontStyleWidth width = SKFontStyleWidth.Normal,
+            SKFontStyleSlant slant = SKFontStyleSlant.Upright)
         {
-            return new Font(familyName, emSize, style, unit, gdiCharSet, gdiVerticalFont);
+            var typeface = SKTypeface.FromFamilyName(familyName, new SKFontStyle((int)weight, (int)width, slant));
+            return new SKFont(typeface, emSize);
+        }
+
+        internal static System.Drawing.Font ToSystemDrawingFont(SKFont skFont)
+        {
+            if (skFont == null)
+                return new System.Drawing.Font("Arial", 10f);
+
+            string family = skFont.Typeface?.FamilyName;
+            if (string.IsNullOrWhiteSpace(family))
+                family = "Arial";
+
+            System.Drawing.FontStyle style = System.Drawing.FontStyle.Regular;
+            var fontStyle = skFont.Typeface?.FontStyle ?? new SKFontStyle((int)SKFontStyleWeight.Normal, (int)SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+            if (fontStyle.Weight >= (int)SKFontStyleWeight.SemiBold)
+                style |= System.Drawing.FontStyle.Bold;
+            if (fontStyle.Slant == SKFontStyleSlant.Italic || fontStyle.Slant == SKFontStyleSlant.Oblique)
+                style |= System.Drawing.FontStyle.Italic;
+
+            return new System.Drawing.Font(family, skFont.Size <= 0 ? 10f : skFont.Size, style);
+        }
+
+        internal static SKFont ToSkFont(System.Drawing.Font font)
+        {
+            if (font == null)
+                return CreateFont("Arial", 10f);
+
+            var skStyle = new SKFontStyle(
+                font.Bold ? (int)SKFontStyleWeight.Bold : (int)SKFontStyleWeight.Normal,
+                (int)SKFontStyleWidth.Normal,
+                font.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright);
+
+            var typeface = SKTypeface.FromFamilyName(font.FontFamily?.Name ?? "Arial", skStyle);
+            return new SKFont(typeface, font.Size <= 0 ? 10f : font.Size);
+        }
+
+        internal static SKFont ResizeFont(SKFont font, float size)
+        {
+            if (font == null)
+                return CreateFont("Arial", Math.Max(1f, size));
+
+            return new SKFont(font.Typeface, Math.Max(1f, size));
         }
 
         /// <summary>
@@ -227,7 +245,7 @@ namespace FastReport.Utils
         /// </summary>
         /// <param name="text">The text to measure.</param>
         /// <returns>The size of text.</returns>
-        public static SizeF MeasureString(string text)
+        public static SKSize MeasureString(string text)
         {
             return MeasureString(text, DefaultFont);
         }
@@ -238,65 +256,61 @@ namespace FastReport.Utils
         /// <param name="text">The text to measure.</param>
         /// <param name="font">The font.</param>
         /// <returns>The size of text.</returns>
-        public static SizeF MeasureString(string text, Font font)
+        public static SKSize MeasureString(string text, SKFont font)
         {
-            using (Bitmap bmp = new Bitmap(1, 1))
-            using (StringFormat sf = new StringFormat())
-            {
-                Graphics g = Graphics.FromImage(bmp);
-                return MeasureString(g, text, font, sf);
-            }
+            if (string.IsNullOrEmpty(text) || font == null)
+                return SKSize.Empty;
+
+            using var paint = new SKPaint();
+            float width = font.MeasureText(text, paint);
+            var metrics = font.Metrics;
+            float height = metrics.Descent - metrics.Ascent + metrics.Leading;
+            if (height <= 0)
+                height = font.Size;
+
+            return new SKSize(width, height);
         }
 
         /// <summary>
-        /// Measures a text.
+        /// Measures a text within a rectangle.
         /// </summary>
-        /// <param name="g">The graphics context.</param>
-        /// <param name="text">The text to measure.</param>
-        /// <param name="font">The font.</param>
-        /// <param name="format">The string format.</param>
-        /// <returns>The size of text.</returns>
-        public static SizeF MeasureString(Graphics g, string text, Font font, StringFormat format)
+        public static SKSize MeasureString(string text, SKFont font, SKRect layoutRect)
         {
-            return MeasureString(g, text, font, new RectangleF(0, 0, 10000, 10000), format);
+            var measured = MeasureString(text, font);
+            return new SKSize(Math.Min(layoutRect.Width, measured.Width), Math.Min(layoutRect.Height, measured.Height));
         }
 
         /// <summary>
-        /// Measures a text.
+        /// Compatibility overload for callers that previously passed a graphics context.
         /// </summary>
-        /// <param name="g">The graphics context.</param>
-        /// <param name="text">The text to measure.</param>
-        /// <param name="font">The font.</param>
-        /// <param name="layoutRect">The layout rect.</param>
-        /// <param name="format">The string format.</param>
-        /// <returns>The size of text.</returns>
-        public static SizeF MeasureString(Graphics g, string text, Font font, RectangleF layoutRect, StringFormat format)
+        public static SKSize MeasureString(IGraphics _, string text, SKFont font)
         {
-            if (String.IsNullOrEmpty(text))
-                return new SizeF(0, 0);
-            CharacterRange[] characterRanges = { new CharacterRange(0, text.Length) };
-            StringFormatFlags saveFlags = format.FormatFlags;
-            format.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces;
-            format.SetMeasurableCharacterRanges(characterRanges);
-            Region[] regions = g.MeasureCharacterRanges(text, font, layoutRect, format);
-            format.FormatFlags = saveFlags;
-            RectangleF rect = regions[0].GetBounds(g);
-            regions[0].Dispose();
-            return rect.Size;
+            return MeasureString(text, font);
+        }
+
+        /// <summary>
+        /// Compatibility overload for callers that previously passed a graphics context and rectangle.
+        /// </summary>
+        public static SKSize MeasureString(IGraphics _, string text, SKFont font, SKRect layoutRect)
+        {
+            return MeasureString(text, font, layoutRect);
+        }
+
+        /// <summary>
+        /// Compatibility overload retained for migration; format is ignored in SkiaSharp path.
+        /// </summary>
+        public static SKSize MeasureString(IGraphics _, string text, SKFont font, SKRect layoutRect, object format)
+        {
+            return MeasureString(text, font, layoutRect);
         }
 #if !TRANSPORT
         internal static MonoRendering GetMonoRendering(IGraphics printerGraphics)
         {
             if (FMonoRendering == MonoRendering.Undefined)
             {
-                GraphicsUnit savedUnit = printerGraphics.PageUnit;
-                printerGraphics.PageUnit = GraphicsUnit.Point;
-
                 const string s = "test string test string test string test string";
-                float f1 = printerGraphics.MeasureString(s, DefaultReportFont).Width;
+                float f1 = MeasureString(s, DefaultReportFont).Width;
                 FMonoRendering = f1 > 200 ? MonoRendering.Pango : MonoRendering.Cairo;
-
-                printerGraphics.PageUnit = savedUnit;
             }
             return FMonoRendering;
         }
@@ -314,8 +328,10 @@ namespace FastReport.Utils
         /// If the pattern is empty or not specified,
         /// the method sets the style of the dotted line of the <see cref="Pen"/> equal to the style of the dotted line of the <see cref="Border"/> object.
         ///</remarks>
-        internal static void SetPenDashPatternOrStyle(FloatCollection dashPattern, Pen pen, Border border)
+        internal static void SetPenDashPatternOrStyle(FloatCollection dashPattern, object pen, Border border)
         {
+            // Migration placeholder: dash mapping will be moved to SKPaint.PathEffect at call sites.
+            // Keeping method to preserve call compatibility while removing System.Drawing type dependency.
             if (dashPattern?.Count > 0)
             {
                 for (int i = 0; i < dashPattern.Count; i++)
@@ -323,11 +339,6 @@ namespace FastReport.Utils
                     if (dashPattern[i] <= 0)
                         dashPattern[i] = 1;
                 }
-                pen.DashPattern = dashPattern.Cast<float>().ToArray();
-            }
-            else
-            {
-                pen.DashStyle = border.DashStyle;
             }
         }
 #endif    

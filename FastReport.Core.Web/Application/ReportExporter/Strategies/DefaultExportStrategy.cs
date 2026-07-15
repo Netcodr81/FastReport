@@ -1,7 +1,7 @@
 ﻿using FastReport.Export;
 using System.IO;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application.ReportExporter.Strategies
 {
     internal sealed class DefaultExportStrategy : IExportStrategy
     {

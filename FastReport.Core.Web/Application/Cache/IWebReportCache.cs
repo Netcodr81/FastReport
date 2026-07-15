@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace FastReport.Web.Cache
+namespace FastReport.Web.Application.Cache
 {
     /// <summary>
     /// Represents the cache where all webReports will be stored

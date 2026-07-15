@@ -74,9 +74,6 @@
   <Import Project="..\UsedPackages.version" />
 
   <!--Source Link-->
-  <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.301" PrivateAssets="All" />
-  </ItemGroup>
 
   <ItemGroup>
     <Compile Remove="Application\Dialog\**" />

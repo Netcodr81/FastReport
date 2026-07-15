@@ -1,7 +1,6 @@
-﻿using FastReport.Web;
-using System;
+﻿using System;
 
-namespace FastReport.Web.Toolbar
+namespace FastReport.Web.Application.Toolbar
 {
     /// <summary>
     /// Input field for the toolbar

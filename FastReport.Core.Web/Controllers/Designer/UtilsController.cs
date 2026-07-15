@@ -1,14 +1,13 @@
 ﻿#if DESIGNER
-using FastReport.Web.Services;
-
+using FastReport.Web.Application;
+using FastReport.Web.Services.Abstract;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
-using System.Net;
-using System.Threading.Tasks;
-using FastReport.Web.Infrastructure;
-using Microsoft.AspNetCore.Http;
-using System.Net.Mime;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Mime;
+using System.Threading.Tasks;
 
 namespace FastReport.Web.Controllers
 {
@@ -54,7 +53,7 @@ namespace FastReport.Web.Controllers
 
         [HttpGet("/designer.getFunctions")]
         public static IResult GetFunctions(string reportId,
-            IReportService reportService, 
+            IReportService reportService,
             IDesignerUtilsService designerUtilsService)
         {
             if (!reportService.TryFindWebReport(reportId, out var webReport))
@@ -66,8 +65,8 @@ namespace FastReport.Web.Controllers
         }
 
         [HttpPost("/designer.objects/preview")]
-        public static async Task<IResult> GetDesignerObjectPreview(string reportId, 
-            IReportService reportService, 
+        public static async Task<IResult> GetDesignerObjectPreview(string reportId,
+            IReportService reportService,
             IReportDesignerService reportDesignerService,
             IDesignerUtilsService designerUtilsService,
             HttpRequest request)
@@ -86,7 +85,7 @@ namespace FastReport.Web.Controllers
             {
                 var content = webReport.Debug ? ex.Message : "";
 
-                return Results.BadRequest(content); 
+                return Results.BadRequest(content);
             }
         }
 
@@ -99,8 +98,8 @@ namespace FastReport.Web.Controllers
 
             var result = designerUtilsService.GetClassDetailsJson(className);
 
-            return result is null ? 
-                Results.NotFound() : 
+            return result is null ?
+                Results.NotFound() :
                 Results.Content(result, "application/json");
         }
 

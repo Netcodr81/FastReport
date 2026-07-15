@@ -1,6 +1,6 @@
-﻿using FastReport.Export.PdfSimple.PdfObjects;
+﻿using FastReport.OpenSource.Export.PdfSimple.PdfObjects;
 
-namespace FastReport.Export.PdfSimple.PdfCore
+namespace FastReport.OpenSource.Export.PdfSimple.PdfCore
 {
     /// <summary>
     /// the direct object for pdf like 12 0 obj endobj

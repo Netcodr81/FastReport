@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application
 {
     public class ReportTabCollection : Collection<ReportTab>
     {

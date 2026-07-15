@@ -3,20 +3,12 @@
 <!-- This group sets version used packages in FastReport.Core, FastReport.OpenSource, FastReport .NET, FastReport.WPF -->
     <PropertyGroup>
 
-        <!-- WPF -->
-        <FRWPFVersion>2025.2.0</FRWPFVersion>
-
         <SkiaSharpVersion>[4.150.1,)</SkiaSharpVersion>
         <HarfBuzzVersion>[2.88.9,)</HarfBuzzVersion>
 
-        <!-- Avalonia -->
-        <AvaloniaUIVersion>[11.1.0,)</AvaloniaUIVersion>
-        <FRAvaloniaVersion>2025.2.0</FRAvaloniaVersion>
+               <CodeAnalysisCSharpVersion>[4.0.1,)</CodeAnalysisCSharpVersion>    
 
-        <CodeAnalysisCSharpVersion>[4.0.1,)</CodeAnalysisCSharpVersion>
-        <CodeAnalysisVisualBasicVersion>[4.0.1,)</CodeAnalysisVisualBasicVersion>
-
-        <SystemDrawingCommonVersion>[4.7.3,)</SystemDrawingCommonVersion>
+        
         
         <SystemSecurityCryptographyPkcsVersion>4.7.0</SystemSecurityCryptographyPkcsVersion>
 

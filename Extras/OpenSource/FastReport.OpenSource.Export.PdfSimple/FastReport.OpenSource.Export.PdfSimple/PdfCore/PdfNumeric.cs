@@ -1,8 +1,9 @@
-﻿using FastReport.Export.PdfSimple.PdfObjects;
+﻿using FastReport.Export;
+using FastReport.OpenSource.Export.PdfSimple.PdfObjects;
 using System;
 using System.Globalization;
 
-namespace FastReport.Export.PdfSimple.PdfCore
+namespace FastReport.OpenSource.Export.PdfSimple.PdfCore
 {
     /// <summary>
     /// The numberic object for real or int value

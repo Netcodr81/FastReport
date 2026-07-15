@@ -1,8 +1,9 @@
 ﻿using FastReport.Export;
 using FastReport.Export.Html;
 using FastReport.Export.Image;
+using FastReport.Web.Application;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application.ReportExporter.Strategies
 {
     internal static class ExportStrategyFactory
     {

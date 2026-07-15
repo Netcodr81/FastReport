@@ -1,8 +1,8 @@
-﻿using FastReport.Export.PdfSimple.PdfObjects;
+﻿using FastReport.OpenSource.Export.PdfSimple.PdfObjects;
 using System.IO;
 using System.IO.Compression;
 
-namespace FastReport.Export.PdfSimple.PdfCore
+namespace FastReport.OpenSource.Export.PdfSimple.PdfCore
 {
     /// <summary>
     /// Pdf stream dictionary

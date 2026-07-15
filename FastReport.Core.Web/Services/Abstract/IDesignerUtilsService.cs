@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Abstract
 {
     /// <summary>
     /// The interface that provides utilities for the Online Designer. Allows to get MsChart Template, component properties and report functions

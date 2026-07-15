@@ -1,5 +1,4 @@
-﻿using FastReport.Web.Infrastructure;
-
+﻿using FastReport.Web.Application.Infrastructure;
 using Microsoft.AspNetCore.Http;
 
 namespace FastReport.Web.Controllers

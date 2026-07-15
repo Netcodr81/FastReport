@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace FastReport.Web.Cache
+namespace FastReport.Web.Application.Cache
 {
     public class CacheOptions : WebReportCacheOptions
     {

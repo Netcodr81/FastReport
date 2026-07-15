@@ -1,5 +1,6 @@
 ﻿#if DESIGNER
-using FastReport.Web.Services;
+using FastReport.Web.Application;
+using FastReport.Web.Services.Implementation;
 using Microsoft.AspNetCore.Html;
 using System;
 using System.Collections.Generic;

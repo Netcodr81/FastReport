@@ -1,4 +1,6 @@
-﻿using FastReport.Web;
+﻿using FastReport.Web.Application;
+using FastReport.Web.Application.Components;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using System;
 using System.ComponentModel;
@@ -58,6 +60,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
 #if !WASM
             AddServices(services, options);
+            services.TryAddSingleton<IWebReportComponentFactory, WebReportComponentFactory>();
 #else
             AddWasmServices(services, options);
 #endif

@@ -1,9 +1,9 @@
-﻿using FastReport.Export.PdfSimple.PdfCore;
+﻿using FastReport.OpenSource.Export.PdfSimple.PdfCore;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 
-namespace FastReport.Export.PdfSimple.PdfObjects
+namespace FastReport.OpenSource.Export.PdfSimple.PdfObjects
 {
     /// <summary>
     /// Writer for pdf document
@@ -105,7 +105,7 @@ namespace FastReport.Export.PdfSimple.PdfObjects
         /// </summary>
         /// <param name="objectBase"></param>
         /// <returns></returns>
-        public PdfCore.PdfIndirectObject Write(PdfObjectBase objectBase)
+        public PdfIndirectObject Write(PdfObjectBase objectBase)
         {
             PdfIndirectObject result;
             PdfDirectObject pdfObject;

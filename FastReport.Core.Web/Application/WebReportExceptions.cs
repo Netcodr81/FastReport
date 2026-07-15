@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.Serialization;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application
 {
     [Serializable]
     internal abstract class WebReportException : Exception

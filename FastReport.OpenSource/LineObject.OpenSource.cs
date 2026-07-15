@@ -1,8 +1,6 @@
 using FastReport.Utils;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 
 namespace FastReport
 {
@@ -20,22 +18,24 @@ namespace FastReport
             pictObj.Assign(this);
             pictObj.SetParentCore(this.Parent);
 
-            RectangleF rect = CreatePath().GetBounds();
+            var rect = CreatePath().GetBounds();
             rect.X -= Border.Width / 2;
             rect.Width += Border.Width;
             rect.Y -= Border.Width / 2;
             rect.Height += Border.Width;
-            Bitmap b = new Bitmap((int)Math.Ceiling(rect.Width), (int)Math.Ceiling(rect.Height));
-            using (Graphics g = Graphics.FromImage(b))
+
+            var image = ImageHelper.CreateBitmap((int)Math.Ceiling(rect.Width), (int)Math.Ceiling(rect.Height));
+            using (IGraphics g = FRPaintEventArgs.CreateGraphics(image))
             {
                 g.TranslateTransform(-(int)Math.Ceiling(rect.X), -(int)Math.Ceiling(rect.Y));
                 Draw(new FRPaintEventArgs(g, 1, 1, Report.GraphicCache));
             }
+
             pictObj.Left += rect.Left - pictObj.AbsLeft;
             pictObj.Top += rect.Top - pictObj.AbsTop;
             pictObj.Width = rect.Width;
             pictObj.Height = rect.Height;
-            pictObj.Image = b;
+            pictObj.Image = image;
 
             yield return pictObj;
         }

@@ -1,12 +1,14 @@
-﻿using System;
+﻿using FastReport.Web.Application;
+using FastReport.Web.Application.Cache;
+using FastReport.Web.Services.Abstract;
+using Microsoft.AspNetCore.Html;
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
-using Microsoft.AspNetCore.Html;
-using System.Threading.Tasks;
 using System.Linq;
-using FastReport.Web.Cache;
-using FastReport.Web.Services;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FastReport.Web
 {
@@ -54,6 +56,26 @@ namespace FastReport.Web
             return Render(false);
         }
 
+        /// <summary>
+        /// Renders report markup as plain HTML text for framework-agnostic web integration.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Rendered HTML string.</returns>
+        public async Task<string> RenderHtmlAsync(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var htmlContent = await Render().ConfigureAwait(false);
+            return htmlContent.Value ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Synchronous counterpart of <see cref="RenderHtmlAsync(CancellationToken)"/>.
+        /// </summary>
+        /// <returns>Rendered HTML string.</returns>
+        public string RenderHtml()
+        {
+            return RenderSync().Value ?? string.Empty;
+        }
 
         internal HtmlString Render(bool renderBody)
         {

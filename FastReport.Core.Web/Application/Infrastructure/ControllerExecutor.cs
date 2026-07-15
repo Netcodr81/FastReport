@@ -4,11 +4,11 @@ using Microsoft.AspNetCore.Http;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Routing;
-using static FastReport.Web.Infrastructure.ControllerBuilder;
+using static FastReport.Web.Application.Infrastructure.ControllerBuilder;
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Generic;
 
-namespace FastReport.Web.Infrastructure
+namespace FastReport.Web.Application.Infrastructure
 {
     internal sealed class ControllerExecutor
     {

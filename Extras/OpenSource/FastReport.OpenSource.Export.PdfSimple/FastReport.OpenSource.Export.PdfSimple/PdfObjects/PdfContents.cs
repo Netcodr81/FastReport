@@ -1,8 +1,9 @@
-﻿using FastReport.Export.PdfSimple.PdfCore;
+﻿using FastReport.Export;
+using FastReport.OpenSource.Export.PdfSimple.PdfCore;
 using System;
 using System.Text;
 
-namespace FastReport.Export.PdfSimple.PdfObjects
+namespace FastReport.OpenSource.Export.PdfSimple.PdfObjects
 {
     /// <summary>
     /// The contents stream of page of pdf file

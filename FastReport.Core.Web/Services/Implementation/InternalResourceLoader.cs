@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FastReport.Web.Services.Abstract;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -7,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Implementation
 {
     /// <summary>
     /// Internal implementation of <see cref="IResourceLoader"/>.

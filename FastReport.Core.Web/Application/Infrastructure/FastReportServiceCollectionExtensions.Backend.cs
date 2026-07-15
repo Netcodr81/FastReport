@@ -1,9 +1,9 @@
 ﻿using FastReport.Code;
-using FastReport.Web;
-using FastReport.Web.Cache;
-using FastReport.Web.Infrastructure;
-using FastReport.Web.Services;
-
+using FastReport.Web.Application;
+using FastReport.Web.Application.Cache;
+using FastReport.Web.Application.Infrastructure;
+using FastReport.Web.Services.Abstract;
+using FastReport.Web.Services.Implementation;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection.Extensions;

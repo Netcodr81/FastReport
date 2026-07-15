@@ -8,13 +8,18 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.IO;
+
+
+
+
+
 #if !FRCORE
 using System.Data.Entity.Design.PluralizationServices;
 #endif
 using System.Globalization;
 
 
-namespace FastReport.JsonClassGenerator
+namespace FastReport.Data.JsonClassGenerator
 {
     public class JsonClassGenerator : IJsonClassGeneratorConfig
     {

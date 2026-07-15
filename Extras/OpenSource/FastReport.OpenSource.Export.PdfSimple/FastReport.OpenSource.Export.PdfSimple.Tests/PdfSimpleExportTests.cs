@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using Xunit;
 
-namespace FastReport.Tests.OpenSource.Export.PdfSimple
+namespace FastReport.OpenSource.Export.PdfSimple.Tests
 {
     public class PdfSimpleExportTests
     {

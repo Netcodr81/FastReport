@@ -56,6 +56,7 @@ The modernization effort has these priorities (highest first):
 6. Create a clean extensibility model.
 7. Reduce package count and simplify dependencies.
 8. Improve architecture before adding new functionality.
+9. Modernize FastReport.OpenSource.Web as a reusable .NET 10 web component that is framework-agnostic for web apps, discarding desktop-framework-associated pieces.
 
 ---
 
@@ -281,7 +282,7 @@ If Avalonia code can be replaced with significantly better architecture, recomme
 
 Prefer modern graphics abstractions.
 
-Avoid direct GDI+ dependencies and the System.Drawing package.
+Avoid direct GDI+ dependencies and the System.Drawing package. **User explicitly wants no System.Drawing usage in their classes and prefers SkiaSharp-based types/usages instead.**
 
 When replacing System.Drawing image types during migration, prefer SkiaSharp SKBitmap and SKImage equivalents.
 

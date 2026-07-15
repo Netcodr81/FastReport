@@ -5,6 +5,7 @@ using System.Net;
 using System.Text;
 using System.Web;
 using FastReport.Web.Application.Localizations;
+using FastReport.Web.Application;
 
 namespace FastReport.Web
 {

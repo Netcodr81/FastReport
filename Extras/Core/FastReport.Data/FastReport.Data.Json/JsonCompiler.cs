@@ -4,7 +4,7 @@ using System.CodeDom.Compiler;
 using System.IO;
 using System.Reflection;
 
-namespace FastReport.Json
+namespace FastReport.Data
 {
     /*
         HOW TO USE:

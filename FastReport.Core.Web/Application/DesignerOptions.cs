@@ -5,7 +5,7 @@ using System.Threading;
 
 #nullable enable
 
-namespace FastReport.Web
+namespace FastReport.Web.Application
 {
     public class DesignerOptions
     {

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using static System.String;
 
-namespace FastReport.Web.Toolbar
+namespace FastReport.Web.Application.Toolbar
 {
     public abstract class ToolbarElement
     {

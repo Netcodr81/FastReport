@@ -199,6 +199,14 @@ namespace FastReport.Utils
         }
 
         /// <summary>
+        /// Create a blank bitmap image using the current cross-platform drawing backend.
+        /// </summary>
+        public static Image CreateBitmap(int width, int height)
+        {
+            return new Bitmap(Math.Max(1, width), Math.Max(1, height), PixelFormat.Format32bppPArgb);
+        }
+
+        /// <summary>
         /// Load the image from bytes, Internal only method
         /// </summary>
         /// <param name="bytes"></param>

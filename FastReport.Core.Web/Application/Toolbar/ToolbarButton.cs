@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace FastReport.Web.Toolbar
+namespace FastReport.Web.Application.Toolbar
 {
     /// <summary>
     /// Button for the toolbar

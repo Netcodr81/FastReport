@@ -1,10 +1,10 @@
-﻿using FastReport.Web.Toolbar;
+﻿using FastReport.Web.Application.Toolbar;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application
 {
     public class ToolbarSettings
     {
@@ -67,17 +67,17 @@ namespace FastReport.Web
         /// Use to change ToolbarColor,
         /// Default value Color.WhiteSmoke
         /// </summary>
-        public Color Color { get; set; } = Color.WhiteSmoke;
+        public SKColor Color { get; set; } = SKColors.WhiteSmoke;
         /// <summary>
         /// Use to change Toolbar DropDownMenuColor,
         /// Default value Color.White
         /// </summary>
-        public Color DropDownMenuColor { get; set; } = Color.White;
+        public SKColor DropDownMenuColor { get; set; } = SKColors.White;
         /// <summary>
         /// Use to change Toolbar DropDownMenuText Color,
         /// Default value Color.Black
         /// </summary>
-        public Color DropDownMenuTextColor { get; set; } = Color.Black;
+        public SKColor DropDownMenuTextColor { get; set; } = SKColors.Black;
         /// <summary>
         /// Use to change Toolbar Position in report,
         /// Default value Position.Top
@@ -108,12 +108,12 @@ namespace FastReport.Web
         /// Default value null
         /// <para>Example syntax : new Font("Arial", 14 , FontStyle.Bold)</para>
         /// </summary>
-        public Font FontSettings { get; set; } = null;
+        public SKFont FontSettings { get; set; } = null;
         /// <summary>
         /// Use to change search highlight,
         /// Default value Color.Yellow
         /// </summary>
-        public Color SearchHighlight {  get; set; } = Color.Yellow;
+        public SKColor SearchHighlight { get; set; } = SKColors.Yellow;
         /// <summary>
         /// Use to change search form top margin,
         /// Default value 100px
@@ -173,17 +173,17 @@ namespace FastReport.Web
                 }
             }
         }
-        
-        internal string StickyToolbarTags 
-        { 
+
+        internal string StickyToolbarTags
+        {
             get
             {
                 if (Sticky)
                 {
                     string tags = "--sticky-toolbar-position: sticky;  --sticky-toolbar-position-webkit: -webkit-sticky; ";
-                    if(TopOrBottom == -1)
+                    if (TopOrBottom == -1)
                     {
-                        if (Position == Positions.Left || Position == Positions.Right) 
+                        if (Position == Positions.Left || Position == Positions.Right)
                         {
                             if (ContentPosition == ContentPositions.Right)
                                 tags += "--sticky-toolbar-bottom: 10px; --sticky-toolbar-left: 10px; --sticky-toolbar-right: 10px;";
@@ -259,14 +259,25 @@ namespace FastReport.Web
             {
                 if (FontSettings != null)
                 {
-                    return FontSettings.Size + "em " + FontSettings.OriginalFontName + " " + FontSettings.Style;
+                    string family = FontSettings.Typeface?.FamilyName ?? "Verdana,Arial";
+                    return FontSettings.Size + "em " + family + " " + GetFontStyle(FontSettings);
                 }
                 else
-                    return "15em Verdana,Arial sans-serif Regular";
+                    return "15em Verdana,Arial sans-serif normal";
             }
         }
 
-        
+        private static string GetFontStyle(SKFont font)
+        {
+            if (font?.Typeface == null)
+                return "normal";
+
+            var style = font.Typeface.FontStyle;
+            string slant = style.Slant == SKFontStyleSlant.Italic || style.Slant == SKFontStyleSlant.Oblique ? "italic" : "normal";
+            string weight = style.Weight >= (int)SKFontStyleWeight.SemiBold ? "bold" : "normal";
+            return $"{slant} {weight}";
+        }
+
         internal string VerticalToolbarHeight
         {
             get
@@ -281,7 +292,7 @@ namespace FastReport.Web
                 }
             }
         }
-        
+
         internal int TopOrBottom
         {
             get
@@ -455,7 +466,7 @@ namespace FastReport.Web
                 }
             }
         }
-       
+
     }
     public enum IconColors
     {

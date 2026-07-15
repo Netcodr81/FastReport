@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace FastReport.Web.Cache
+namespace FastReport.Web.Application.Cache
 {
     public class WebReportCacheOptions
     {

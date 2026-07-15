@@ -4,7 +4,7 @@ using FastReport.Export.Image;
 using System.IO;
 using System.IO.Compression;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application.ReportExporter.Strategies
 {
     internal sealed class ArchiveExportStrategy : IExportStrategy
     {

@@ -1,5 +1,5 @@
-﻿using FastReport.Export.PdfSimple.PdfCore;
-using FastReport.Export.PdfSimple.PdfObjects;
+﻿using FastReport.OpenSource.Export.PdfSimple.PdfCore;
+using FastReport.OpenSource.Export.PdfSimple.PdfObjects;
 using FastReport.Utils;
 using SkiaSharp;
 using System;

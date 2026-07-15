@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 
-namespace FastReport.Web.Cache
+namespace FastReport.Web.Application.Cache
 {
     /// <summary>
     /// For backward compatibility

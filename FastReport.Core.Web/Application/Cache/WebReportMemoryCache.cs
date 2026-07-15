@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Diagnostics;
 
-namespace FastReport.Web.Cache
+namespace FastReport.Web.Application.Cache
 {
     internal sealed class WebReportMemoryCache : IWebReportCache
     {

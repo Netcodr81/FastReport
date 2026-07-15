@@ -1,5 +1,4 @@
-﻿
-namespace FastReport.Web
+﻿namespace FastReport.Web.Application
 {
     internal static class Constants
     {

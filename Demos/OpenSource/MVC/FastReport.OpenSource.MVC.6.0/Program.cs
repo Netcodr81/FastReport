@@ -1,3 +1,4 @@
+using FastReport.Web.Application.Infrastructure;
 using MVC.Service;
 
 namespace Demo.MVC.Net6

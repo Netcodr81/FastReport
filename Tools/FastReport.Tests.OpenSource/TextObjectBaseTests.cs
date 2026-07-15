@@ -4,7 +4,7 @@ using System.Text;
 using Xunit;
 
 
-namespace FastReport.Tests.Core
+namespace FastReport.Tests.OpenSource
 {
     public class TextObjectBaseTests
     {

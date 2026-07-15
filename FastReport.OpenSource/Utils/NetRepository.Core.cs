@@ -6,7 +6,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 
 // From SyntaxParsers/NetRepository.cs
-namespace Editor.Syntax.Parsers.ReflectionRepository
+namespace FastReport.Utils
 {
     internal class DescriptionHelper
     {

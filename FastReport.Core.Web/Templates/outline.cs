@@ -1,4 +1,5 @@
 ﻿using FastReport.Utils;
+using FastReport.Web.Application;
 using FastReport.Web.Services;
 using System;
 using System.Collections.Generic;

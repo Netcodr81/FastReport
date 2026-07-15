@@ -1,12 +1,12 @@
 ﻿#if !WASM
-using FastReport.Web.Cache;
+using FastReport.Web.Application.Cache;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application.Infrastructure
 {
     public class FastReportOptions
     {

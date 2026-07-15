@@ -1,5 +1,10 @@
 ﻿using FastReport.Export.Html;
-using FastReport.Web.Infrastructure;
+using FastReport.Web.Application;
+using FastReport.Web.Application.Infrastructure;
+using FastReport.Web.Services.Abstract;
+
+
+
 #if !OPENSOURCE
 using FastReport.Export.Pdf;
 #endif
@@ -8,7 +13,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Implementation
 {
     internal sealed class PrintService : IPrintService
     {

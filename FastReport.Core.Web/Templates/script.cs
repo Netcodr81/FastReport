@@ -1,4 +1,5 @@
-﻿using FastReport.Web.Infrastructure;
+﻿using FastReport.Web.Application;
+using FastReport.Web.Application.Infrastructure;
 using System.Text.Json;
 
 namespace FastReport.Web

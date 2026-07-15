@@ -3,7 +3,7 @@
   "operationId": "c6e087b2-0704-46d3-ac95-9fe29a5ac051",
   "description": "Upgrade .NET projects to newer .NET versions, including guidance on current release status, support lifecycle (LTS/STS), and recommended upgrade targets.",
   "startTime": "2026-07-14T13:53:26.3113765Z",
-  "lastUpdateTime": "2026-07-15T17:06:36.8254026Z",
+  "lastUpdateTime": "2026-07-15T20:07:52.4075978Z",
   "properties": {
     "taskStates": {
       "04-data-web-export-adapters": "InProgress"

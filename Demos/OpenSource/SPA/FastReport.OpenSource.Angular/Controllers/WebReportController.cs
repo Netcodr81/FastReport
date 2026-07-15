@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MVC.Service;
 
-namespace Demo.SPA.Angular.Controllers
+namespace FastReport.OpenSource.Angular.Controllers
 {
     [ApiController]
     [Route("[controller]")]

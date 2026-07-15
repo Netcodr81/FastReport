@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 
-namespace FastReport.Web.Cache
+namespace FastReport.Web.Application.Cache
 {
     /// <summary>
     /// Legacy WebReportCache implementation

@@ -29,7 +29,7 @@ using FastReport.Export.Dxf;
 using FastReport.Export.Email;
 #endif
 
-namespace FastReport.Web
+namespace FastReport.Web.Application
 {
     internal static class ExportsHelper
     {

@@ -1,6 +1,8 @@
 ﻿#if DESIGNER
 using FastReport.Utils;
-using FastReport.Web.Cache;
+using FastReport.Web.Application;
+using FastReport.Web.Application.Cache;
+using FastReport.Web.Services.Abstract;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Buffers;
@@ -13,7 +15,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Implementation
 {
     internal sealed class ReportDesignerService : IReportDesignerService
     {

@@ -1,7 +1,7 @@
-﻿using FastReport.Export.PdfSimple.PdfCore;
+﻿using FastReport.OpenSource.Export.PdfSimple.PdfCore;
 using System;
 
-namespace FastReport.Export.PdfSimple.PdfObjects
+namespace FastReport.OpenSource.Export.PdfSimple.PdfObjects
 {
     /// <summary>
     /// The info dictionary of pdf file
@@ -43,7 +43,7 @@ namespace FastReport.Export.PdfSimple.PdfObjects
                 }
                 else
                 {
-                    this[key] = new PdfString(value,  true);
+                    this[key] = new PdfString(value, true);
                 }
             }
         }

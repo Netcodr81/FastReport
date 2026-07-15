@@ -477,9 +477,9 @@ namespace FastReport.Barcode
                 using (Bitmap bmp = new Bitmap(1, 1))
                 {
                     bmp.SetResolution(96, 96);
-                    using (Graphics g = Graphics.FromImage(bmp))
+                    using (IGraphics g = FRPaintEventArgs.CreateGraphics(bmp))
                     {
-                        txtWidth = g.MeasureString(text, Font, 100000).Width;
+                        txtWidth = g.MeasureString(text, Font, 100000, StringFormat.GenericDefault).Width;
                     }
                 }
 

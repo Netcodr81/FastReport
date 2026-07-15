@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http;
 using System;
 using System.Threading.Tasks;
 
-namespace FastReport.Web.Infrastructure
+namespace FastReport.Web.Application.Infrastructure
 {
     sealed class FastReportMiddleware
     {

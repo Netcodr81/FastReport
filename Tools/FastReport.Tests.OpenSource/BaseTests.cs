@@ -1,7 +1,7 @@
 using System;
 using Xunit;
 
-namespace FastReport.Tests.Core
+namespace FastReport.Tests.OpenSource
 {
     /// <summary>
     /// Tests Base.cs methods

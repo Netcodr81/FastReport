@@ -1,5 +1,4 @@
-﻿using FastReport.Web.Cache;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -7,9 +6,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
-using FastReport.Web.Toolbar;
+using FastReport.Web.Application.Toolbar;
+using FastReport.Web.Services.Abstract;
+using FastReport.Web.Application.Cache;
 
-namespace FastReport.Web.Services
+namespace FastReport.Web.Services.Implementation
 {
     internal sealed class ReportService : IReportService
     {

@@ -5,7 +5,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace FastReport.Data.ElasticSearch
+namespace FastReport.Data
 {
     public class ESDataSourceConnectionStringBuilder : DbConnectionStringBuilder
     {
