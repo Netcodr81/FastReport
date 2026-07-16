@@ -1,8 +1,6 @@
 using System;
 using System.IO;
 using System.Xml;
-using System.Drawing;
-using System.Windows.Forms;
 using FastReport.Table;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,10 +12,12 @@ using FastReport.MSChart;
 using FastReport.DataVisualization.Charting;
 #endif
 using FastReport.Matrix;
-using FastReport.Dialog;
 using FastReport.Data;
 using FastReport.Data.JsonConnection;
-using Padding = FastReport.Barcode.Padding;
+using System.Drawing;
+using System.Windows.Forms;
+using BarcodePadding = FastReport.Barcode.Padding;
+using ComponentPadding = System.Windows.Forms.Padding;
 
 namespace FastReport.Import.StimulSoft
 {
@@ -84,7 +84,7 @@ namespace FastReport.Import.StimulSoft
                     SetAbsTop(PictureObject, parent);
 
                 if (xmlObject["Margins"] != null)
-                    PictureObject.Padding = ParseMargins(xmlObject["Margins"].InnerText);
+                    PictureObject.Padding = ConvertBarcodePadding(ParseMargins(xmlObject["Margins"].InnerText));
 
                 if (xmlObject["File"] != null)
                     PictureObject.ImageLocation = xmlObject["File"].InnerText;
@@ -519,7 +519,7 @@ namespace FastReport.Import.StimulSoft
                 textObject.Text = xmlObject["Text"].InnerText;
 
             if (xmlObject["Margins"] != null)
-                textObject.Padding = ParseMargins(xmlObject["Margins"].InnerText);
+                textObject.Padding = ConvertBarcodePadding(ParseMargins(xmlObject["Margins"].InnerText));
 
             if (xmlObject["Font"] != null)
                 textObject.Font = ParseFont(xmlObject["Font"].InnerText);
@@ -552,8 +552,8 @@ namespace FastReport.Import.StimulSoft
                     string[] parametrs = xmlHighlight.InnerText.Split(',');
                     HighlightCondition highlight = new HighlightCondition();
                     highlight.Expression = UnitsConverter.ConvertRTF(parametrs[0]).Replace("value", "Value").Replace("{", "").Replace("}", "");
-                    highlight.TextFill = new SolidFill(UnitsConverter.ConvertColor(UnitsConverter.ConvertRTF(parametrs[1])));
-                    highlight.Fill = new SolidFill(UnitsConverter.ConvertColor(UnitsConverter.ConvertRTF(parametrs[2])));
+                    highlight.TextFill = new SolidFill(ConvertColorToSKColor(UnitsConverter.ConvertColor(UnitsConverter.ConvertRTF(parametrs[1]))));
+                    highlight.Fill = new SolidFill(ConvertColorToSKColor(UnitsConverter.ConvertColor(UnitsConverter.ConvertRTF(parametrs[2]))));
                     highlight.Font = ParseFont(UnitsConverter.ConvertRTF(parametrs[3]));
                     highlight.Border.Lines = UnitsConverter.ConvertBorderSides(UnitsConverter.ConvertRTF(parametrs[8]));
                     highlight.ApplyFont = true;
@@ -671,7 +671,7 @@ namespace FastReport.Import.StimulSoft
 
             if (node["Margins"] != null)
             {
-                Padding pagePadding = ParsePageMargins(node["Margins"].InnerText);
+                BarcodePadding pagePadding = ParsePageMargins(node["Margins"].InnerText);
                 page.LeftMargin = pagePadding.Left / Units.Millimeters;
                 page.TopMargin = pagePadding.Top / Units.Millimeters;
                 page.RightMargin = pagePadding.Right / Units.Millimeters;
@@ -1285,7 +1285,7 @@ namespace FastReport.Import.StimulSoft
             textObject.Angle = -angle;
         }
 
-        private Padding ParsePageMargins(string margins)
+        private BarcodePadding ParsePageMargins(string margins)
         {
             int[] marg = new int[4];
             int index = 0;
@@ -1295,10 +1295,10 @@ namespace FastReport.Import.StimulSoft
                 index++;
             }
 
-            return new Padding(marg[0], marg[1], marg[2], marg[3]);
+            return new BarcodePadding(marg[0], marg[1], marg[2], marg[3]);
         }
 
-        private Padding ParseMargins(string margins)
+        private BarcodePadding ParseMargins(string margins)
         {
             int[] marg = new int[4];
             int index = 0;
@@ -1308,7 +1308,17 @@ namespace FastReport.Import.StimulSoft
                 index++;
             }
 
-            return new Padding(marg[0], marg[1], marg[2], marg[3]);
+            return new BarcodePadding(marg[0], marg[1], marg[2], marg[3]);
+        }
+
+        private ComponentPadding ConvertBarcodePadding(BarcodePadding barcodePadding)
+        {
+            return new ComponentPadding((int)barcodePadding.Left, (int)barcodePadding.Top, (int)barcodePadding.Right, (int)barcodePadding.Bottom);
+        }
+
+        private SkiaSharp.SKColor ConvertColorToSKColor(Color color)
+        {
+            return new SkiaSharp.SKColor(color.R, color.G, color.B, color.A);
         }
 
         private RectangleF ParseRectangleF(string rect)

@@ -1,6 +1,5 @@
-using System.Drawing;
 using System.Globalization;
-using System.Windows.Forms;
+using SkiaSharp;
 
 namespace FastReport.Import.RDL
 {
@@ -26,13 +25,54 @@ namespace FastReport.Import.RDL
         }
 
         /// <summary>
-        /// Converts the RDL Color to Color.
+        /// Converts the RDL Color to SKColor.
         /// </summary>
         /// <param name="colorName">The RDL Color value.</param>
-        /// <returns>The Color value.</returns>
-        public static Color ConvertColor(string colorName)
+        /// <returns>The SKColor value.</returns>
+        public static SKColor ConvertColor(string colorName)
         {
-            return Color.FromName(colorName);
+            if (string.IsNullOrEmpty(colorName))
+                return SKColors.Black;
+
+            // Try parsing as hex color
+            if (colorName.StartsWith("#"))
+            {
+                if (SKColor.TryParse(colorName, out SKColor result))
+                    return result;
+            }
+
+            // Try common named colors
+            switch (colorName.ToLower())
+            {
+                case "black": return SKColors.Black;
+                case "white": return SKColors.White;
+                case "red": return SKColors.Red;
+                case "green": return SKColors.Green;
+                case "blue": return SKColors.Blue;
+                case "yellow": return SKColors.Yellow;
+                case "orange": return SKColors.Orange;
+                case "purple": return SKColors.Purple;
+                case "gray": case "grey": return SKColors.Gray;
+                case "cyan": return SKColors.Cyan;
+                case "magenta": return SKColors.Magenta;
+                case "transparent": return SKColors.Transparent;
+                default:
+                    // Try parsing directly
+                    if (SKColor.TryParse(colorName, out SKColor parsed))
+                        return parsed;
+                    return SKColors.Black;
+            }
+        }
+
+        /// <summary>
+        /// Converts the RDL Color to System.Drawing.Color for border usage.
+        /// </summary>
+        /// <param name="colorName">The RDL Color value.</param>
+        /// <returns>The System.Drawing.Color value.</returns>
+        public static System.Drawing.Color ConvertColorForBorder(string colorName)
+        {
+            SKColor skColor = ConvertColor(colorName);
+            return System.Drawing.Color.FromArgb(skColor.Alpha, skColor.Red, skColor.Green, skColor.Blue);
         }
 
         /// <summary>

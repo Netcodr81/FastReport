@@ -1,10 +1,9 @@
+using FastReport.Barcode;
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Globalization;
-using System.Drawing;
-using FastReport.Utils;
-using FastReport.Barcode;
 using System.Xml;
-using System.Windows.Forms;
 #if MSCHART
 using FastReport.DataVisualization.Charting;
 #endif
@@ -32,21 +31,21 @@ namespace FastReport.Import.JasperReports
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public static PictureBoxSizeMode ConvertImageSizeMode(string value)
+        public static System.Windows.Forms.PictureBoxSizeMode ConvertImageSizeMode(string value)
         {
             switch (value)
             {
                 case "RetainShape":
-                    return PictureBoxSizeMode.Zoom;
+                    return System.Windows.Forms.PictureBoxSizeMode.Zoom;
                 case "Clip":
-                    return PictureBoxSizeMode.Normal;
+                    return System.Windows.Forms.PictureBoxSizeMode.Normal;
                 case "FillFrame":
-                    return PictureBoxSizeMode.StretchImage;
+                    return System.Windows.Forms.PictureBoxSizeMode.StretchImage;
                 case "RealHeight":
                 case "RealSize":
-                    return PictureBoxSizeMode.AutoSize;
+                    return System.Windows.Forms.PictureBoxSizeMode.AutoSize;
             }
-            return PictureBoxSizeMode.Normal;
+            return System.Windows.Forms.PictureBoxSizeMode.Normal;
         }
 
         /// <summary>
@@ -78,13 +77,13 @@ namespace FastReport.Import.JasperReports
         /// </summary>
         /// <param name="str">The DevExpress Color value as string.</param>
         /// <returns>The Color value.</returns>
-        public static Color ConvertColor(string str)
+        public static SKColor ConvertColor(string str)
         {
             if (!String.IsNullOrEmpty(str))
             {
-                return ColorTranslator.FromHtml(str);
+                return SKColor.Parse(str);
             }
-            return Color.Black;
+            return SKColor.Black;
         }
 
         /// <summary>

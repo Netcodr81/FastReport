@@ -117,6 +117,46 @@ namespace FastReport.Import.ListAndLabel
             return Convert.ToSingle(str) / 10;
         }
 
+        /// <summary>
+        /// Converts string color name to Color.
+        /// </summary>
+        /// <param name="colorName">The color name.</param>
+        /// <returns>A Color value.</returns>
+        public static System.Drawing.Color ConvertColor(string colorName)
+        {
+            System.Drawing.Color color;
+            // Try parsing as a named color first
+            try
+            {
+                color = System.Drawing.Color.FromName(colorName);
+                if (color.IsKnownColor)
+                    return color;
+            }
+            catch
+            {
+                // Not a named color, try RGB format
+            }
+
+            // Try parsing RGB format
+            string[] parts = colorName.Replace("RGB", "").Replace("(", "").Replace(")", "").Split(',');
+            if (parts.Length == 3)
+            {
+                try
+                {
+                    return System.Drawing.Color.FromArgb(
+                        int.Parse(parts[0].Trim()),
+                        int.Parse(parts[1].Trim()),
+                        int.Parse(parts[2].Trim()));
+                }
+                catch
+                {
+                    // Fall through to default
+                }
+            }
+
+            return System.Drawing.Color.Black;
+        }
+
         #endregion // Public Methods
     }
 }

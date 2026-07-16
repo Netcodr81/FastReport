@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Drawing;
-using System.Windows.Forms;
+using SkiaSharp;
 using FastReport.Utils;
 using System.Linq;
 
@@ -17,8 +16,8 @@ namespace FastReport.Import.ListAndLabel
 
         private ReportPage page;
         private string textLL;
-        private Font defaultFont;
-        private Color defaultTextColor;
+        private SKFont defaultFont;
+        private SKColor defaultTextColor;
         private bool isListAndLabelReport;
 
         #endregion // Fields
@@ -43,8 +42,8 @@ namespace FastReport.Import.ListAndLabel
         public ListAndLabelImport() : base()
         {
             textLL = "";
-            defaultFont = new Font("Arial", 10.0f, FontStyle.Regular);
-            defaultTextColor = Color.Black;
+            defaultFont = new SKFont(SKTypeface.FromFamilyName("Arial"), 10.0f);
+            defaultTextColor = SKColors.Black;
             isListAndLabelReport = true;
         }
 
@@ -92,9 +91,9 @@ namespace FastReport.Import.ListAndLabel
             string[] defFontParts = defFontStr.Split(',');
             defFontParts[0] = defFontParts[0][1].ToString();
             defFontParts[2] = defFontParts[2][0].ToString();
-            defaultTextColor = Color.FromArgb(int.Parse(defFontParts[0]), int.Parse(defFontParts[1]), int.Parse(defFontParts[2]));
+            defaultTextColor = new SKColor((byte)int.Parse(defFontParts[0]), (byte)int.Parse(defFontParts[1]), (byte)int.Parse(defFontParts[2]));
             float fontsize = Convert.ToSingle(defFontParts[3].Replace('.', ','));
-            defaultFont = new Font(defFontParts.Last().Trim('}'), fontsize, FontStyle.Regular);
+            defaultFont = new SKFont(SKTypeface.FromFamilyName(defFontParts.Last().Trim('}')), fontsize);
             //if (UnitsConverter.ConvertBool(GetValueLL("DefaultFont/Default")))
             //{
 
@@ -173,7 +172,28 @@ namespace FastReport.Import.ListAndLabel
             comp.Height = UnitsConverter.LLUnitsToPixels(GetValueLL("Position/Height", startIndex));
         }
 
-        private Font LoadFont(int startIndex)
+        private System.Drawing.Color ConvertSKColorToColor(SKColor skColor)
+        {
+            return System.Drawing.Color.FromArgb(skColor.Alpha, skColor.Red, skColor.Green, skColor.Blue);
+        }
+
+        private System.Drawing.Font ConvertSKFontToFont(SKFont skFont)
+        {
+            System.Drawing.FontStyle style = System.Drawing.FontStyle.Regular;
+
+            if (skFont.Typeface != null)
+            {
+                if (skFont.Typeface.IsBold)
+                    style |= System.Drawing.FontStyle.Bold;
+                if (skFont.Typeface.IsItalic)
+                    style |= System.Drawing.FontStyle.Italic;
+            }
+
+            string familyName = skFont.Typeface?.FamilyName ?? "Arial";
+            return new System.Drawing.Font(familyName, skFont.Size, style);
+        }
+
+        private SKFont LoadFont(int startIndex)
         {
             int index = textLL.IndexOf("[Font]", startIndex, StringComparison.Ordinal);
             //if (!UnitsConverter.ConvertBool(GetValueLL("Default", index)))
@@ -182,24 +202,23 @@ namespace FastReport.Import.ListAndLabel
             float fontSize = defaultFont.Size;
             if (GetValueLL("Size", index) != "Null()")
                 fontSize = Convert.ToSingle(GetValueLL("Size", index).Replace('.', ','));
-            FontStyle fontStyle = FontStyle.Regular;
+
+            SKFontStyleWeight weight = SKFontStyleWeight.Normal;
+            SKFontStyleSlant slant = SKFontStyleSlant.Upright;
+
             if (UnitsConverter.ConvertBool(GetValueLL("Bold", index)))
             {
-                fontStyle |= FontStyle.Bold;
+                weight = SKFontStyleWeight.Bold;
             }
             if (UnitsConverter.ConvertBool(GetValueLL("Italic", index)))
             {
-                fontStyle |= FontStyle.Italic;
+                slant = SKFontStyleSlant.Italic;
             }
-            if (UnitsConverter.ConvertBool(GetValueLL("Underline", index)))
-            {
-                fontStyle |= FontStyle.Underline;
-            }
-            if (UnitsConverter.ConvertBool(GetValueLL("Strikeout", index)))
-            {
-                fontStyle |= FontStyle.Strikeout;
-            }
-            return new Font(fontFamily == "Null()" ? defaultFont.FontFamily.Name : fontFamily, fontSize, fontStyle);
+            // Note: Underline and Strikeout are not part of SKFontStyle, they should be handled in text rendering
+
+            var fontStyle = new SKFontStyle((int)weight, (int)SKFontStyleWidth.Normal, slant);
+            string familyName = fontFamily == "Null()" ? defaultFont.Typeface.FamilyName : fontFamily;
+            return new SKFont(SKTypeface.FromFamilyName(familyName, fontStyle), fontSize);
             //}
         }
 
@@ -208,28 +227,28 @@ namespace FastReport.Import.ListAndLabel
             if (UnitsConverter.ConvertBool(GetValueLL("Frame/Left/Line", startIndex)))
             {
                 border.Lines |= BorderLines.Left;
-                border.LeftLine.Color = Color.FromName(GetValueLL("Frame/Left/Line/Color=LL.Color", startIndex));
+                border.LeftLine.Color = UnitsConverter.ConvertColor(GetValueLL("Frame/Left/Line/Color=LL.Color", startIndex));
                 border.LeftLine.Style = UnitsConverter.ConvertLineType(GetValueLL("Frame/Left/Line/LineType", startIndex));
                 border.LeftLine.Width = UnitsConverter.LLUnitsToPixels(GetValueLL("Frame/Left/LineWidth", startIndex));
             }
             if (UnitsConverter.ConvertBool(GetValueLL("Frame/Top/Line", startIndex)))
             {
                 border.Lines |= BorderLines.Top;
-                border.TopLine.Color = Color.FromName(GetValueLL("Frame/Top/Line/Color=LL.Color", startIndex));
+                border.TopLine.Color = UnitsConverter.ConvertColor(GetValueLL("Frame/Top/Line/Color=LL.Color", startIndex));
                 border.TopLine.Style = UnitsConverter.ConvertLineType(GetValueLL("Frame/Top/Line/LineType", startIndex));
                 border.TopLine.Width = UnitsConverter.LLUnitsToPixels(GetValueLL("Frame/Top/LineWidth", startIndex));
             }
             if (UnitsConverter.ConvertBool(GetValueLL("Frame/Right/Line", startIndex)))
             {
                 border.Lines |= BorderLines.Right;
-                border.RightLine.Color = Color.FromName(GetValueLL("Frame/Right/Line/Color=LL.Color", startIndex));
+                border.RightLine.Color = UnitsConverter.ConvertColor(GetValueLL("Frame/Right/Line/Color=LL.Color", startIndex));
                 border.RightLine.Style = UnitsConverter.ConvertLineType(GetValueLL("Frame/Right/Line/LineType", startIndex));
                 border.RightLine.Width = UnitsConverter.LLUnitsToPixels(GetValueLL("Frame/Right/LineWidth", startIndex));
             }
             if (UnitsConverter.ConvertBool(GetValueLL("Frame/Bottom/Line", startIndex)))
             {
                 border.Lines |= BorderLines.Bottom;
-                border.BottomLine.Color = Color.FromName(GetValueLL("Frame/Bottom/Line/Color=LL.Color", startIndex));
+                border.BottomLine.Color = UnitsConverter.ConvertColor(GetValueLL("Frame/Bottom/Line/Color=LL.Color", startIndex));
                 border.BottomLine.Style = UnitsConverter.ConvertLineType(GetValueLL("Frame/Bottom/Line/LineType", startIndex));
                 border.BottomLine.Width = UnitsConverter.LLUnitsToPixels(GetValueLL("Frame/Bottom/LineWidth", startIndex));
             }
@@ -241,12 +260,12 @@ namespace FastReport.Import.ListAndLabel
             if (textLL.IndexOf("[Font]", startIndex, StringComparison.Ordinal) == -1)
                 return;
             LoadComponent(startIndex, textObj);
-            textObj.Font = LoadFont(startIndex);
-            textObj.TextColor = defaultTextColor;
+            textObj.Font = ConvertSKFontToFont(LoadFont(startIndex));
+            textObj.TextColor = ConvertSKColorToColor(defaultTextColor);
             int fontIndex = textLL.IndexOf("[Font]", startIndex, StringComparison.Ordinal);
             if (GetValueLL("Color", fontIndex) != "Null()")
             {
-                textObj.TextColor = Color.FromName(GetValueLL("Color=LL.Color", fontIndex));
+                textObj.TextColor = UnitsConverter.ConvertColor(GetValueLL("Color=LL.Color", fontIndex));
             }
             //if (!UnitsConverter.ConvertBool(GetValueLL("Default", fontIndex)))
             //{
@@ -263,7 +282,7 @@ namespace FastReport.Import.ListAndLabel
             int colorIndex = textLL.IndexOf("FgColor", startIndex, StringComparison.Ordinal);
             if (colorIndex >= 0)
             {
-                lineObj.Border.Color = Color.FromName(GetValueLL("FgColor=LL.Color", colorIndex));
+                lineObj.Border.Color = UnitsConverter.ConvertColor(GetValueLL("FgColor=LL.Color", colorIndex));
                 lineObj.Border.Style = UnitsConverter.ConvertLineType(GetValueLL("LineType", colorIndex));
                 lineObj.Border.Width = UnitsConverter.LLUnitsToPixels(GetValueLL("Width", colorIndex));
             }
@@ -280,24 +299,24 @@ namespace FastReport.Import.ListAndLabel
             int colorIndex = textLL.IndexOf("FgColor", startIndex, StringComparison.Ordinal);
             if (colorIndex >= 0)
             {
-                shapeObj.Border.Color = GetColorForShapeObject("FgColor", colorIndex);//Color.FromName(GetValueLL("FgColor=LL.Color", colorIndex));
+                shapeObj.Border.Color = ConvertSKColorToColor(GetColorForShapeObject("FgColor", colorIndex));
                 shapeObj.Border.Width = UnitsConverter.LLUnitsToPixels(GetValueLL("Width", colorIndex));
                 shapeObj.Border.Style = UnitsConverter.ConvertLineType(GetValueLL("LineType", colorIndex));
                 shapeObj.FillColor = GetColorForShapeObject("BkColor", colorIndex);
             }
         }
 
-        private Color GetColorForShapeObject(string colorString, int colorIndex)
+        private SKColor GetColorForShapeObject(string colorString, int colorIndex)
         {
             string colorName = GetValueLL(colorString + "=LL.Color", colorIndex);
-            Color color = Color.FromName(colorName);
-            if (color.IsNamedColor)
+            SKColor color;
+            if (SKColor.TryParse(colorName, out color))
                 return color;
             colorName = GetValueLL(colorString, colorIndex);
             string[] colors = colorName.Replace("RGB", "").Replace("(", "").Replace(")", "").Split(',');
             if (colors.Length != 3)
-                return Color.Transparent;
-            color = Color.FromArgb(int.Parse(colors[0]), int.Parse(colors[1]), int.Parse(colors[2]));
+                return SKColors.Transparent;
+            color = new SKColor((byte)int.Parse(colors[0]), (byte)int.Parse(colors[1]), (byte)int.Parse(colors[2]));
             return color;
         }
 
@@ -327,19 +346,19 @@ namespace FastReport.Import.ListAndLabel
             LoadComponent(startIndex, pictureObj);
             if (UnitsConverter.ConvertBool(GetValueLL("OriginalSize", startIndex)))
             {
-                pictureObj.SizeMode = PictureBoxSizeMode.Normal;
+                pictureObj.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Normal;
             }
             if (Convert.ToInt32(GetValueLL("Alignment", startIndex)) == 0)
             {
-                pictureObj.SizeMode = PictureBoxSizeMode.CenterImage;
+                pictureObj.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage;
             }
             if (UnitsConverter.ConvertBool(GetValueLL("bIsotropic", startIndex)))
             {
-                pictureObj.SizeMode = PictureBoxSizeMode.AutoSize;
+                pictureObj.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
             }
             else
             {
-                pictureObj.SizeMode = PictureBoxSizeMode.StretchImage;
+                pictureObj.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
             }
             string filename = GetValueLL("Filename", startIndex);
             if (filename.Equals("<embedded>"))

@@ -87,6 +87,13 @@
 
 
   <ItemGroup>
+    <Compile Remove="..\FastReport.Base\Import\DevExpress\**" />
+    <Compile Remove="..\FastReport.Base\Import\JasperReports\**" />
+    <Compile Remove="..\FastReport.Base\Import\StimulSoft\**" />
+  </ItemGroup>
+
+
+  <ItemGroup>
     <Compile Remove="..\FastReport.Base\Code\VbCodeHelper.cs" />
   </ItemGroup>
 

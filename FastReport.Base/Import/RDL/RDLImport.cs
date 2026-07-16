@@ -1,10 +1,9 @@
+using FastReport.Data;
+using FastReport.Table;
 using System;
 using System.IO;
 using System.Xml;
-using System.Drawing;
-using System.Windows.Forms;
-using FastReport.Data;
-using FastReport.Table;
+using SkiaSharp;
 
 namespace FastReport.Import.RDL
 {
@@ -41,6 +40,23 @@ namespace FastReport.Import.RDL
 
         #region Private Methods
 
+        private SKColor ConvertHtmlColor(string htmlColor)
+        {
+            // Parse HTML color format like #RRGGBB or named colors
+            if (string.IsNullOrEmpty(htmlColor))
+                return SKColors.Black;
+
+            htmlColor = htmlColor.Trim();
+
+            // Use UnitsConverter which handles both hex and named colors
+            return UnitsConverter.ConvertColor(htmlColor);
+        }
+
+        private System.Drawing.Color SKColorToDrawingColor(SKColor skColor)
+        {
+            return System.Drawing.Color.FromArgb(skColor.Alpha, skColor.Red, skColor.Green, skColor.Blue);
+        }
+
         private void LoadBorderColor(XmlNode borderColorNode, string border)
         {
             XmlNodeList nodeList = borderColorNode.ChildNodes;
@@ -50,35 +66,35 @@ namespace FastReport.Import.RDL
                 {
                     if (component is ReportComponentBase)
                     {
-                        (component as ReportComponentBase).Border.Color = UnitsConverter.ConvertColor(node.InnerText);
+                        (component as ReportComponentBase).Border.Color = UnitsConverter.ConvertColorForBorder(node.InnerText);
                     }
                 }
                 else if (border == "Top")
                 {
                     if (component is ReportComponentBase)
                     {
-                        (component as ReportComponentBase).Border.TopLine.Color = UnitsConverter.ConvertColor(node.InnerText);
+                        (component as ReportComponentBase).Border.TopLine.Color = UnitsConverter.ConvertColorForBorder(node.InnerText);
                     }
                 }
                 else if (border == "Left")
                 {
                     if (component is ReportComponentBase)
                     {
-                        (component as ReportComponentBase).Border.LeftLine.Color = UnitsConverter.ConvertColor(node.InnerText);
+                        (component as ReportComponentBase).Border.LeftLine.Color = UnitsConverter.ConvertColorForBorder(node.InnerText);
                     }
                 }
                 else if (border == "Right")
                 {
                     if (component is ReportComponentBase)
                     {
-                        (component as ReportComponentBase).Border.RightLine.Color = UnitsConverter.ConvertColor(node.InnerText);
+                        (component as ReportComponentBase).Border.RightLine.Color = UnitsConverter.ConvertColorForBorder(node.InnerText);
                     }
                 }
                 else if (border == "Bottom")
                 {
                     if (component is ReportComponentBase)
                     {
-                        (component as ReportComponentBase).Border.BottomLine.Color = UnitsConverter.ConvertColor(node.InnerText);
+                        (component as ReportComponentBase).Border.BottomLine.Color = UnitsConverter.ConvertColorForBorder(node.InnerText);
                     }
                 }
             }
@@ -223,7 +239,7 @@ namespace FastReport.Import.RDL
 
         private void LoadStyle(XmlNode styleNode)
         {
-            FontStyle fontStyle = FontStyle.Regular;
+            System.Drawing.FontStyle fontStyle = System.Drawing.FontStyle.Regular;
             string fontFamily = "Arial";
             float fontSize = 10.0f;
             int paddingTop = 0;
@@ -285,7 +301,8 @@ namespace FastReport.Import.RDL
                 {
                     if (component is TextObject)
                     {
-                        (component as TextObject).TextColor = UnitsConverter.ConvertColor(node.InnerText);
+                        SKColor skColor = UnitsConverter.ConvertColor(node.InnerText);
+                        (component as TextObject).TextColor = System.Drawing.Color.FromArgb(skColor.Alpha, skColor.Red, skColor.Green, skColor.Blue);
                     }
                 }
                 else if (node.Name == "PaddingLeft")
@@ -307,12 +324,12 @@ namespace FastReport.Import.RDL
             }
             if (component is TextObject)
             {
-                (component as TextObject).Font = new Font(fontFamily, fontSize, fontStyle);
-                (component as TextObject).Padding = new Padding(paddingLeft, paddingTop, paddingRight, paddingBottom);
+                (component as TextObject).Font = new System.Drawing.Font(fontFamily, fontSize, fontStyle);
+                (component as TextObject).Padding = new System.Windows.Forms.Padding(paddingLeft, paddingTop, paddingRight, paddingBottom);
             }
             else if (component is PictureObject)
             {
-                (component as PictureObject).Padding = new Padding(paddingLeft, paddingTop, paddingRight, paddingBottom);
+                (component as PictureObject).Padding = new System.Windows.Forms.Padding(paddingLeft, paddingTop, paddingRight, paddingBottom);
             }
         }
 
@@ -425,7 +442,7 @@ namespace FastReport.Import.RDL
             parent = component;
             XmlNodeList nodeList = rectangleNode.ChildNodes;
             (component as ContainerObject).Border.Lines = BorderLines.All;
-            (component as ContainerObject).Border.Color = Color.Black;
+            (component as ContainerObject).Border.Color = System.Drawing.Color.Black;
             LoadReportItem(nodeList);
             foreach (XmlNode node in nodeList)
             {
@@ -507,8 +524,8 @@ namespace FastReport.Import.RDL
 
         private void ParseTextBoxStyle(XmlNode runChild)
         {
-            FontStyle style = FontStyle.Regular;
-            Color textBoxForeColor = Color.Black;
+            System.Drawing.FontStyle style = System.Drawing.FontStyle.Regular;
+            SKColor textBoxForeColor = SKColors.Black;
             string fontFamily = String.Empty;
             int fontSize = 0;
             foreach (XmlNode styleChild in runChild.ChildNodes)
@@ -518,26 +535,26 @@ namespace FastReport.Import.RDL
                 else if (styleChild.Name == "FontSize")
                     int.TryParse(styleChild.InnerText.Replace("pt", ""), out fontSize);
                 else if (styleChild.Name == "FontWeight" && styleChild.InnerText == "Bold")
-                    style = style | FontStyle.Bold;
+                    style = style | System.Drawing.FontStyle.Bold;
                 else if (styleChild.Name == "FontStyle" && styleChild.InnerText == "Italic")
-                    style = style | FontStyle.Italic;
+                    style = style | System.Drawing.FontStyle.Italic;
                 else if (styleChild.Name == "TextDecoration" && styleChild.InnerText == "Underline")
-                    style = style | FontStyle.Underline;
+                    style = style | System.Drawing.FontStyle.Underline;
                 else if (styleChild.Name == "Color")
-                    textBoxForeColor = ColorTranslator.FromHtml(styleChild.InnerText);
+                    textBoxForeColor = ConvertHtmlColor(styleChild.InnerText);
 
             }
             if (fontFamily == string.Empty)
                 fontFamily = defaultFontFamily;
             if (fontFamily == string.Empty && fontSize == 0)
-                (component as TextObject).Font = new Font((component as TextObject).Font, style);
+                (component as TextObject).Font = new System.Drawing.Font((component as TextObject).Font, style);
             else if (fontFamily == string.Empty)
-                (component as TextObject).Font = new Font((component as TextObject).Font.FontFamily, fontSize, style);
+                (component as TextObject).Font = new System.Drawing.Font((component as TextObject).Font.FontFamily, fontSize, style);
             else if (fontSize == 0)
-                (component as TextObject).Font = new Font(fontFamily, (component as TextObject).Font.Size, style);
+                (component as TextObject).Font = new System.Drawing.Font(fontFamily, (component as TextObject).Font.Size, style);
             else
-                (component as TextObject).Font = new Font(fontFamily, fontSize, style);
-            (component as TextObject).TextColor = textBoxForeColor;
+                (component as TextObject).Font = new System.Drawing.Font(fontFamily, fontSize, style);
+            (component as TextObject).TextColor = SKColorToDrawingColor(textBoxForeColor);
         }
 
         private string GetValue(string rdlValue)
