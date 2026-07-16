@@ -1,24 +1,21 @@
 using FastReport.Code.CodeDom.Compiler;
 using FastReport.Code.CSharp;
-using FastReport.Code.VisualBasic;
 using FastReport.Utils;
 using Microsoft.CSharp;
 using Microsoft.VisualBasic;
+using SkiaSharp;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Drawing;
 using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-#if SKIA
-using HMACSHA1 = FastReport.Utils.DetravHMACSHA1;
-#endif
+
 
 namespace FastReport.Code.Ms
 {
@@ -254,8 +251,8 @@ namespace FastReport.Code.Ms
 
         private CodeDomProvider GetCodeProvider()
         {
-            return Report.ScriptLanguage == Language.CSharp ?
-                new CSharpCodeProvider() : new VBCodeProvider();
+            return new CSharpCodeProvider();
+
         }
 
         /// <summary>
@@ -388,7 +385,7 @@ namespace FastReport.Code.Ms
                     {
                         TextObjectBase text = Report.FindObject(errObjName) as TextObjectBase;
                         text.CanGrow = true;
-                        text.FillColor = Color.Red;
+                        text.FillColor = SKColors.Red;
                         text.Text = "DIVISION BY ZERO!";
                         continue;
                     }

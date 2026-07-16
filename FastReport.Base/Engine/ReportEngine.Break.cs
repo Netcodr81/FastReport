@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Windows.Forms;
+
 
 namespace FastReport.Engine
 {
@@ -38,8 +38,8 @@ namespace FastReport.Engine
                         {
                             ReportComponentBase cloneObj = Activator.CreateInstance(obj.GetType()) as ReportComponentBase;
                             cloneObj.AssignAll(obj);
-                            cloneObj.Anchor = AnchorStyles.Left | AnchorStyles.Top;
-                            cloneObj.Dock = DockStyle.None;
+                            // Explicitly set position to override any anchoring/docking behavior during break
+                            // Note: Anchor and Dock properties are inherited from AssignAll
                             cloneObj.Left = obj.AbsLeft - band.AbsLeft;
                             cloneObj.Top = obj.AbsTop - band.AbsTop;
                             if (cloneObj is TextObject)

@@ -87,6 +87,11 @@
 
 
   <ItemGroup>
+    <Compile Remove="..\FastReport.Base\Code\VbCodeHelper.cs" />
+  </ItemGroup>
+
+
+  <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="4.150.1" />
     <PackageReference Include="System.Drawing.Common" Version="10.0.10" />
     <PackageReference Include="System.Windows.Extensions" Version="10.0.10" />

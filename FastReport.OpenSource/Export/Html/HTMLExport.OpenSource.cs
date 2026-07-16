@@ -1,9 +1,5 @@
 ﻿using FastReport.Utils;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Globalization;
-using System.IO;
-using System.Text;
+
 
 namespace FastReport.Export.Html
 {
@@ -34,13 +30,13 @@ namespace FastReport.Export.Html
 
         }
         partial void SetExportableAdvMatrix(Base c);
-       
+
 
         private string GetHrefAdvMatrixButton(ReportComponentBase obj, string href)
         {
             return string.Empty;
         }
-       
+
         /// <inheritdoc/>
         protected override void ExportBand(BandBase band)
         {

@@ -1,10 +1,10 @@
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.ComponentModel;
-using System.Collections;
 using FastReport.Utils;
-using System.Drawing.Design;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+
 
 namespace FastReport.Data
 {
@@ -12,7 +12,6 @@ namespace FastReport.Data
     /// Base class for all datasources such as <see cref="TableDataSource"/>.
     /// </summary>
     [TypeConverter(typeof(FastReport.TypeConverters.DataSourceConverter))]
-    [Editor("FastReport.TypeEditors.DataSourceEditor, FastReport", typeof(UITypeEditor))]
     public abstract partial class DataSourceBase : Column
     {
         #region Fields

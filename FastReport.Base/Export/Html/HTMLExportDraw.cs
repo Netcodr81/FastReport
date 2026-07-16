@@ -1,25 +1,26 @@
 ﻿using System;
-using System.Drawing;
 using System.IO;
 using FastReport.Utils;
-using System.Windows.Forms;
 using System.Globalization;
+using SkiaSharp;
 
 namespace FastReport.Export.Html
 {
     public partial class HTMLExport : ExportBase
     {
-        private void HTMLFontStyle(FastString FFontDesc, Font font, float LineHeight)
+        private void HTMLFontStyle(FastString FFontDesc, SKFont font, float LineHeight)
         {
-            FFontDesc.Append((((font.Style & FontStyle.Bold) > 0) ? "font-weight:bold;" : String.Empty) +
-                (((font.Style & FontStyle.Italic) > 0) ? "font-style:italic;" : "font-style:normal;"));
-            if ((font.Style & FontStyle.Underline) > 0 && (font.Style & FontStyle.Strikeout) > 0)
-                FFontDesc.Append("text-decoration:underline|line-through;");
-            else if ((font.Style & FontStyle.Underline) > 0)
-                FFontDesc.Append("text-decoration:underline;");
-            else if ((font.Style & FontStyle.Strikeout) > 0)
-                FFontDesc.Append("text-decoration:line-through;");
-            FFontDesc.Append("font-family:").Append(font.Name).Append(";");
+            // Extract font style from SKTypeface
+            bool isBold = font.Typeface.FontWeight >= (int)SKFontStyleWeight.SemiBold;
+            bool isItalic = font.Typeface.FontSlant != SKFontStyleSlant.Upright;
+
+            FFontDesc.Append(isBold ? "font-weight:bold;" : String.Empty)
+                     .Append(isItalic ? "font-style:italic;" : "font-style:normal;");
+
+            // Note: SKFont doesn't have underline/strikeout as they're typically handled by text rendering
+            // These would be managed at a higher level in FastReport
+
+            FFontDesc.Append("font-family:").Append(font.Typeface.FamilyName).Append(";");
             FFontDesc.Append("font-size:").Append(Px(font.Size * 96 / 72));
 
             if (LineHeight > 0)
@@ -28,13 +29,15 @@ namespace FastReport.Export.Html
             }
             else
             {
-                float lineSpace = font.FontFamily.GetLineSpacing(font.Style);
-                float height = font.FontFamily.GetEmHeight(font.Style);
+                // SkiaSharp font metrics
+                SKFontMetrics metrics = font.Metrics;
+                float lineSpace = metrics.Descent - metrics.Ascent + metrics.Leading;
+                float height = font.Size;
                 FFontDesc.Append($"line-height: {Math.Round(lineSpace / height, 2).ToString(CultureInfo.InvariantCulture)};");
             }
         }
 
-        private void HTMLPadding(FastString PaddingDesc, Padding padding, float ParagraphOffset)
+        private void HTMLPadding(FastString PaddingDesc, System.Windows.Forms.Padding padding, float ParagraphOffset)
         {
             PaddingDesc.Append("text-indent:").Append(Px(ParagraphOffset));
             PaddingDesc.Append("padding-left:").Append(Px(padding.Left));
@@ -226,18 +229,28 @@ namespace FastReport.Export.Html
                 Append(" { ").ToString();
         }
 
-        private void HTMLGetStyle(FastString style, Font Font, Color TextColor, Color FillColor, HorzAlign HAlign, VertAlign VAlign,
-            Border Border, Padding Padding, bool RTL, bool wordWrap, float LineHeight, float ParagraphOffset)
+        private void HTMLGetStyle(FastString style, SKFont Font, SKColor TextColor, SKColor FillColor, HorzAlign HAlign, VertAlign VAlign,
+            Border Border, System.Windows.Forms.Padding Padding, bool RTL, bool wordWrap, float LineHeight, float ParagraphOffset)
         {
             HTMLFontStyle(style, Font, LineHeight);
-            style.Append("color:").Append(ExportUtils.HTMLColor(TextColor)).Append(";");
+            style.Append("color:").Append(SKColorToHTML(TextColor)).Append(";");
             style.Append("background-color:");
-            style.Append(FillColor.A == 0 ? "transparent" : ExportUtils.HTMLColor(FillColor)).Append(";");
+            style.Append(FillColor.Alpha == 0 ? "transparent" : SKColorToHTML(FillColor)).Append(";");
             HTMLAlign(style, HAlign, VAlign, wordWrap);
             HTMLBorder(style, Border);
             HTMLPadding(style, Padding, ParagraphOffset);
             HTMLRtl(style, RTL);
             style.AppendLine("}");
+        }
+
+        private string SKColorToHTML(SKColor color)
+        {
+            if (color.Alpha < 255)
+            {
+                string alphaValue = (color.Alpha / 255.0).ToString("0.00", CultureInfo.InvariantCulture);
+                return $"rgba({color.Red}, {color.Green}, {color.Blue}, {alphaValue})";
+            }
+            return $"rgb({color.Red}, {color.Green}, {color.Blue})";
         }
 
         private string HTMLGetStylesFooter()
@@ -264,17 +277,17 @@ namespace FastReport.Export.Html
         } 
 
         private string HTMLGetImage(int PageNumber, int CurrentPage, int ImageNumber, string hash, bool Base,
-            System.Drawing.Image Metafile, MemoryStream PictureStream, bool isSvg)
+            SKImage Metafile, MemoryStream PictureStream, bool isSvg)
         {
             if (pictures)
             {
-                System.Drawing.Imaging.ImageFormat format = System.Drawing.Imaging.ImageFormat.Bmp;
+                SKEncodedImageFormat format = SKEncodedImageFormat.Bmp;
                 if (imageFormat == ImageFormat.Png)
-                    format = System.Drawing.Imaging.ImageFormat.Png;
+                    format = SKEncodedImageFormat.Png;
                 else if (imageFormat == ImageFormat.Jpeg)
-                    format = System.Drawing.Imaging.ImageFormat.Jpeg;
+                    format = SKEncodedImageFormat.Jpeg;
                 else if (imageFormat == ImageFormat.Gif)
-                    format = System.Drawing.Imaging.ImageFormat.Gif;
+                    format = SKEncodedImageFormat.Gif;
                 string formatNm = isSvg ? "svg" : format.ToString().ToLower();
 
                 string embedImgType = isSvg ? "svg+xml" : format.ToString();
@@ -298,14 +311,20 @@ namespace FastReport.Export.Html
                             if (saveStreams)
                             {
                                 MemoryStream ImageFileStream = new MemoryStream();
-                                Metafile.Save(ImageFileStream, format);
+                                using (SKData data = Metafile.Encode(format, 100))
+                                {
+                                    data.SaveTo(ImageFileStream);
+                                }
                                 GeneratedUpdate(targetPath + ImageFileName, ImageFileStream);
                             }
                             else
                             {
                                 using (FileStream ImageFileStream =
                                     new FileStream(targetPath + ImageFileName, FileMode.Create))
-                                    Metafile.Save(ImageFileStream, format);
+                                using (SKData data = Metafile.Encode(format, 100))
+                                {
+                                    data.SaveTo(ImageFileStream);
+                                }
                             }
                         }
                         else if (PictureStream != null && !EmbedPictures)

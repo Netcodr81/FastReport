@@ -1,7 +1,7 @@
-﻿using System;
-using System.Drawing;
-using FastReport.Table;
+﻿using FastReport.Table;
 using FastReport.Utils;
+using SkiaSharp;
+using System;
 
 namespace FastReport.Export.Html
 {
@@ -18,35 +18,69 @@ namespace FastReport.Export.Html
             if (obj is TextObject)
             {
                 TextObject textObj = obj as TextObject;
-                style = GetStyle(textObj.Font, textObj.TextColor, textObj.FillColor,
+
+                // TODO: Replace System.Drawing.Font with SKFont in TextObject
+                // Extract font properties directly from System.Drawing.Font
+                SKFont skFont = null;
+                if (textObj.Font != null)
+                {
+                    var sysFont = textObj.Font;
+                    SKFontStyle fontStyle = new SKFontStyle(
+                        (sysFont.Style & System.Drawing.FontStyle.Bold) != 0 ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
+                        SKFontStyleWidth.Normal,
+                        (sysFont.Style & System.Drawing.FontStyle.Italic) != 0 ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright
+                    );
+                    SKTypeface typeface = SKTypeface.FromFamilyName(sysFont.FontFamily.Name, fontStyle);
+                    skFont = new SKFont(typeface, sysFont.Size * (Zoom != 1 ? Zoom : 1));
+                }
+
+                // TODO: Replace System.Drawing.Color with SKColor in TextObject.TextColor
+                // Convert System.Drawing.Color to SKColor
+                var sysColor = textObj.TextColor;
+                SKColor textColor = new SKColor(sysColor.R, sysColor.G, sysColor.B, sysColor.A);
+
+                style = GetStyle(skFont, textColor, textObj.FillColor,
                     textObj.RightToLeft, textObj.HorzAlign, textObj.Border, textObj.WordWrap, textObj.LineHeight,
                     textObj.Width, textObj.Height, textObj.Clip);
+
+                skFont?.Dispose();
             }
             else if (obj is HtmlObject)
             {
                 HtmlObject htmlObj = obj as HtmlObject;
-                style = GetStyle(DrawUtils.DefaultTextObjectFont, Color.Black, htmlObj.FillColor,
+
+                // TODO: Replace System.Drawing.Font with SKFont in DrawUtils.DefaultTextObjectFont
+                SKFont skFont = null;
+                var sysFont = DrawUtils.DefaultTextObjectFont;
+                if (sysFont != null)
+                {
+                    SKFontStyle fontStyle = new SKFontStyle(
+                        (sysFont.Style & SKFontStyle.Bold) != 0 ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
+                        SKFontStyleWidth.Normal,
+                        (sysFont.Style & SKFontStyle.Italic) != 0 ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright
+                    );
+                    SKTypeface typeface = SKTypeface.FromFamilyName(sysFont.FontFamily.Name, fontStyle);
+                    skFont = new SKFont(typeface, sysFont.Size * (Zoom != 1 ? Zoom : 1));
+                }
+
+                style = GetStyle(skFont, SKColors.Black, htmlObj.FillColor,
                     false, HorzAlign.Left, htmlObj.Border, true, 0, htmlObj.Width, htmlObj.Height, false);
+
+                skFont?.Dispose();
             }
             else
-                style = GetStyle(null, Color.White, obj.FillColor, false, HorzAlign.Center, obj.Border, false, 0, obj.Width, obj.Height, false);
+                style = GetStyle(null, SKColors.White, obj.FillColor, false, HorzAlign.Center, obj.Border, false, 0, obj.Width, obj.Height, false);
             return style;
         }
 
-        private string GetStyle(Font Font, Color TextColor, Color FillColor,
+        private string GetStyle(SKFont font, SKColor textColor, SKColor fillColor,
             bool RTL, HorzAlign HAlign, Border Border, bool WordWrap, float LineHeight, float Width, float Height, bool Clip)
         {
             FastString style = new FastString(256);
 
-            if (Font != null)
+            if (font != null)
             {
-                if (Zoom != 1)
-                {
-                    using (Font newFont = new Font(Font.FontFamily, Font.Size * Zoom, Font.Style, Font.Unit, Font.GdiCharSet, Font.GdiVerticalFont))
-                        HTMLFontStyle(style, newFont, LineHeight);
-                }
-                else
-                    HTMLFontStyle(style, Font, LineHeight);
+                HTMLFontStyle(style, font, LineHeight);
             }
             style.Append("text-align:");
             if (HAlign == HorzAlign.Left)
@@ -65,10 +99,11 @@ namespace FastReport.Export.Html
             if (Clip)
                 style.Append("overflow:hidden;");
 
+            // Both colors are now SKColor
             style.Append("position:absolute;color:").
-                Append(ExportUtils.HTMLColor(TextColor)).
+                Append(SKColorToHTML(textColor)).
                 Append(";background-color:").
-                Append(FillColor.A == 0 ? "transparent" : ExportUtils.HTMLColor(FillColor)).
+                Append(fillColor.Alpha == 0 ? "transparent" : SKColorToHTML(fillColor)).
                 Append(";").Append(RTL ? "direction:rtl;" : String.Empty);
 
             Border newBorder = Border;

@@ -1,13 +1,13 @@
+using FastReport.Data.JsonConnection;
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
-using System.Drawing.Design;
 using System.Linq;
 using System.Reflection;
-using FastReport.Data.JsonConnection;
-using FastReport.Utils;
 
 namespace FastReport.Data
 {
@@ -122,7 +122,6 @@ namespace FastReport.Data
         /// </note>
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string ConnectionStringExpression
         {
             get
@@ -849,7 +848,7 @@ namespace FastReport.Data
             {
                 string message = BdErrorMessage(ex, selectCommand);
 
-                throw new Exception(message, ex); 
+                throw new Exception(message, ex);
             }
 
             foreach (Column column in dataSource.Columns)

@@ -6,6 +6,7 @@ using FastReport.Utils;
 using System.Drawing.Design;
 using System.IO;
 using System.Drawing.Imaging;
+using SkiaSharp;
 
 namespace FastReport
 {
@@ -115,8 +116,9 @@ namespace FastReport
         {
             rect = new RectangleF(rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Width * e.ScaleX, rect.Height * e.ScaleY);
             using (Brush brush = CreateBrush(rect, e.ScaleX, e.ScaleY))
+            using (SKPaint paint = new SKPaint { Color = brush is SolidBrush sb ? new SKColor(sb.Color.R, sb.Color.G, sb.Color.B, sb.Color.A) : SKColors.Black })
             {
-                e.Graphics.FillRectangle(brush, rect.Left, rect.Top, rect.Width, rect.Height);
+                e.Graphics.FillRectangle(paint, rect.Left, rect.Top, rect.Width, rect.Height);
             }
         }
     }
@@ -126,13 +128,13 @@ namespace FastReport
     /// </summary>
     public class SolidFill : FillBase
     {
-        private Color color;
+        private SKColor color;
 
         /// <summary>
         /// Gets or sets the fill color.
         /// </summary>
         [Editor("FastReport.TypeEditors.ColorEditor, FastReport", typeof(UITypeEditor))]
-        public Color Color
+        public SKColor Color
         {
             get { return color; }
             set { color = value; }
@@ -141,7 +143,7 @@ namespace FastReport
         /// <inheritdoc/>
         public override bool IsTransparent
         {
-            get { return color.A == 0; }
+            get { return color.Alpha == 0; }
         }
 
         /// <inheritdoc/>
@@ -166,7 +168,7 @@ namespace FastReport
         /// <inheritdoc/>
         public override Brush CreateBrush(RectangleF rect)
         {
-            return new SolidBrush(Color);
+            return new SolidBrush(System.Drawing.Color.FromArgb(Color.Alpha, Color.Red, Color.Green, Color.Blue));
         }
 
         /// <inheritdoc/>
@@ -182,16 +184,18 @@ namespace FastReport
         /// <inheritdoc/>
         public override void Draw(FRPaintEventArgs e, RectangleF rect)
         {
-            if (Color == Color.Transparent)
+            if (Color == SKColors.Transparent)
                 return;
-            Brush brush = e.Cache.GetBrush(Color);
-            e.Graphics.FillRectangle(brush, rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Width * e.ScaleX, rect.Height * e.ScaleY);
+            using (SKPaint paint = new SKPaint { Color = Color })
+            {
+                e.Graphics.FillRectangle(paint, rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Width * e.ScaleX, rect.Height * e.ScaleY);
+            }
         }
 
         /// <summary>
         /// Initializes the <see cref="SolidFill"/> class with Transparent color.
         /// </summary>
-        public SolidFill() : this(Color.Transparent)
+        public SolidFill() : this(SKColors.Transparent)
         {
         }
 
@@ -199,7 +203,7 @@ namespace FastReport
         /// Initializes the <see cref="SolidFill"/> class with specified color.
         /// </summary>
         /// <param name="color"></param>
-        public SolidFill(Color color)
+        public SolidFill(SKColor color)
         {
             Color = color;
         }
@@ -699,25 +703,22 @@ namespace FastReport
             rect = new RectangleF(rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Width * e.ScaleX, rect.Height * e.ScaleY);
 
             // draw fill
-            using (SolidBrush b = new SolidBrush(Color))
+            using (SKPaint paint = new SKPaint { Color = new SKColor(Color.R, Color.G, Color.B, Color.A) })
             {
-                e.Graphics.FillRectangle(b, rect.Left, rect.Top, rect.Width, rect.Height);
+                e.Graphics.FillRectangle(paint, rect.Left, rect.Top, rect.Width, rect.Height);
             }
 
             // draw hatch
             if (Hatch)
             {
-                using (HatchBrush b = new HatchBrush(HatchStyle.DarkUpwardDiagonal,
-                  Color.FromArgb(40, Color.White), Color.Transparent))
-                {
-                    e.Graphics.FillRectangle(b, rect.Left, rect.Top, rect.Width, rect.Height);
-                }
+                // For now, skip hatch brush as it requires more complex SkiaSharp shader implementation
+                // TODO: Implement hatch pattern using SKShader
             }
 
             // draw blend
-            using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(Blend * 255), Color.White)))
+            using (SKPaint paint = new SKPaint { Color = new SKColor(255, 255, 255, (byte)(Blend * 255)) })
             {
-                e.Graphics.FillRectangle(b, rect.Left, rect.Top, rect.Width, rect.Height / 2);
+                e.Graphics.FillRectangle(paint, rect.Left, rect.Top, rect.Width, rect.Height / 2);
             }
         }
 

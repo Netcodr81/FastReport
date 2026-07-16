@@ -1,10 +1,9 @@
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
-using FastReport.Utils;
 
 namespace FastReport.Export.Image
 {
@@ -57,22 +56,22 @@ namespace FastReport.Export.Image
         private bool multiFrameTiff;
         private bool monochromeTiff;
         private EncoderValue monochromeTiffCompression;
-        private System.Drawing.Image masterTiffImage;
-        private System.Drawing.Image bigImage;
-        private Graphics bigGraphics;
+        private SKImage masterTiffImage;
+        private SKImage bigImage;
+        private SKCanvas bigGraphics;
         private float curOriginY;
         private bool firstPage;
         private int paddingNonSeparatePages;
         private int pageNumber;
-        private System.Drawing.Image image;
-        private Graphics g;
+        private SKImage image;
+        private SKCanvas g;
         private int height;
         private int width;
         private int widthK;
         private string fileSuffix;
         private float zoomX;
         private float zoomY;
-        private System.Drawing.Drawing2D.GraphicsState state;
+        private SKMatrix state;
         private string imageExtensionFormat;
         private string documentTitle;
 
@@ -416,7 +415,7 @@ namespace FastReport.Export.Image
                 if (saveStreams)
                 {
                     targetFileName = string.IsNullOrEmpty(suffix)
-                        ? Path.ChangeExtension(documentTitle, imageExtensionFormat) 
+                        ? Path.ChangeExtension(documentTitle, imageExtensionFormat)
                         : Path.ChangeExtension(documentTitle + $" ({suffix})", imageExtensionFormat);
                     stream = new MemoryStream();
                 }

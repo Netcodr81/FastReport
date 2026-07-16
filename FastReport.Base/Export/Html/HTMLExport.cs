@@ -2,8 +2,6 @@ using FastReport.Utils;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
-using System.Globalization;
 using System.IO;
 using System.Text;
 
@@ -16,17 +14,17 @@ namespace FastReport.Export.Html
     /// <summary>
     /// For internal use only.
     /// </summary>
-    public interface IHTMLBaseExport 
+    public interface IHTMLBaseExport
     {
         /// <summary>
         /// Layers mode.
         /// </summary>
         public bool Layers { get; }
-        
+
         /// <summary>
         /// Enable vector objects.
         /// </summary>
-        public bool EnableVectorObjects  { get; }
+        public bool EnableVectorObjects { get; }
     }
 
     /// <summary>
@@ -476,12 +474,13 @@ namespace FastReport.Export.Html
         public bool ShowPageBorders
         {
             get { return showPageBorders; }
-            set {
-                if (value) 
+            set
+            {
+                if (value)
                 {
                     enableMargins = true;
                 }
-                showPageBorders = value; 
+                showPageBorders = value;
             }
         }
 
@@ -516,7 +515,7 @@ namespace FastReport.Export.Html
         }
 
         private void ExportHTMLPageStart(FastString Page, int PageNumber, int CurrentPage)
-        {            
+        {
             if (webMode)
             {
                 if (!layers)
@@ -649,7 +648,7 @@ namespace FastReport.Export.Html
                 else
                     ExportUtils.WriteLn(stream, $@"<script type=""module"" src=""{PrintScriptSrc}""></script>");
             }
-            
+
             ExportUtils.WriteLn(stream, BODY_END);
             ExportUtils.Write(stream, templates.PageTemplateFooter);
         }

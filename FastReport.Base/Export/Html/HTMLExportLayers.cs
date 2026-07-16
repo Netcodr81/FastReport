@@ -1,12 +1,11 @@
 using System;
-using System.Drawing;
 using System.IO;
 using FastReport.Table;
 using FastReport.Utils;
-using System.Windows.Forms;
 using FastReport.Export;
 using System.ComponentModel;
-using System.Drawing.Text;
+using SkiaSharp;
+
 
 namespace FastReport.Export.Html
 {
@@ -131,9 +130,11 @@ namespace FastReport.Export.Html
                 if (obj is TextObject)
                 {
                     TextObject textObject = obj as TextObject;
+                    // TextObject.Font is System.Drawing.Font, check underline via Style
+                    bool hasUnderline = (textObject.Font.Style & System.Drawing.FontStyle.Underline) != 0;
                     hrefStyle = String.Format("style=\"color:{0}{1}\"",
                         ExportUtils.HTMLColor(textObject.TextColor),
-                        !textObject.Font.Underline ? ";text-decoration:none" : String.Empty
+                        !hasUnderline ? ";text-decoration:none" : String.Empty
                         );
                 }
 
@@ -225,6 +226,7 @@ namespace FastReport.Export.Html
         {
             float top = 0;
 
+            // obj.Font is System.Drawing.Font from TextObject
             if (obj.Font.FontFamily.Name == "Wingdings" || obj.Font.FontFamily.Name == "Webdings")
             {
                 obj.Text = WingdingsToUnicodeConverter.Convert(obj.Text);
@@ -257,13 +259,14 @@ namespace FastReport.Export.Html
                     if (obj.VertAlign != VertAlign.Top)
                     {
                         IGraphics g = htmlMeasureGraphics;
-                        using (Font f = new Font(obj.Font.FontFamily, obj.Font.Size * DrawUtils.ScreenDpiFX, obj.Font.Style))
+                        // obj.Font is System.Drawing.Font
+                        using (System.Drawing.Font f = new System.Drawing.Font(obj.Font.FontFamily, obj.Font.Size * DrawUtils.ScreenDpiFX, obj.Font.Style))
                         {
-                            RectangleF textRect = new RectangleF(obj.AbsLeft + obj.Padding.Left, obj.AbsTop + obj.Padding.Top,
+                            System.Drawing.RectangleF textRect = new System.Drawing.RectangleF(obj.AbsLeft + obj.Padding.Left, obj.AbsTop + obj.Padding.Top,
                                 obj.Width - obj.Padding.Left - obj.Padding.Right,
                                 obj.Height - obj.Padding.Top - obj.Padding.Bottom);
-                            StringFormat format = obj.GetStringFormat(Report.GraphicCache, 0);
-                            Brush textBrush = Report.GraphicCache.GetBrush(obj.TextColor);
+                            System.Drawing.StringFormat format = obj.GetStringFormat(Report.GraphicCache, 0);
+                            System.Drawing.Brush textBrush = Report.GraphicCache.GetBrush(obj.TextColor);
                             AdvancedTextRenderer renderer = new AdvancedTextRenderer(obj.Text, g, f, textBrush, null,
                                 textRect, format, obj.HorzAlign, obj.VertAlign, obj.LineHeight, obj.Angle, obj.FontWidthRatio,
                                 obj.ForceJustify, obj.Wysiwyg, obj.HasHtmlTags, false, Zoom, Zoom, obj.InlineImageCache);
@@ -414,7 +417,7 @@ namespace FastReport.Export.Html
                                     try
                                     {
                                         float w, h;
-                                        using (Bitmap bmp = runImage.GetBitmap(out w, out h))
+                                        using (System.Drawing.Bitmap bmp = runImage.GetBitmap(out w, out h))
                                         {
 
                                             bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
@@ -465,6 +468,7 @@ namespace FastReport.Export.Html
                 if (pictures)
                 {
                     MemoryStream PictureStream = new MemoryStream();
+                    // Using System.Drawing for image format conversion during HTML export rendering
                     System.Drawing.Imaging.ImageFormat FPictureFormat = System.Drawing.Imaging.ImageFormat.Bmp;
                     if (imageFormat == ImageFormat.Png)
                         FPictureFormat = System.Drawing.Imaging.ImageFormat.Png;
@@ -485,12 +489,12 @@ namespace FastReport.Export.Html
                     int zoom = highQualitySVG ? 3 : 1;
 
                     using (System.Drawing.Image image =
-                        new Bitmap(
+                        new System.Drawing.Bitmap(
                             (int)(Math.Abs(Math.Round(Width * Zoom * zoom))),
                             (int)(Math.Abs(Math.Round(Height * Zoom * zoom)))
                             ))
                     {
-                        using (Graphics g = Graphics.FromImage(image))
+                        using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(image))
                         {
                             var needClear = obj is TextObjectBase
 #if MSCHART
@@ -500,8 +504,8 @@ namespace FastReport.Export.Html
 
                             if (needClear)
                             {
-                                g.Clear(imageFormat == ImageFormat.Bmp ? Color.White : Color.Transparent);
-                                g.TextRenderingHint = TextRenderingHint.AntiAlias;
+                                g.Clear(imageFormat == ImageFormat.Bmp ? System.Drawing.Color.White : System.Drawing.Color.Transparent);
+                                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
                             }
 
                             float Left = Width > 0 ? obj.AbsLeft : obj.AbsLeft + Width;
@@ -517,12 +521,12 @@ namespace FastReport.Export.Html
                             obj.Border.Lines = oldLines;
                         }
 
-                        using (Bitmap b = new Bitmap(
+                        using (System.Drawing.Bitmap b = new System.Drawing.Bitmap(
                         (int)(Math.Abs(Math.Round(Width * Zoom))),
                         (int)(Math.Abs(Math.Round(Height * Zoom)))
                         ))
                         {
-                            using (Graphics gr = Graphics.FromImage(b))
+                            using (System.Drawing.Graphics gr = System.Drawing.Graphics.FromImage(b))
                             {
                                 gr.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
                                 gr.DrawImage(image, 0, 0, (int)Math.Abs(Width) * Zoom, (int)Math.Abs(Height) * Zoom);
@@ -553,6 +557,7 @@ namespace FastReport.Export.Html
                                     picWriter.Write(pic.Height);
                                     picWriter.Write(pic.Angle);
                                     picWriter.Write(pic.Transparency);
+                                    // TransparentColor is System.Drawing.Color
                                     picWriter.Write(pic.TransparentColor.ToArgb());
                                     picWriter.Write(pic.CanShrink);
                                     picWriter.Write(pic.CanGrow);
@@ -634,7 +639,9 @@ namespace FastReport.Export.Html
                     shadow.Top = obj.AbsTop + obj.Height + obj.Border.BottomLine.Width;
                     shadow.Width = obj.Width + obj.Border.RightLine.Width;
                     shadow.Height = obj.Border.ShadowWidth + obj.Border.BottomLine.Width;
-                    shadow.FillColor = obj.Border.ShadowColor;
+                    // Convert System.Drawing.Color to SKColor
+                    var shadowColor = obj.Border.ShadowColor;
+                    shadow.FillColor = new SKColor(shadowColor.R, shadowColor.G, shadowColor.B, shadowColor.A);
                     shadow.Border.Lines = BorderLines.None;
                     LayerBack(Page, shadow, null);
 
@@ -730,19 +737,19 @@ namespace FastReport.Export.Html
                 pictureWatermark.Width = (ExportUtils.GetPageWidth(page) - page.LeftMargin - page.RightMargin) * Units.Millimeters;
                 pictureWatermark.Height = (ExportUtils.GetPageHeight(page) - page.TopMargin - page.BottomMargin) * Units.Millimeters;
 
-                pictureWatermark.SizeMode = PictureBoxSizeMode.Normal;
-                pictureWatermark.Image = new Bitmap((int)pictureWatermark.Width, (int)pictureWatermark.Height);
+                pictureWatermark.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Normal;
+                pictureWatermark.Image = new System.Drawing.Bitmap((int)pictureWatermark.Width, (int)pictureWatermark.Height);
 
-                using (Graphics g = Graphics.FromImage(pictureWatermark.Image))
+                using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(pictureWatermark.Image))
                 {
-                    g.Clear(Color.Transparent);
+                    g.Clear(System.Drawing.Color.Transparent);
                     if (drawText)
                         page.Watermark.DrawText(new FRPaintEventArgs(g, 1f, 1f, Report.GraphicCache),
-                            new RectangleF(0, 0, pictureWatermark.Width, pictureWatermark.Height), Report, true);
+                            new System.Drawing.RectangleF(0, 0, pictureWatermark.Width, pictureWatermark.Height), Report, true);
                     else
                     {
                         page.Watermark.DrawImage(new FRPaintEventArgs(g, 1f, 1f, Report.GraphicCache),
-                            new RectangleF(0, 0, pictureWatermark.Width, pictureWatermark.Height), Report, true);
+                            new System.Drawing.RectangleF(0, 0, pictureWatermark.Width, pictureWatermark.Height), Report, true);
                         pictureWatermark.Transparency = page.Watermark.ImageTransparency;
                     }
                     LayerBack(Page, pictureWatermark, null);
@@ -811,7 +818,7 @@ namespace FastReport.Export.Html
                 {
                     SolidFill fill = reportPage.Fill as SolidFill;
                     htmlPage.Append(" background-color:").
-                        Append(fill.IsTransparent ? "transparent" : ExportUtils.HTMLColor(fill.Color));
+                        Append(fill.IsTransparent ? "transparent" : SKColorToHTML(fill.Color));
                     if (exportMode == ExportType.WebPrint)
                         htmlPage.Append("color-adjust: exact !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important;");
                 }

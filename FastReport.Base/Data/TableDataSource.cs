@@ -1,11 +1,10 @@
-using System;
-using System.Data;
-using System.ComponentModel;
-using System.Reflection;
-using System.Collections;
 using FastReport.Utils;
+using System;
+using System.Collections;
+using System.ComponentModel;
+using System.Data;
 using System.IO;
-using System.Drawing.Design;
+using System.Reflection;
 
 namespace FastReport.Data
 {
@@ -63,7 +62,6 @@ namespace FastReport.Data
         /// property.
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.SqlEditor, FastReport", typeof(UITypeEditor))]
         public string SelectCommand
         {
             get { return selectCommand; }

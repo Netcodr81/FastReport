@@ -1,9 +1,8 @@
+using FastReport.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing.Design;
-using FastReport.Utils;
 
 namespace FastReport.Data
 {
@@ -85,7 +84,6 @@ namespace FastReport.Data
         /// Gets or sets the expression used to calculate the total.
         /// </summary>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string Expression
         {
             get { return expression; }

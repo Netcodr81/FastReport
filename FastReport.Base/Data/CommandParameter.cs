@@ -1,7 +1,7 @@
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.ComponentModel;
-using FastReport.Utils;
-using System.Drawing.Design;
 using System.Data;
 
 namespace FastReport.Data
@@ -29,7 +29,6 @@ namespace FastReport.Data
         /// </summary>
         [TypeConverter(typeof(FastReport.TypeConverters.ParameterDataTypeConverter))]
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ParameterDataTypeEditor, FastReport", typeof(UITypeEditor))]
         public virtual int DataType
         {
             get { return dataType; }
@@ -68,7 +67,6 @@ namespace FastReport.Data
         /// to obtain a parameter's value.
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public virtual string Expression
         {
             get { return expression; }

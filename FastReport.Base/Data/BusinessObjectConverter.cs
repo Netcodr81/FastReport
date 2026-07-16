@@ -1,9 +1,12 @@
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
-using FastReport.Utils;
-using System.Windows.Forms;
+using System.Linq;
+using System.Reflection;
+
 
 namespace FastReport.Data
 {
@@ -68,7 +71,7 @@ namespace FastReport.Data
             if (type.IsValueType ||
               type == typeof(string) ||
               type == typeof(byte[]) ||
-              typeof(Image).IsAssignableFrom(type))
+              typeof(SKImage).IsAssignableFrom(type))
             {
                 kind = PropertyKind.Simple;
             }
@@ -105,61 +108,79 @@ namespace FastReport.Data
 
         private PropertyDescriptorCollection GetProperties(Column column)
         {
-            using (BindingSource source = new BindingSource())
+            object dataSource = column.Reference != null ? column.Reference : column.DataType;
+
+            // to get properties list of ICustomTypeDescriptor type, we need an instance
+            object instance = null;
+            if (dataSource is Type && typeof(ICustomTypeDescriptor).IsAssignableFrom(dataSource as Type))
             {
-                source.DataSource = column.Reference != null ? column.Reference : column.DataType;
-                // to get properties list of ICustomTypeDescriptor type, we need an instance
-                object instance = null;
-                if (source.DataSource is Type &&
-                  typeof(ICustomTypeDescriptor).IsAssignableFrom(source.DataSource as Type))
+                try
                 {
-                    try
-                    {
-                        GetTypeInstanceEventArgs args = new GetTypeInstanceEventArgs(source.DataSource as Type);
-                        Config.ReportSettings.OnGetBusinessObjectTypeInstance(null, args);
-                        instance = args.Instance;
-                        source.DataSource = instance;
-                    }
-                    catch
-                    {
-                    }
+                    GetTypeInstanceEventArgs args = new GetTypeInstanceEventArgs(dataSource as Type);
+                    Config.ReportSettings.OnGetBusinessObjectTypeInstance(null, args);
+                    instance = args.Instance;
+                    dataSource = instance;
                 }
-
-                // generic list? get element type
-                if (column.Reference == null && column.DataType.IsGenericType)
+                catch
                 {
-                    source.DataSource = column.DataType.GetGenericArguments()[0];
                 }
-
-                PropertyDescriptorCollection properties = source.GetItemProperties(null);
-                PropertyDescriptorCollection filteredProperties = new PropertyDescriptorCollection(null);
-
-                foreach (PropertyDescriptor prop in properties)
-                {
-                    FilterPropertiesEventArgs args = new FilterPropertiesEventArgs(prop);
-                    Config.ReportSettings.OnFilterBusinessObjectProperties(source.DataSource, args);
-                    if (!args.Skip)
-                        filteredProperties.Add(args.Property);
-                }
-
-                if (instance is IDisposable)
-                {
-                    try
-                    {
-                        (instance as IDisposable).Dispose();
-                    }
-                    catch
-                    {
-                    }
-                }
-
-                return filteredProperties;
             }
+
+            // generic list? get element type
+            if (column.Reference == null && column.DataType.IsGenericType)
+            {
+                dataSource = column.DataType.GetGenericArguments()[0];
+            }
+
+            PropertyDescriptorCollection properties = TypeDescriptor.GetProperties(dataSource);
+            PropertyDescriptorCollection filteredProperties = new PropertyDescriptorCollection(null);
+
+            foreach (PropertyDescriptor prop in properties)
+            {
+                FilterPropertiesEventArgs args = new FilterPropertiesEventArgs(prop);
+                Config.ReportSettings.OnFilterBusinessObjectProperties(dataSource, args);
+                if (!args.Skip)
+                    filteredProperties.Add(args.Property);
+            }
+
+            if (instance is IDisposable)
+            {
+                try
+                {
+                    (instance as IDisposable).Dispose();
+                }
+                catch
+                {
+                }
+            }
+
+            return filteredProperties;
+        }
+
+        private Type GetListItemType(Type listType)
+        {
+            // Check if it's an array
+            if (listType.IsArray)
+                return listType.GetElementType();
+
+            // Check if it's a generic type with a single type argument (List<T>, IEnumerable<T>, etc.)
+            if (listType.IsGenericType && listType.GetGenericArguments().Length == 1)
+                return listType.GetGenericArguments()[0];
+
+            // Check for IEnumerable<T> in implemented interfaces
+            Type enumerableInterface = listType.GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+            if (enumerableInterface != null)
+                return enumerableInterface.GetGenericArguments()[0];
+
+            // Default to object
+            return typeof(object);
         }
 
         private Column CreateListValueColumn(Column column)
         {
-            Type itemType = ListBindingHelper.GetListItemType(column.DataType);
+            Type itemType = GetListItemType(column.DataType);
 
             // find existing column
             Column childColumn = column.FindByPropName("Value");

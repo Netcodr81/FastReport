@@ -1,9 +1,9 @@
-﻿using System;
+﻿using FastReport.CrossView;
+using SkiaSharp;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
-using System.Windows.Forms;
-using FastReport.CrossView;
 
 namespace FastReport.Data
 {
@@ -151,12 +151,16 @@ namespace FastReport.Data
             dictionary.AddRegisteredItem(data, referenceName);
 
             Type dataType = data.GetType();
-            if (data is BindingSource)
+
+            // Handle wrapped data sources (check for DataSource property through reflection)
+            var dataSourceProperty = dataType.GetProperty("DataSource");
+            if (dataSourceProperty != null)
             {
-                if ((data as BindingSource).DataSource is Type)
-                    dataType = ((data as BindingSource).DataSource as Type);
-                else
-                    dataType = (data as BindingSource).DataSource.GetType();
+                var dataSource = dataSourceProperty.GetValue(data);
+                if (dataSource is Type sourceType)
+                    dataType = sourceType;
+                else if (dataSource != null)
+                    dataType = dataSource.GetType();
             }
 
             BusinessObjectConverter converter = new BusinessObjectConverter(dictionary);
