@@ -1,7 +1,7 @@
 ﻿using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.ComponentModel;
-using System.Drawing;
 using System.Text;
 
 namespace FastReport.Barcode
@@ -36,8 +36,8 @@ namespace FastReport.Barcode
         private bool trim;
         private bool fitDevicePixels;
         private float oneBarWidth;
-        internal RectangleF drawArea;
-        internal RectangleF barArea;
+        internal SKRect drawArea;
+        internal SKRect barArea;
         internal bool textUp;
         internal float ratioMin;
         internal float ratioMax;
@@ -119,12 +119,12 @@ namespace FastReport.Barcode
         public float OneBarWidth
         {
             get { return oneBarWidth; }
-            set 
-            { 
+            set
+            {
                 if (value <= 0)
                     throw new ArgumentOutOfRangeException(nameof(value), "Value must be greater than 0");
 
-                oneBarWidth = value; 
+                oneBarWidth = value;
             }
         }
 
@@ -172,7 +172,7 @@ namespace FastReport.Barcode
 
         internal virtual void DoLines(string data, IGraphics g, float zoom)
         {
-            using (Pen pen = new Pen(Color))
+            using (SKPaint pen = new SKPaint { Color = Color, StrokeWidth = 1, Style = SKPaintStyle.Stroke })
             {
                 float currentWidth = 0;
                 foreach (char c in data)
@@ -209,7 +209,7 @@ namespace FastReport.Barcode
                     width *= zoom;
                     heightStart *= zoom;
                     heightEnd *= zoom;
-                    pen.Width = width;
+                    pen.StrokeWidth = width;
 
                     if (lt == BarLineType.BlackHalf)
                     {
@@ -338,7 +338,7 @@ namespace FastReport.Barcode
         #endregion
 
         #region Protected Methods
-        internal float FontHeight => Font.Height * DrawUtils.ScreenDpiFX * 14 / 13; // 14/13 to be more or less compatible with old behavior (Arial,8 with hardcoded 14px height)
+        internal float FontHeight => Font.Size * DrawUtils.ScreenDpiFX * 14 / 13; // 14/13 to be more or less compatible with old behavior (Arial,8 with hardcoded 14px height)
 
         internal int CharToInt(char c)
         {
@@ -460,7 +460,7 @@ namespace FastReport.Barcode
             base.Initialize(text, showText, angle, zoom);
         }
 
-        internal override SizeF CalcBounds()
+        internal override SKSize CalcBounds()
         {
             float barWidth = GetWidth(Code);
             if (IsBarcodeRussianPost)
@@ -474,13 +474,10 @@ namespace FastReport.Barcode
             if (showText)
             {
                 float txtWidth = 0;
-                using (Bitmap bmp = new Bitmap(1, 1))
+                // Use SkiaSharp to measure text
+                using (SKPaint paint = new SKPaint { IsAntialias = true })
                 {
-                    bmp.SetResolution(96, 96);
-                    using (Graphics g = Graphics.FromImage(bmp))
-                    {
-                        txtWidth = g.MeasureString(text, Font, 100000).Width;
-                    }
+                    txtWidth = Font.MeasureText(text, paint);
                 }
 
                 if (barWidth < txtWidth)
@@ -495,17 +492,17 @@ namespace FastReport.Barcode
             if (this.extra2 != 0)
                 extra2 = this.extra2;
 
-            drawArea = new RectangleF(0, 0, barWidth + extra1 + extra2, 0);
+            drawArea = new SKRect(0, 0, barWidth + extra1 + extra2, 0);
             float barTopOffset = IsBarcodeRussianPost ? 9 : 0; // The indentation at the top of the barcode
-            barArea = new RectangleF(extra1, barTopOffset, barWidth, 0);
+            barArea = new SKRect(extra1, barTopOffset, extra1 + barWidth, barTopOffset);
 
             float width = drawArea.Width * OneBarWidth;
             float height = IsBarcodeRussianPost ? 56.7f : 0; // The height of the object at the AutoSize
-            return new SizeF(width, height);
+            return new SKSize(width, height);
         }
 
         /// <inheritdoc/>
-        public override void DrawBarcode(IGraphics g, RectangleF displayRect)
+        public override void DrawBarcode(IGraphics g, SKRect displayRect)
         {
             float originalWidth = CalcBounds().Width / OneBarWidth;
 
@@ -520,7 +517,7 @@ namespace FastReport.Barcode
 
             if (FitDevicePixels)
             {
-                var devicePx = g.Transform.Elements[0] * zoom;
+                var devicePx = g.Transform.ScaleX * zoom;
 
                 if (devicePx < 1)
                     devicePx = 1;
@@ -529,14 +526,17 @@ namespace FastReport.Barcode
                 zoom *= (int)devicePx / devicePx;
             }
 
-            barArea.Height = height / zoom;
+            // SKRect is immutable, so create new instances
+            float barAreaHeight = height / zoom;
+            float barAreaTop = barArea.Top;
             if (showText && !IsBarcodeRussianPost)
             {
-                barArea.Height -= FontHeight;
+                barAreaHeight -= FontHeight;
                 if (textUp)
-                    barArea.Y = FontHeight;
+                    barAreaTop = FontHeight;
             }
-            drawArea.Height = height / zoom;
+            barArea = new SKRect(barArea.Left, barAreaTop, barArea.Right, barAreaTop + barAreaHeight);
+            drawArea = new SKRect(drawArea.Left, drawArea.Top, drawArea.Right, drawArea.Top + height / zoom);
 
             IGraphicsState state = g.Save();
             try
@@ -559,9 +559,13 @@ namespace FastReport.Barcode
 
                 if (IsBarcodeRussianPost)
                 {
-                    g.DrawRectangle(new Pen(Color.Black, 1f), drawArea.X, drawArea.Y, displayRect.Width, displayRect.Height);
+                    using (SKPaint rectPaint = new SKPaint { Color = SKColors.Black, StrokeWidth = 1f, Style = SKPaintStyle.Stroke })
+                    {
+                        g.DrawRectangle(rectPaint, drawArea.Left, drawArea.Top, displayRect.Width, displayRect.Height);
+                    }
                     DrawTopLabel(g, zoom);
-                    barArea.Height -= 18; // Reducing the height of the barcode itself
+                    // For barArea height reduction, create a new SKRect
+                    barArea = new SKRect(barArea.Left, barArea.Top, barArea.Right, barArea.Bottom - 18);
                 }
 
                 g.TranslateTransform(barArea.Left * zoom, 0);
@@ -592,17 +596,18 @@ namespace FastReport.Barcode
 
             // Ensure the font size is valid (greater than 0) to avoid exceptions when creating the font
             float labelFontSize = labelHeight > 0 ? labelHeight : 0.1f;
-            Font labelFont = new Font("Arial", labelFontSize, FontStyle.Regular);
-
-            g.DrawString(label, labelFont, Brushes.Black, 16.5f * zoom, 2f * zoom);
-            labelFont.Dispose();
+            using (SKFont labelFont = new SKFont(SKTypeface.FromFamilyName("Arial"), labelFontSize))
+            using (SKPaint labelPaint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Fill })
+            {
+                g.DrawString(label, labelFont, labelPaint, new SKRect(16.5f * zoom, 2f * zoom, 0, 0), null);
+            }
         }
 
         /// <summary>
         /// Draws the bottom label text below the barcode, splitting it into parts and applying specific formatting. <br/>
         /// Adjusts positioning and spacing based on the zoom level and barcode area dimensions.
         /// </summary>
-        private void DrawBottomLabel(IGraphics g, float zoom, RectangleF barArea, RectangleF drawArea)
+        private void DrawBottomLabel(IGraphics g, float zoom, SKRect barArea, SKRect drawArea)
         {
             string text = base.text;
 
@@ -610,8 +615,9 @@ namespace FastReport.Barcode
 
             float fontSize = 1.8f * Units.Millimeters * zoom;
 
-            using (Font regularFont = new Font("Arial", fontSize > 0 ? fontSize : 0.1f, FontStyle.Regular))
-            using (Font boldFont = new Font("Arial", fontSize > 0 ? fontSize : 0.1f, FontStyle.Bold))
+            using (SKFont regularFont = new SKFont(SKTypeface.FromFamilyName("Arial"), fontSize > 0 ? fontSize : 0.1f))
+            using (SKFont boldFont = new SKFont(SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright), fontSize > 0 ? fontSize : 0.1f))
+            using (SKPaint paint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Fill })
             {
                 // Split the processed text into parts for separate rendering
                 string[] parts = new string[]
@@ -626,8 +632,8 @@ namespace FastReport.Barcode
                 float totalWidth = 0;
                 foreach (var part in parts)
                 {
-                    SizeF partSize = g.MeasureString(part, regularFont);
-                    totalWidth += partSize.Width + 2f; // Add fixed spacing between parts
+                    float partWidth = regularFont.MeasureText(part, paint);
+                    totalWidth += partWidth + 2f; // Add fixed spacing between parts
                 }
 
                 float currentX = (barArea.Left - 17) * zoom; // Offset by 17 to move text closer to the left edge
@@ -635,10 +641,11 @@ namespace FastReport.Barcode
 
                 for (int i = 0; i < parts.Length; i++)
                 {
-                    SizeF partSize = g.MeasureString(parts[i], regularFont);
-                    Font partFont = (i == 2) ? boldFont : regularFont;
-                    g.DrawString(parts[i], partFont, Brushes.Black, currentX, textY);
-                    currentX += partSize.Width + (7f * zoom); // Add spacing (7 units scaled by zoom) between parts
+                    SKFont partFont = (i == 2) ? boldFont : regularFont;
+                    float partWidth = partFont.MeasureText(parts[i], paint);
+
+                    g.DrawString(parts[i], partFont, paint, new SKRect(currentX, textY, 0, 0), null);
+                    currentX += partWidth + (7f * zoom); // Add spacing (7 units scaled by zoom) between parts
                 }
             }
         }
@@ -654,19 +661,22 @@ namespace FastReport.Barcode
                 return;
 
             // when we print, .Net automatically scales the font. However, we need to handle this process.
-            // Downscale the font to the screen resolution, then scale by required value (Zoom).
-            float fontZoom = FontHeight / (int)g.MeasureString(s, Font).Height * zoom;
-            using (var drawFont = new Font(Font.FontFamily, (Font.Size - (small ? 2 : 0)) * fontZoom, Font.Style))
+            // Downscale the font to the screen resolution, then scale by required value (Zoom)
+            using (SKPaint paint = new SKPaint { IsAntialias = true })
             {
-                SizeF size = g.MeasureString(s, drawFont);
-                size.Width /= zoom;
-                size.Height /= zoom;
+                float textHeight = Font.MeasureText(s, paint);
+                float fontZoom = FontHeight / textHeight * zoom;
 
-                using (var brush = new SolidBrush(Color))
+                float fontSize = (Font.Size - (small ? 2 : 0)) * fontZoom;
+                using (SKFont drawFont = new SKFont(Font.Typeface, fontSize))
+                using (SKPaint drawPaint = new SKPaint { Color = Color, Style = SKPaintStyle.Fill, IsAntialias = true })
                 {
-                    g.DrawString(s, drawFont, brush,
-                      (x1 + (x2 - x1 - size.Width) / 2) * zoom,
-                      (textUp ? 0 : drawArea.Height - size.Height) * zoom);
+                    float sizeWidth = drawFont.MeasureText(s, drawPaint) / zoom;
+                    float sizeHeight = fontSize / zoom;
+
+                    g.DrawString(s, drawFont, drawPaint,
+                      new SKRect((x1 + (x2 - x1 - sizeWidth) / 2) * zoom,
+                      (textUp ? 0 : drawArea.Height - sizeHeight) * zoom, 0, 0), null);
                 }
             }
         }

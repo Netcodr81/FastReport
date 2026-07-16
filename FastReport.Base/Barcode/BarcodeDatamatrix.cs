@@ -18,13 +18,13 @@
 // are Copyright (C) 2000, 2001, 2002 by Paulo Soares. All Rights Reserved.
 // Modifications: Alexander Tzyganenko
 //
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
-using System.Drawing;
 using System.ComponentModel;
-using FastReport.Utils;
+using System.Text;
 
 namespace FastReport.Barcode
 {
@@ -1093,10 +1093,10 @@ namespace FastReport.Barcode
             Generate(base.text);
         }
 
-        internal override SizeF CalcBounds()
+        internal override SKSize CalcBounds()
         {
             int textAdd = showText ? (int)(FontHeight) : 0;
-            return new SizeF(width * PixelSize, height * PixelSize + textAdd);
+            return new SKSize(width * PixelSize, height * PixelSize + textAdd);
         }
 
         internal override string StripControlCodes(string data)
@@ -1115,23 +1115,25 @@ namespace FastReport.Barcode
             if (image == null)
                 return;
 
-            Brush dark = new SolidBrush(Color);
-            int stride = (width + 7) / 8;
-
-            for (int k = 0; k < height; ++k)
+            using (SKPaint dark = new SKPaint { Color = Color, Style = SKPaintStyle.Fill })
+            using (SKPaint light = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Fill })
             {
-                int p = k * stride;
-                for (int j = 0; j < width; ++j)
-                {
-                    int b = image[p + (j / 8)] & 0xff;
-                    b <<= j % 8;
+                int stride = (width + 7) / 8;
 
-                    Brush brush = (b & 0x80) == 0 ? Brushes.White : dark;
-                    g.FillRectangle(brush, j * PixelSize * kx, k * PixelSize * ky,
-                      PixelSize * kx, PixelSize * ky);
+                for (int k = 0; k < height; ++k)
+                {
+                    int p = k * stride;
+                    for (int j = 0; j < width; ++j)
+                    {
+                        int b = image[p + (j / 8)] & 0xff;
+                        b <<= j % 8;
+
+                        SKPaint brush = (b & 0x80) == 0 ? light : dark;
+                        g.FillRectangle(brush, j * PixelSize * kx, k * PixelSize * ky,
+                          PixelSize * kx, PixelSize * ky);
+                    }
                 }
             }
-            dark.Dispose();
         }
         #endregion
 

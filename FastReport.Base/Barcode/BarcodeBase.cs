@@ -1,7 +1,7 @@
-using System;
-using System.Drawing;
-using System.ComponentModel;
 using FastReport.Utils;
+using SkiaSharp;
+using System;
+using System.ComponentModel;
 
 namespace FastReport.Barcode
 {
@@ -17,10 +17,13 @@ namespace FastReport.Barcode
         internal bool showText;
         internal float zoom;
         internal bool showMarker;
-        private Color color;
-        private Font font;
+        private SKColor color;
+        private SKFont font;
+        private string fontFamilyName;
+        private float fontSize;
 
-        private static readonly Font DefaultFont = new Font("Arial", 8);
+        private static readonly string DefaultFontFamily = "Arial";
+        private static readonly float DefaultFontSize = 8;
         #endregion
 
         #region Properties
@@ -36,7 +39,7 @@ namespace FastReport.Barcode
         /// <summary>
         /// Gets or sets the color of barcode.
         /// </summary>
-        public Color Color
+        public SKColor Color
         {
             get { return color; }
             set { color = value; }
@@ -45,10 +48,35 @@ namespace FastReport.Barcode
         /// <summary>
         /// Gets or sets the font of barcode.
         /// </summary>
-        public Font Font
+        public SKFont Font
         {
             get { return font; }
-            set { font = value; }
+            set 
+            { 
+                font?.Dispose();
+                font = value;
+                if (value != null)
+                {
+                    fontFamilyName = value.Typeface?.FamilyName ?? DefaultFontFamily;
+                    fontSize = value.Size;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets the font family name.
+        /// </summary>
+        public string FontFamilyName
+        {
+            get { return fontFamilyName ?? DefaultFontFamily; }
+        }
+
+        /// <summary>
+        /// Gets the font size.
+        /// </summary>
+        public float FontSize
+        {
+            get { return fontSize > 0 ? fontSize : DefaultFontSize; }
         }
 
         #endregion
@@ -102,9 +130,9 @@ namespace FastReport.Barcode
             this.showMarker = showMarker;
         }
 
-        internal virtual SizeF CalcBounds()
+        internal virtual SKSize CalcBounds()
         {
-            return SizeF.Empty;
+            return SKSize.Empty;
         }
 
         internal virtual string StripControlCodes(string data)
@@ -117,7 +145,7 @@ namespace FastReport.Barcode
         /// </summary>
         /// <param name="g">The graphic surface.</param>
         /// <param name="displayRect">Display rectangle.</param>
-        public virtual void DrawBarcode(IGraphics g, RectangleF displayRect)
+        public virtual void DrawBarcode(IGraphics g, SKRect displayRect)
         {
         }
         #endregion
@@ -128,8 +156,10 @@ namespace FastReport.Barcode
         public BarcodeBase()
         {
             text = "";
-            color = Color.Black;
-            Font = DefaultFont;
+            color = SKColors.Black;
+            fontFamilyName = DefaultFontFamily;
+            fontSize = DefaultFontSize;
+            Font = new SKFont(SKTypeface.FromFamilyName(DefaultFontFamily), DefaultFontSize);
         }
 
         /// <summary>

@@ -4,6 +4,7 @@ using System.Drawing.Drawing2D;
 using System.ComponentModel;
 using FastReport.Utils;
 using System.Drawing.Design;
+using SkiaSharp;
 
 namespace FastReport
 {
@@ -185,32 +186,43 @@ namespace FastReport
         {
             IGraphics g = e.Graphics;
 
-            int penWidth = (int)Math.Round(Width * e.ScaleX);
+            float penWidth = Width * e.ScaleX;
             if (penWidth <= 0)
                 penWidth = 1;
-            using (Pen pen = new Pen(Color, penWidth))
+
+            using (SKPaint paint = new SKPaint())
             {
-                pen.DashStyle = DashStyle;
-                pen.StartCap = LineCap.Square;
-                pen.EndCap = LineCap.Square;
-                if (pen.DashStyle != DashStyle.Solid)
+                paint.Color = new SKColor(Color.R, Color.G, Color.B, Color.A);
+                paint.StrokeWidth = penWidth;
+                paint.Style = SKPaintStyle.Stroke;
+                paint.StrokeCap = SKStrokeCap.Square;
+                paint.IsAntialias = true;
+
+                // Convert DashStyle to SKPathEffect if needed
+                if (DashStyle != DashStyle.Solid)
                 {
-                    float patternWidth = 0;
-                    foreach (float w in pen.DashPattern)
-                        patternWidth += w * pen.Width;
-                    if (y == y1)
-                        pen.DashOffset = (x - ((int)(x / patternWidth)) * patternWidth) / pen.Width;
-                    else
-                        pen.DashOffset = (y - ((int)(y / patternWidth)) * patternWidth) / pen.Width;
+                    float[] intervals = ConvertDashStyleToIntervals(DashStyle, penWidth);
+                    if (intervals != null)
+                    {
+                        float patternWidth = 0;
+                        foreach (float w in intervals)
+                            patternWidth += w;
+                        float phase = 0;
+                        if (y == y1)
+                            phase = x - ((int)(x / patternWidth)) * patternWidth;
+                        else
+                            phase = y - ((int)(y / patternWidth)) * patternWidth;
+                        paint.PathEffect = SKPathEffect.CreateDash(intervals, phase);
+                    }
                 }
 
                 if (Style != LineStyle.Double)
-                    g.DrawLine(pen, x, y, x1, y1);
+                    g.DrawLine(paint, x, y, x1, y1);
                 else
                 {
                     // we have to correctly draw inner and outer lines of a double line
-                    float g1 = gap1 ? pen.Width : 0;
-                    float g2 = gap2 ? pen.Width : 0;
+                    float g1 = gap1 ? penWidth : 0;
+                    float g2 = gap2 ? penWidth : 0;
                     float g3 = -g1;
                     float g4 = -g2;
 
@@ -224,15 +236,32 @@ namespace FastReport
 
                     if (x == x1)
                     {
-                        g.DrawLine(pen, x - pen.Width, y + g1, x1 - pen.Width, y1 - g2);
-                        g.DrawLine(pen, x + pen.Width, y + g3, x1 + pen.Width, y1 - g4);
+                        g.DrawLine(paint, x - penWidth, y + g1, x1 - penWidth, y1 - g2);
+                        g.DrawLine(paint, x + penWidth, y + g3, x1 + penWidth, y1 - g4);
                     }
                     else
                     {
-                        g.DrawLine(pen, x + g1, y - pen.Width, x1 - g2, y1 - pen.Width);
-                        g.DrawLine(pen, x + g3, y + pen.Width, x1 - g4, y1 + pen.Width);
+                        g.DrawLine(paint, x + g1, y - penWidth, x1 - g2, y1 - penWidth);
+                        g.DrawLine(paint, x + g3, y + penWidth, x1 - g4, y1 + penWidth);
                     }
                 }
+            }
+        }
+
+        private static float[] ConvertDashStyleToIntervals(DashStyle dashStyle, float penWidth)
+        {
+            switch (dashStyle)
+            {
+                case DashStyle.Dash:
+                    return new float[] { 3 * penWidth, 1 * penWidth };
+                case DashStyle.Dot:
+                    return new float[] { 1 * penWidth, 1 * penWidth };
+                case DashStyle.DashDot:
+                    return new float[] { 3 * penWidth, 1 * penWidth, 1 * penWidth, 1 * penWidth };
+                case DashStyle.DashDotDot:
+                    return new float[] { 3 * penWidth, 1 * penWidth, 1 * penWidth, 1 * penWidth, 1 * penWidth, 1 * penWidth };
+                default:
+                    return null;
             }
         }
 
@@ -572,6 +601,27 @@ namespace FastReport
         /// <remarks>
         /// This method is for internal use only.
         /// </remarks>
+        public void Draw(FRPaintEventArgs e, SKRect rect)
+        {
+            // Convert SKRect to RectangleF
+            // SKRect uses (left, top, right, bottom) format
+            // RectangleF uses (x, y, width, height) format
+            RectangleF rectangleF = new RectangleF(
+                rect.Left,
+                rect.Top,
+                rect.Width,
+                rect.Height);
+            Draw(e, rectangleF);
+        }
+
+        /// <summary>
+        /// Draw the border using draw event arguments and specified bounding rectangle.
+        /// </summary>
+        /// <param name="e">Draw event arguments.</param>
+        /// <param name="rect">Bounding rectangle.</param>
+        /// <remarks>
+        /// This method is for internal use only.
+        /// </remarks>
         public void Draw(FRPaintEventArgs e, RectangleF rect)
         {
             IGraphics g = e.Graphics;
@@ -582,15 +632,14 @@ namespace FastReport
 
             if (Shadow)
             {
-                //int d = (int)Math.Round(ShadowWidth * e.ScaleX);
-                //Pen pen = e.Cache.GetPen(ShadowColor, d, DashStyle.Solid);
-                //g.DrawLine(pen, rect.Right + d / 2, rect.Top + d, rect.Right + d / 2, rect.Bottom);
-                //g.DrawLine(pen, rect.Left + d, rect.Bottom + d / 2, rect.Right + d, rect.Bottom + d / 2);
-
                 float d = ShadowWidth * e.ScaleX;
-                Brush brush = e.Cache.GetBrush(ShadowColor);
-                g.FillRectangle(brush, rect.Left + d, rect.Bottom, rect.Width, d);
-                g.FillRectangle(brush, rect.Right, rect.Top + d, d, rect.Height);
+                using (SKPaint shadowPaint = new SKPaint())
+                {
+                    shadowPaint.Color = new SKColor(ShadowColor.R, ShadowColor.G, ShadowColor.B, ShadowColor.A);
+                    shadowPaint.Style = SKPaintStyle.Fill;
+                    g.FillRectangle(shadowPaint, rect.Left + d, rect.Bottom, rect.Width, d);
+                    g.FillRectangle(shadowPaint, rect.Right, rect.Top + d, d, rect.Height);
+                }
             }
 
             if (Lines != BorderLines.None)
@@ -600,8 +649,14 @@ namespace FastReport
                 if (Lines == BorderLines.All && LeftLine.Equals(TopLine) && LeftLine.Equals(RightLine) &&
                   LeftLine.Equals(BottomLine) && LeftLine.Style == LineStyle.Solid)
                 {
-                    Pen pen = e.Cache.GetPen(LeftLine.Color, (int)Math.Round(LeftLine.Width * e.ScaleX), LeftLine.DashStyle);
-                    g.DrawRectangle(pen, rect.Left, rect.Top, rect.Width, rect.Height);
+                    using (SKPaint paint = new SKPaint())
+                    {
+                        paint.Color = new SKColor(LeftLine.Color.R, LeftLine.Color.G, LeftLine.Color.B, LeftLine.Color.A);
+                        paint.StrokeWidth = LeftLine.Width * e.ScaleX;
+                        paint.Style = SKPaintStyle.Stroke;
+                        paint.IsAntialias = true;
+                        g.DrawRectangle(paint, rect.Left, rect.Top, rect.Width, rect.Height);
+                    }
                 }
                 else
                 {

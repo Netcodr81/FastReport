@@ -1,7 +1,7 @@
 ﻿using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Text;
 
 namespace FastReport.Barcode
@@ -424,7 +424,7 @@ namespace FastReport.Barcode
         }
 
         /// <inheritdoc/>
-        public override void DrawBarcode(IGraphics g, RectangleF displayRect)
+        public override void DrawBarcode(IGraphics g, SKRect displayRect)
         {
             base.DrawBarcode(g, displayRect);
             IGraphicsState state = g.Save();
@@ -448,7 +448,12 @@ namespace FastReport.Barcode
                 g.TranslateTransform(barArea.Left * zoom, 0);
 
                 float bearerWidth = WideBarRatio * 2 * zoom;
-                using (Pen pen = new Pen(Color, bearerWidth))
+                using (var pen = new SKPaint
+                {
+                    Color = SKColors.Black,
+                    Style = SKPaintStyle.Stroke,
+                    StrokeWidth = bearerWidth
+                })
                 {
                     float x0 = 0;
                     float x01 = bearerWidth / 2;
@@ -472,7 +477,7 @@ namespace FastReport.Barcode
             {
                 g.Restore(state);
             }
-            
+
         }
 
         #endregion

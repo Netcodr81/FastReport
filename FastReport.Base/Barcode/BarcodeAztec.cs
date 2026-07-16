@@ -1,10 +1,7 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Drawing;
-using System.ComponentModel;
 using FastReport.Barcode.Aztec;
 using FastReport.Utils;
+using SkiaSharp;
+using System.ComponentModel;
 
 namespace FastReport.Barcode
 {
@@ -42,30 +39,30 @@ namespace FastReport.Barcode
             matrix = Encoder.encode(System.Text.Encoding.ASCII.GetBytes(text), ErrorCorrectionPercent, 0).Matrix;
         }
 
-        internal override SizeF CalcBounds()
+        internal override SKSize CalcBounds()
         {
             int textAdd = showText ? (int)(FontHeight) : 0;
-            return new SizeF(matrix.Width * PIXEL_SIZE, matrix.Height * PIXEL_SIZE + textAdd);
+            return new SKSize(matrix.Width * PIXEL_SIZE, matrix.Height * PIXEL_SIZE + textAdd);
         }
 
         internal override void Draw2DBarcode(IGraphics g, float kx, float ky)
         {
-            Brush light = Brushes.White;
-            Brush dark = new SolidBrush(Color);
-
-            for (int y = 0; y < matrix.Height; y++)
+            using (SKPaint light = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Fill })
+            using (SKPaint dark = new SKPaint { Color = Color, Style = SKPaintStyle.Fill })
             {
-                for (int x = 0; x < matrix.Width; x++)
+                for (int y = 0; y < matrix.Height; y++)
                 {
-                    bool b = matrix.getRow(y, null)[x];
+                    for (int x = 0; x < matrix.Width; x++)
+                    {
+                        bool b = matrix.getRow(y, null)[x];
 
-                    Brush brush = /*b == true ?*/ dark /*: light*/;
-                    if (b == true)
-                        g.FillRectangle(brush, x * PIXEL_SIZE * kx, y * PIXEL_SIZE * ky,
-                                               PIXEL_SIZE * kx, PIXEL_SIZE * ky);
+                        SKPaint brush = /*b == true ?*/ dark /*: light*/;
+                        if (b == true)
+                            g.FillRectangle(brush, x * PIXEL_SIZE * kx, y * PIXEL_SIZE * ky,
+                                                   PIXEL_SIZE * kx, PIXEL_SIZE * ky);
+                    }
                 }
             }
-            dark.Dispose();
         }
 
         /// <inheritdoc/>

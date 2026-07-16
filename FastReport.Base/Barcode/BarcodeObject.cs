@@ -1,17 +1,95 @@
+using FastReport.Barcode.QRCode;
+using FastReport.Code;
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Text;
-using System.Drawing.Drawing2D;
-using FastReport.Utils;
-using FastReport.Code;
-using System.Windows.Forms;
-using System.Drawing.Design;
-using FastReport.Barcode.QRCode;
 
 namespace FastReport.Barcode
 {
+    /// <summary>
+    /// Represents padding or margin information associated with auser interface element.
+    /// </summary>
+    public struct Padding
+    {
+        /// <summary>
+        /// Gets or sets the padding value for the left edge.
+        /// </summary>
+        public float Left { get; set; }
+
+        /// <summary>
+        /// Gets or sets the padding value for the top edge.
+        /// </summary>
+        public float Top { get; set; }
+
+        /// <summary>
+        /// Gets or sets the padding value for the right edge.
+        /// </summary>
+        public float Right { get; set; }
+
+        /// <summary>
+        /// Gets or sets the padding value for the bottom edge.
+        /// </summary>
+        public float Bottom { get; set; }
+
+        /// <summary>
+        /// Gets the combined padding for the left and right edges.
+        /// </summary>
+        public float Horizontal => Left + Right;
+
+        /// <summary>
+        /// Gets the combined padding for the top and bottom edges.
+        /// </summary>
+        public float Vertical => Top + Bottom;
+
+        /// <summary>
+        /// Initializes a new instance of the Padding structure with the specified padding size for all edges.
+        /// </summary>
+        public Padding(float all) : this(all, all, all, all) { }
+
+        /// <summary>
+        /// Initializes a new instance of the Padding structure with the specified padding sizes.
+        /// </summary>
+        public Padding(float left, float top, float right, float bottom)
+        {
+            Left = left;
+            Top = top;
+            Right = right;
+            Bottom = bottom;
+        }
+
+        /// <summary>
+        /// Tests whether two Padding structures have equal values.
+        /// </summary>
+        public static bool operator ==(Padding p1, Padding p2)
+        {
+            return p1.Left == p2.Left && p1.Top == p2.Top && p1.Right == p2.Right && p1.Bottom == p2.Bottom;
+        }
+
+        /// <summary>
+        /// Tests whether two Padding structures differ.
+        /// </summary>
+        public static bool operator !=(Padding p1, Padding p2)
+        {
+            return !(p1 == p2);
+        }
+
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            if (obj is Padding padding)
+                return this == padding;
+            return false;
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Left, Top, Right, Bottom);
+        }
+    }
+
     /// <summary>
     /// Represents a barcode object.
     /// Represents a barcode object.
@@ -92,7 +170,7 @@ namespace FastReport.Barcode
         private string savedText;
         private bool asBitmap;
         private Alignment horzAlign;
-        private RectangleF origRect;
+        private SKRect origRect;
         private bool showMarker;
         #endregion
 
@@ -101,7 +179,6 @@ namespace FastReport.Barcode
         /// Gets or sets the barcode type.
         /// </summary>
         [Category("Appearance")]
-        [Editor("FastReport.TypeEditors.BarcodeEditor, FastReport", typeof(UITypeEditor))]
         public BarcodeBase Barcode
         {
             get { return barcode; }
@@ -206,7 +283,6 @@ namespace FastReport.Barcode
         /// Value must be in the form "Datasource.Column".
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.DataColumnEditor, FastReport", typeof(UITypeEditor))]
         public string DataColumn
         {
             get { return dataColumn; }
@@ -217,7 +293,6 @@ namespace FastReport.Barcode
         /// Gets or sets an expression that contains the barcode data.
         /// </summary>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string Expression
         {
             get { return expression; }
@@ -260,7 +335,6 @@ namespace FastReport.Barcode
         /// Gets or sets the barcode data.
         /// </summary>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string Text
         {
             get { return text; }
@@ -342,26 +416,18 @@ namespace FastReport.Barcode
 
         private void DrawBarcode(FRPaintEventArgs e)
         {
-            RectangleF displayRect = new RectangleF(
+            SKRect displayRect = new SKRect(
               (AbsLeft + Padding.Left) * e.ScaleX,
               (AbsTop + Padding.Top) * e.ScaleY,
-              (Width - Padding.Horizontal) * e.ScaleX,
-              (Height - Padding.Vertical) * e.ScaleY);
+              (AbsLeft + Padding.Left + Width - Padding.Horizontal) * e.ScaleX,
+              (AbsTop + Padding.Top + Height - Padding.Vertical) * e.ScaleY);
 
             IGraphics g = e.Graphics;
             IGraphicsState state = g.Save();
             try
             {
-                Report report = Report;
-                if (report != null)
-                {
-                    if (report.SmoothGraphics)
-                    {
-                        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                        g.SmoothingMode = SmoothingMode.AntiAlias;
-                    }
-                    g.TextRenderingHint = report.GetTextQuality();
-                }
+                // SkiaSharp handles anti-aliasing automatically
+                // No need to set InterpolationMode, SmoothingMode, or TextRenderingHint
                 barcode.DrawBarcode(g, displayRect);
             }
             finally
@@ -393,7 +459,7 @@ namespace FastReport.Barcode
         public void UpdateAutoSize()
         {
             SetBarcodeProperties();
-            SizeF size = Barcode.CalcBounds();
+            SKSize size = Barcode.CalcBounds();
             size.Width *= Zoom;
             size.Height *= Zoom;
             if (AutoSize)
@@ -419,7 +485,7 @@ namespace FastReport.Barcode
         /// </summary>
         public void RelocateAlign()
         {
-            if (HorzAlign == Alignment.Left || origRect == RectangleF.Empty)
+            if (HorzAlign == Alignment.Left || origRect == SKRect.Empty)
                 return;
             switch (HorzAlign)
             {
@@ -434,7 +500,7 @@ namespace FastReport.Barcode
                         break;
                     }
             }
-            origRect = RectangleF.Empty;
+            origRect = SKRect.Empty;
         }
 
         /// <inheritdoc/>
@@ -507,11 +573,18 @@ namespace FastReport.Barcode
                 }
 
                 if (error)
-                    e.Graphics.DrawString(errorText, DrawUtils.DefaultReportFont, Brushes.Red,
-                        new RectangleF(AbsLeft * e.ScaleX, AbsTop * e.ScaleY, Width * e.ScaleX, Height * e.ScaleY));
+                {
+                    using (SKPaint paint = new SKPaint { Color = SKColors.Red, IsAntialias = true })
+                    using (SKFont font = new SKFont(SKTypeface.FromFamilyName("Arial"), 10))
+                    {
+                        e.Graphics.DrawString(errorText, font, paint,
+                            new SKRect(AbsLeft * e.ScaleX, AbsTop * e.ScaleY, 
+                                      (AbsLeft + Width) * e.ScaleX, (AbsTop + Height) * e.ScaleY), null);
+                    }
+                }
             }
             DrawMarkers(e);
-            Border.Draw(e, new RectangleF(AbsLeft, AbsTop, Width, Height));
+            Border.Draw(e, new SKRect(AbsLeft, AbsTop, AbsLeft + Width, AbsTop + Height));
         }
 
         /// <inheritdoc/>
@@ -644,7 +717,9 @@ namespace FastReport.Barcode
             {
                 try
                 {
-                    origRect = this.Bounds;
+                    // Convert Bounds from System.Drawing.RectangleF to SKRect
+                    var bounds = this.Bounds;
+                    origRect = new SKRect(bounds.Left, bounds.Top, bounds.Right, bounds.Bottom);
                     UpdateAutoSize();
                 }
                 catch

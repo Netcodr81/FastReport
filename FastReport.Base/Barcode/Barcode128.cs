@@ -1,8 +1,6 @@
-using System;
-using System.Text;
-using System.Drawing;
-using System.ComponentModel;
 using FastReport.Utils;
+using System;
+using System.ComponentModel;
 
 namespace FastReport.Barcode
 {

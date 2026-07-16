@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Text;
-using System.Drawing;
+
+
 using System.ComponentModel;
 using FastReport.Barcode.QRCode;
 using FastReport.Utils;
-using System.Drawing.Drawing2D;
+using SkiaSharp;
 
 namespace FastReport.Barcode
 {
@@ -293,16 +291,17 @@ namespace FastReport.Barcode
             matrix = QRCodeWriter.encode(base.text, 0, 0, GetErrorCorrectionLevel(), GetEncoding(), QuietZone);
         }
 
-        internal override SizeF CalcBounds()
+        internal override SKSize CalcBounds()
         {
             int textAdd = showText ? (int)(FontHeight) : 0;
-            return new SizeF(matrix.Width * PixelSize, matrix.Height * PixelSize + textAdd);
+            return new SKSize(matrix.Width * PixelSize, matrix.Height * PixelSize + textAdd);
         }
 
         internal override void Draw2DBarcode(IGraphics g, float kx, float ky)
         {
-            Brush brush = new SolidBrush(Color);
-            float scale = 1.25f;
+            using (SKPaint brush = new SKPaint { Color = Color, Style = SKPaintStyle.Fill })
+            {
+                float scale = 1.25f;
 
             const float paddingRatio = 0.1f; // 10% padding for UseThinModules
             float paddingX = PixelSize * paddingRatio * kx;
@@ -505,7 +504,7 @@ namespace FastReport.Barcode
                     }
                 }
             }
-            brush.Dispose();
+            }
         }
 
         /// <summary>
@@ -517,12 +516,12 @@ namespace FastReport.Barcode
         /// <param name="height">Height of the bounding rectangle.</param>
         /// <param name="scale">Scaling factor applied uniformly from the center.</param>
         /// <returns>An array of 5 points defining the diamond's vertices in clockwise order, with the first point repeated at the end for polygon closure.</returns>
-        private static PointF[] CreateDiamondPoints(float x, float y, float width, float height, float scale)
+        private static SKPoint[] CreateDiamondPoints(float x, float y, float width, float height, float scale)
         {
             // center of the module
             float cx = x + width / 2;
             float cy = y + height / 2;
-            var points = new PointF[]
+            var points = new SKPoint[]
             {
                 new(cx, y), // top
                 new(x + width, cy), // right
@@ -536,13 +535,13 @@ namespace FastReport.Barcode
             {
                 float dx = points[i].X - cx;
                 float dy = points[i].Y - cy;
-                points[i] = new PointF(cx + dx * scale, cy + dy * scale);
+                points[i] = new SKPoint(cx + dx * scale, cy + dy * scale);
             }
             return points;
         }
 
         /// <summary>
-        /// Creates a <see cref="GraphicsPath"/> for a rounded rectangle with explicit control over which corners are rounded.
+        /// Creates a <see cref="SKPath"/> for a rounded rectangle with explicit control over which corners are rounded.
         /// </summary>
         /// <param name="x">X-coordinate of the top-left corner of the rectangle.</param>
         /// <param name="y">Y-coordinate of the top-left corner of the rectangle.</param>
@@ -552,30 +551,30 @@ namespace FastReport.Barcode
         /// <param name="topRightRound">If <see langword="true"/>, the top-right corner is rounded.</param>
         /// <param name="bottomRightRound">If <see langword="true"/>, the bottom-right corner is rounded.</param>
         /// <param name="bottomLeftRound">If <see langword="true"/>, the bottom-left corner is rounded.</param>
-        /// <returns>A <see cref="GraphicsPath"/> representing the rounded rectangle.</returns>
-        private static GraphicsPath CreateRoundedRectanglePath(float x, float y, float width, float height,
+        /// <returns>A <see cref="SKPath"/> representing the rounded rectangle.</returns>
+        private static SKPath CreateRoundedRectanglePath(float x, float y, float width, float height,
         bool topLeftRound, bool topRightRound, bool bottomRightRound, bool bottomLeftRound)
         {
             // prevent overlap in non-square (stretched) modules
             float radius = Math.Min(width, height) / 4;
             if (radius < 1) radius = 1;
 
-            var path = new GraphicsPath();
+            var path = new SKPath();
 
             // start at top-left point
             float currentX = topLeftRound ? x + radius : x;
             float currentY = y;
-            path.StartFigure(); // explicitly start the path
+            path.MoveTo(currentX, currentY); // explicitly start the path
 
             // top edge to top-right corner
             float nextX = topRightRound ? x + width - radius : x + width;
-            path.AddLine(currentX, currentY, nextX, currentY);
+            path.LineTo(nextX, currentY);
             currentX = nextX;
 
             // top-right arc
             if (topRightRound)
             {
-                path.AddArc(x + width - radius * 2, y, radius * 2, radius * 2, 270, 90);
+                path.AddArc(new SKRect(x + width - radius * 2, y, x + width, y + radius * 2), 270, 90);
                 currentX = x + width;
                 currentY = y + radius;
             }
@@ -583,46 +582,46 @@ namespace FastReport.Barcode
             // right edge to bottom-right corner
             nextX = x + width;
             float nextY = bottomRightRound ? y + height - radius : y + height;
-            path.AddLine(currentX, currentY, nextX, nextY);
+            path.LineTo(nextX, nextY);
             currentY = nextY;
 
             // bottom-right arc
             if (bottomRightRound)
             {
-                path.AddArc(x + width - radius * 2, y + height - radius * 2, radius * 2, radius * 2, 0, 90);
+                path.AddArc(new SKRect(x + width - radius * 2, y + height - radius * 2, x + width, y + height), 0, 90);
                 currentX = x + width - radius;
                 currentY = y + height;
             }
 
             // bottom edge to bottom-left corner
             nextX = bottomLeftRound ? x + radius : x;
-            path.AddLine(currentX, currentY, nextX, currentY);
+            path.LineTo(nextX, currentY);
             currentX = nextX;
 
             // bottom-left arc
             if (bottomLeftRound)
             {
-                path.AddArc(x, y + height - radius * 2, radius * 2, radius * 2, 90, 90);
+                path.AddArc(new SKRect(x, y + height - radius * 2, x + radius * 2, y + height), 90, 90);
                 currentX = x;
                 currentY = y + height - radius;
             }
 
             // left edge back to top-left
             nextY = topLeftRound ? y + radius : y;
-            path.AddLine(currentX, currentY, x, nextY);
+            path.LineTo(x, nextY);
 
             // top-left arc
             if (topLeftRound)
             {
-                path.AddArc(x, y, radius * 2, radius * 2, 180, 90);
+                path.AddArc(new SKRect(x, y, x + radius * 2, y + radius * 2), 180, 90);
             }
 
-            path.CloseFigure();
+            path.Close();
             return path;
         }
 
         /// <summary>
-        /// Creates a <see cref="GraphicsPath"/> for a horizontal pill shape, adapting its ends based on the presence of adjacent dark modules.
+        /// Creates a <see cref="SKPath"/> for a horizontal pill shape, adapting its ends based on the presence of adjacent dark modules.
         /// The pill consists of a rectangle with semicircular caps on the left and/or right.
         /// If a dark neighbor exists on a side, that end becomes flat (rectangular); otherwise, it remains rounded.
         /// </summary>
@@ -632,45 +631,47 @@ namespace FastReport.Barcode
         /// <param name="height">Height of the module</param>
         /// <param name="hasLeftNeighbor"><see langword="true"/> if there is a dark module to the left.</param>
         /// <param name="hasRightNeighbor"><see langword="true"/> if there is a dark module to the right.</param>
-        /// <returns>A <see cref="GraphicsPath"/> representing the pill shape</returns>
-        private static GraphicsPath CreateHorizontalPillPath(float x, float y, float width, float height, bool hasLeftNeighbor, bool hasRightNeighbor)
+        /// <returns>A <see cref="SKPath"/> representing the pill shape</returns>
+        private static SKPath CreateHorizontalPillPath(float x, float y, float width, float height, bool hasLeftNeighbor, bool hasRightNeighbor)
         {
             // ensures a circular (not elliptical) shape even in stretched (non-square) modules
             float radius = width / 2;
-            var path = new GraphicsPath();
+            var path = new SKPath();
 
             if (hasLeftNeighbor && hasRightNeighbor)
             {
                 // neighbors on both sides — draw a rectangle
-                path.AddRectangle(new RectangleF(x, y, width, height));
+                path.AddRect(new SKRect(x, y, x + width, y + height));
             }
             else if (hasLeftNeighbor && !hasRightNeighbor)
             {
                 // left side straight, right side rounded
-                path.AddLine(x, y, x, y + height);
-                path.AddArc(x + width - radius * 2, y, radius * 2, height, -270, -180);
-                path.CloseFigure();
+                path.MoveTo(x, y);
+                path.LineTo(x, y + height);
+                path.AddArc(new SKRect(x + width - radius * 2, y, x + width, y + height), 90, 180);
+                path.Close();
             }
             else if (!hasLeftNeighbor && hasRightNeighbor)
             {
                 // left side rounded, right side straight
-                path.AddArc(x, y, radius * 2, height, 90, 180);
-                path.AddLine(x + width, y, x + width, y + height);
-                path.CloseFigure();
+                path.AddArc(new SKRect(x, y, x + radius * 2, y + height), 90, 180);
+                path.LineTo(x + width, y);
+                path.LineTo(x + width, y + height);
+                path.Close();
             }
             else
             {
                 // no neighbors — rounded ends on both sides
-                path.AddArc(x, y, radius * 2, height, 180, 180); // left semicircle
-                path.AddArc(x + width - radius * 2, y, radius * 2, height, 0, 180); // right semicircle
-                path.CloseFigure();
+                path.AddArc(new SKRect(x, y, x + radius * 2, y + height), 180, 180); // left semicircle
+                path.AddArc(new SKRect(x + width - radius * 2, y, x + width, y + height), 0, 180); // right semicircle
+                path.Close();
             }
 
             return path;
         }
 
         /// <summary>
-        /// Creates a <see cref="GraphicsPath"/> for a vertical pill shape, adapting its top and bottom ends 
+        /// Creates a <see cref="SKPath"/> for a vertical pill shape, adapting its top and bottom ends 
         /// based on the presence of adjacent dark modules.
         /// The pill consists of a rectangle with semicircular caps on the top and/or bottom.
         /// If a dark neighbor exists above or below, that end becomes flat (rectangular); otherwise, it remains rounded.
@@ -681,39 +682,41 @@ namespace FastReport.Barcode
         /// <param name="height">Height of the module</param>
         /// <param name="hasTopNeighbor"><see langword="true"/> if there is a dark module directly above</param>
         /// <param name="hasBottomNeighbor"><see langword="true"/> if there is a dark module directly below</param>
-        /// <returns>A <see cref="GraphicsPath"/> representing the pill shape</returns>
-        private static GraphicsPath CreateVerticalPillPath(float x, float y, float width, float height, bool hasTopNeighbor, bool hasBottomNeighbor)
+        /// <returns>A <see cref="SKPath"/> representing the pill shape</returns>
+        private static SKPath CreateVerticalPillPath(float x, float y, float width, float height, bool hasTopNeighbor, bool hasBottomNeighbor)
         {
             // ensures a circular (not elliptical) shape even in stretched (non-square) modules
             float radius = height / 2;
 
-            var path = new GraphicsPath();
+            var path = new SKPath();
 
             if (hasTopNeighbor && hasBottomNeighbor)
             {
                 // neighbors on both sides — draw a rectangle
-                path.AddRectangle(new RectangleF(x, y, width, height));
+                path.AddRect(new SKRect(x, y, x + width, y + height));
             }
             else if (hasTopNeighbor && !hasBottomNeighbor)
             {
                 // top side straight, bottom side rounded
-                path.AddLine(x, y, x + width, y);
-                path.AddArc(x, y + height - radius * 2, width, radius * 2, 0, 180);
-                path.CloseFigure();
+                path.MoveTo(x, y);
+                path.LineTo(x + width, y);
+                path.AddArc(new SKRect(x, y + height - radius * 2, x + width, y + height), 0, 180);
+                path.Close();
             }
             else if (!hasTopNeighbor && hasBottomNeighbor)
             {
                 // top side rounded, bottom side straight
-                path.AddArc(x, y, width, radius * 2, 0, -180);
-                path.AddLine(x, y + height, x + width, y + height);
-                path.CloseFigure();
+                path.AddArc(new SKRect(x, y, x + width, y + radius * 2), 180, 180);
+                path.LineTo(x, y + height);
+                path.LineTo(x + width, y + height);
+                path.Close();
             }
             else
             {
                 // no neighbors — rounded ends on both sides
-                path.AddArc(x, y, width, radius * 2, 270, 180); // top semicircle
-                path.AddArc(x, y + height - radius * 2, width, radius * 2, 90, 180); // bottom semicircle
-                path.CloseFigure();
+                path.AddArc(new SKRect(x, y, x + width, y + radius * 2), 270, 180); // top semicircle
+                path.AddArc(new SKRect(x, y + height - radius * 2, x + width, y + height), 90, 180); // bottom semicircle
+                path.Close();
             }
             return path;
         }
@@ -727,14 +730,14 @@ namespace FastReport.Barcode
         /// <param name="radiusX">Horizontal radius (distance from center to a vertex along the X-axis).</param>
         /// <param name="radiusY">Vertical radius (distance from center to a vertex along the Y-axis).</param>
         /// <returns>An array of 6 points representing the hexagon's vertices in clockwise order.</returns>
-        private PointF[] CreateHexagonPoints(float centerX, float centerY, float radiusX, float radiusY)
+        private SKPoint[] CreateHexagonPoints(float centerX, float centerY, float radiusX, float radiusY)
         {
             double rotAngle = Angle * Math.PI / 180.0;
-            var points = new PointF[6];
+            var points = new SKPoint[6];
             for (int i = 0; i < 6; i++)
             {
                 double pointAngle = Math.PI / 3 * i - Math.PI / 6 + rotAngle; // flat side on top
-                points[i] = new PointF(
+                points[i] = new SKPoint(
                     centerX + (float)(radiusX * Math.Cos(pointAngle)),
                     centerY + (float)(radiusY * Math.Sin(pointAngle))
                 );
@@ -755,10 +758,10 @@ namespace FastReport.Barcode
         /// <remarks>
         /// Inner vertices are scaled to 60% of the outer radius to form the star's indentations.
         /// </remarks>
-        private PointF[] CreateStarPoints(float centerX, float centerY, float outerRadiusX, float outerRadiusY)
+        private SKPoint[] CreateStarPoints(float centerX, float centerY, float outerRadiusX, float outerRadiusY)
         {
             double rotAngle = Angle * Math.PI / 180.0;
-            var points = new PointF[10]; // 5 external + 5 internal points
+            var points = new SKPoint[10]; // 5 external + 5 internal points
 
             for (int i = 0; i < 10; i++)
             {
@@ -769,7 +772,7 @@ namespace FastReport.Barcode
                 float rx = outerRadiusX * ratio;
                 float ry = outerRadiusY * ratio;
 
-                points[i] = new PointF(
+                points[i] = new SKPoint(
                     centerX + (float)(rx * Math.Cos(pointAngle)),
                     centerY + (float)(ry * Math.Sin(pointAngle))
                 );
@@ -787,10 +790,10 @@ namespace FastReport.Barcode
         /// <param name="sx">Horizontal scale factor (half-width of the bounding box).</param>
         /// <param name="sy">Vertical scale factor (half-height of the bounding box).</param>
         /// <returns>An array of points defining the snowflake contour, ready for FillPolygon.</returns>
-        private PointF[] CreateSnowflakePoints(float centerX, float centerY, float sx, float sy)
+        private SKPoint[] CreateSnowflakePoints(float centerX, float centerY, float sx, float sy)
         {  
             int pointCount = 120;
-            var points = new PointF[pointCount];
+            var points = new SKPoint[pointCount];
 
             bool useRotation = Angle != 0;
             float cosA = 1f, sinA = 0f;
@@ -824,7 +827,7 @@ namespace FastReport.Barcode
                     dy = newY;
                 }
 
-                points[i] = new PointF(centerX + dx, centerY + dy);
+                points[i] = new SKPoint(centerX + dx, centerY + dy);
             }
 
             return points;

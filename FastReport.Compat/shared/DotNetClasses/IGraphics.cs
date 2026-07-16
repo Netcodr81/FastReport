@@ -1,8 +1,5 @@
-﻿using System;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
-using System.Drawing.Text;
+﻿using SkiaSharp;
+using System;
 
 namespace FastReport
 {
@@ -12,88 +9,84 @@ namespace FastReport
     public interface IGraphics : IDisposable
     {
         #region Properties
-        Graphics Graphics { get; }
+        SKCanvas Graphics { get; }
         float DpiY { get; }
-        TextRenderingHint TextRenderingHint { get; set; }
-        InterpolationMode InterpolationMode { get; set; }
-        SmoothingMode SmoothingMode { get; set; }
-        System.Drawing.Drawing2D.Matrix Transform { get; set; }
-        GraphicsUnit PageUnit { get; set; }
+        SKSamplingOptions SamplingOptions { get; set; }
+        SKMatrix Transform { get; set; }
         bool IsClipEmpty { get; }
-        Region Clip { get; set; }
+        SKRegion Clip { get; set; }
         float DpiX { get; }
-        CompositingQuality CompositingQuality { get; set; }
         #endregion
 
         #region Draw and measure text
-        void DrawString(string text, Font font, Brush brush, float left, float top);
-        void DrawString(string text, Font font, Brush brush, float left, float top, StringFormat format);
+        void DrawString(string text, SKFont font, SKPaint brush, float left, float top);
+        void DrawString(string text, SKFont font, SKPaint brush, float left, float top, SKPaint format);
         // in this case if a baseline is needed, it will not be calculated
-        void DrawString(string text, Font font, Brush brush, RectangleF rectangleF);
-        void DrawString(string text, Font font, Brush textBrush, RectangleF textRect, StringFormat format);
-        void DrawString(string s, Font font, Brush brush, PointF point, StringFormat format);
-        Region[] MeasureCharacterRanges(string text, Font font, RectangleF textRect, StringFormat format);
-        SizeF MeasureString(string text, Font font);
-        SizeF MeasureString(string text, Font font, SizeF size);
-        SizeF MeasureString(string text, Font font, int v, StringFormat format);
-        void MeasureString(string text, Font font, SizeF size, StringFormat format, out int charsFit, out int linesFit);
-        SizeF MeasureString(string text, Font font, SizeF layoutArea, StringFormat stringFormat);
+        void DrawString(string text, SKFont font, SKPaint brush, SKRect rectangleF);
+        void DrawString(string text, SKFont font, SKPaint textBrush, SKRect textRect, SKPaint format);
+        void DrawString(string s, SKFont font, SKPaint brush, SKPoint point, SKPaint format);
+        SKRegion[] MeasureCharacterRanges(string text, SKFont font, SKRect textRect, SKPaint format);
+        SKSize MeasureString(string text, SKFont font);
+        SKSize MeasureString(string text, SKFont font, SKSize size);
+        SKSize MeasureString(string text, SKFont font, int v, SKPaint format);
+        void MeasureString(string text, SKFont font, SKSize size, SKPaint format, out int charsFit, out int linesFit);
+        SKSize MeasureString(string text, SKFont font, SKSize layoutArea, SKPaint stringFormat);
         #endregion
 
         #region Draw images
-        void DrawImage(Image image, float x, float y);
-        void DrawImage(Image image, RectangleF rect1, RectangleF rect2, GraphicsUnit unit);
-        void DrawImage(Image image, RectangleF rect);
-        void DrawImage(Image image, float x, float y, float width, float height);
-        void DrawImage(Image image, PointF[] points);
-        void DrawImage(Image image, Rectangle destRect, int srcX, int srcY, int srcWidth, int srcHeight, GraphicsUnit srcUnit, ImageAttributes imageAttr);
-        void DrawImage(Image image, Rectangle destRect, float srcX, float srcY, float srcWidth, float srcHeight, GraphicsUnit srcUnit, ImageAttributes imageAttrs);
-        void DrawImageUnscaled(Image image, Rectangle rect);
+        void DrawImage(SKImage image, float x, float y);
+        void DrawImage(SKImage image, SKRect rect1, SKRect rect2);
+        void DrawImage(SKImage image, SKRect rect);
+        void DrawImage(SKImage image, float x, float y, float width, float height);
+        void DrawImage(SKImage image, SKPoint[] points);
+        void DrawImage(SKImage image, SKRectI destRect, int srcX, int srcY, int srcWidth, int srcHeight, SKPaint paint);
+        void DrawImage(SKImage image, SKRectI destRect, float srcX, float srcY, float srcWidth, float srcHeight, SKPaint paint);
+        void DrawImageUnscaled(SKImage image, SKRectI rect);
         #endregion
 
         #region Draw geometry
-        void DrawArc(Pen pen, float x, float y, float width, float height, float startAngle, float sweepAngle);
-        void DrawCurve(Pen pen, PointF[] points, int offset, int numberOfSegments, float tension);
-        void DrawEllipse(Pen pen, float left, float top, float width, float height);
-        void DrawEllipse(Pen pen, RectangleF rect);
-        void DrawLine(Pen pen, float x1, float y1, float x2, float y2);
-        void DrawLine(Pen pen, PointF p1, PointF p2);
-        void DrawLines(Pen pen, PointF[] points);
-        void DrawPath(Pen outlinePen, GraphicsPath path);
-        void DrawPie(Pen pen, float x, float y, float width, float height, float startAngle, float sweepAngle);
-        void DrawPolygon(Pen pen, PointF[] points);
-        void DrawPolygon(Pen pen, Point[] points);
-        void DrawRectangle(Pen pen, float left, float top, float width, float height);
-        void DrawRectangle(Pen pen, Rectangle rectangle);
+        void DrawArc(SKPaint pen, float x, float y, float width, float height, float startAngle, float sweepAngle);
+        void DrawCurve(SKPaint pen, SKPoint[] points, int offset, int numberOfSegments, float tension);
+        void DrawEllipse(SKPaint pen, float left, float top, float width, float height);
+        void DrawEllipse(SKPaint pen, SKRect rect);
+        void DrawLine(SKPaint pen, float x1, float y1, float x2, float y2);
+        void DrawLine(SKPaint pen, SKPoint p1, SKPoint p2);
+        void DrawLines(SKPaint pen, SKPoint[] points);
+        void DrawPath(SKPaint outlinePen, SKPath path);
+        void DrawPie(SKPaint pen, float x, float y, float width, float height, float startAngle, float sweepAngle);
+        void DrawPolygon(SKPaint pen, SKPoint[] points);
+        void DrawPolygon(SKPaint pen, SKPointI[] points);
+        void DrawRectangle(SKPaint pen, float left, float top, float width, float height);
+        void DrawRectangle(SKPaint pen, SKRectI rectangle);
         #endregion
 
         #region Fill geometry
-        void FillEllipse(Brush brush, float left, float top, float width, float height);
-        void FillEllipse(Brush brush, RectangleF rect);
+        void FillEllipse(SKPaint brush, float left, float top, float width, float height);
+        void FillEllipse(SKPaint brush, SKRect rect);
         // Works with polygons only
-        void FillPath(Brush brush, GraphicsPath path);
-        void FillPie(Brush brush, float x, float y, float width, float height, float startAngle, float sweepAngle);
-        void FillPolygon(Brush brush, PointF[] points);
-        void FillPolygon(Brush brush, Point[] points);
+        void FillPath(SKPaint brush, SKPath path);
+        void FillPie(SKPaint brush, float x, float y, float width, float height, float startAngle, float sweepAngle);
+        void FillPolygon(SKPaint brush, SKPoint[] points);
+        void FillPolygon(SKPaint brush, SKPointI[] points);
         // Add rectangle to the graphics path
-        void FillRectangle(Brush brush, RectangleF rect);
-        void FillRectangle(Brush brush, float left, float top, float width, float height);
-        void FillRegion(Brush brush, Region region);
+        void FillRectangle(SKPaint brush, SKRect rect);
+        void FillRectangle(SKPaint brush, float left, float top, float width, float height);
+        void FillRegion(SKPaint brush, SKRegion region);
         #endregion
 
         #region Fill and Draw
 
-        void FillAndDrawPath(Pen pen, Brush brush, GraphicsPath path);
-        void FillAndDrawEllipse(Pen pen, Brush brush, RectangleF rect);
-        void FillAndDrawEllipse(Pen pen, Brush brush, float left, float top, float width, float height);
-        void FillAndDrawPolygon(Pen pen, Brush brush, Point[] points);
-        void FillAndDrawPolygon(Pen pen, Brush brush, PointF[] points);
-        void FillAndDrawRectangle(Pen pen, Brush brush, float left, float top, float width, float height);
+        void FillAndDrawPath(SKPaint pen, SKPaint brush, SKPath path);
+        void FillAndDrawEllipse(SKPaint pen, SKPaint brush, SKRect rect);
+        void FillAndDrawEllipse(SKPaint pen, SKPaint brush, float left, float top, float width, float height);
+        void FillAndDrawPolygon(SKPaint pen, SKPaint brush, SKPointI[] points);
+        void FillAndDrawPolygon(SKPaint pen, SKPaint brush, SKPoint[] points);
+        void FillAndDrawRectangle(SKPaint pen, SKPaint brush, float left, float top, float width, float height);
 
         #endregion
 
         #region Transform
-        void MultiplyTransform(System.Drawing.Drawing2D.Matrix matrix, MatrixOrder prepend);
+        void MultiplyTransform(SKMatrix matrix, bool prepend);
         void RotateTransform(float angle);
         void ScaleTransform(float scaleX, float scaleY);
         void TranslateTransform(float left, float top);
@@ -105,11 +98,11 @@ namespace FastReport
         #endregion
 
         #region Clip
-        bool IsVisible(RectangleF rect);
+        bool IsVisible(SKRect rect);
         void ResetClip();
-        void SetClip(RectangleF rect);
-        void SetClip(RectangleF rect, CombineMode combineMode);
-        void SetClip(GraphicsPath path, CombineMode combineMode);
+        void SetClip(SKRect rect);
+        void SetClip(SKRect rect, SKClipOperation combineMode);
+        void SetClip(SKPath path, SKClipOperation combineMode);
         #endregion
     }
 

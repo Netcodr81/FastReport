@@ -1,9 +1,9 @@
 using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Drawing;
 
 namespace FastReport.Barcode
 {
@@ -123,9 +123,9 @@ namespace FastReport.Barcode
         /// <param name="rect">Use left of rectangle for  to set start position x, top for top pos y, bottom for bottom pos y of strokes.</param>
         /// <param name="reversColor">Flag for reversing color by default first strokes white, disabled for separate line. </param>
         /// <param name="separatorLine">Flag separete line </param>
-        protected void DrawLineBars(string data, IGraphics g, float zoom, RectangleF rect, bool reversColor, bool separatorLine = false)
+        protected void DrawLineBars(string data, IGraphics g, float zoom, SKRect rect, bool reversColor, bool separatorLine = false)
         {
-            using (Pen pen = new Pen(Color))
+            using (SKPaint pen = new SKPaint { Style = SKPaintStyle.Stroke, Color = Color })
             {
                 float currentWidth = rect.Left;
                 for (int x = 0; x < data.Length; x++)
@@ -139,12 +139,12 @@ namespace FastReport.Barcode
                     width *= zoom;
                     heightStart *= zoom;
                     heightEnd *= zoom;
-                    pen.Width = width;
+                    pen.StrokeWidth = width;
 
                     if (reversColor)
                         pen.Color = Color;
                     else
-                        pen.Color = Color.Transparent;
+                        pen.Color = SKColors.Transparent;
 
                     if (separatorLine)
                     {
@@ -156,7 +156,7 @@ namespace FastReport.Barcode
                         if ((x % 2 != 0 && !reversColor))
                             pen.Color = Color;
                         if ((x % 2 != 0 && reversColor))
-                            pen.Color = Color.Transparent;
+                            pen.Color = SKColors.Transparent;
                     }
 
                     g.DrawLine(pen,
@@ -373,7 +373,7 @@ namespace FastReport.Barcode
         /// <inheritdoc />
         internal override void DoLines(string data, IGraphics g, float zoom)
         {
-            DrawLineBars(EncodedData[0], g, zoom, new RectangleF(0, 0, 0, barArea.Height), false);
+            DrawLineBars(EncodedData[0], g, zoom, new SKRect(0, 0, 0, barArea.Height), false);
         }
     }
 
@@ -399,21 +399,21 @@ namespace FastReport.Barcode
         const int IsFnc1 = 0x2;
         const int IsAlnu = 0x4;
 
-        static byte[] LookUp = { 
-		        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        static byte[] LookUp = {
                 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-		        8,8,8,0,0,8,8,8,8,8,0xc,8,0xc,0xc,0xc,0xc,
+                0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                8,8,8,0,0,8,8,8,8,8,0xc,8,0xc,0xc,0xc,0xc,
                 0xd,0xd,0xd,0xd,0xd,0xd,0xd,0xd,0xd,0xd,
                 8,8,8,8,8,8,
-		        0,
+                0,
                 0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,
                 0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,
                 0xf,0,0,0xc,8,
-		        0,
+                0,
                 8,8,8,8,8,8,8,8,8,8,8,8,8,
                 8,8,8,8,8,8,8,8,8,8,8,8,8,
                 0,0,0,0,0,
-		        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
@@ -538,7 +538,7 @@ namespace FastReport.Barcode
         static void AddPadding(int targetBitSize)
         {
             if (CurrentMode == NumMode)
-                BinaryData.AppendBits(0, 4);   
+                BinaryData.AppendBits(0, 4);
 
             while (BinaryData.SizeInBits < targetBitSize)
                 BinaryData.AppendBits(0x04, 5);
@@ -673,7 +673,7 @@ namespace FastReport.Barcode
             if (remainder == 12) remainder = 0;
             if (BinaryData.SizeInBits < 36) remainder = 36 - BinaryData.SizeInBits;
             if (BinaryData.SizeInBits > 252)
-                return null; 
+                return null;
 
             int dataChars = (BinaryData.SizeInBits / 12) + 1;
             if (remainder > 0) dataChars++;
@@ -915,7 +915,7 @@ namespace FastReport.Barcode
                     latch = !latch;
                 }
 
-                symbolData = new SymbolData(rowData, 10.0f);    
+                symbolData = new SymbolData(rowData, 10.0f);
                 Symbol.Add(symbolData);
 
                 if (currentRow != 1)
@@ -1220,15 +1220,15 @@ namespace FastReport.Barcode
             return "";
         }
 
-        internal void DrawLineBars(byte[] rowData, IGraphics g, float zoom, RectangleF rect)
+        internal void DrawLineBars(byte[] rowData, IGraphics g, float zoom, SKRect rect)
         {
             if (rowData == null || rowData.Length == 0)
                 return;
 
-            using (Pen pen = new Pen(Color))
+            using (SKPaint pen = new SKPaint { Style = SKPaintStyle.Stroke, Color = Color })
             {
                 float moduleWidth = WideBarRatio * zoom;
-                pen.Width = moduleWidth;
+                pen.StrokeWidth = moduleWidth;
 
                 float currentX = rect.Left * zoom;
 
@@ -1253,66 +1253,66 @@ namespace FastReport.Barcode
     /// Generates the GS1 DataBar Stacked barcode.
     /// </summary>
     public class BarcodeGS1Stacked : BarcodeGS1Omnidirectional
+    {
+        internal override string GetPattern()
         {
-            internal override string GetPattern()
+            string data = base.GetPattern();
+            EncodedData = new List<string>();
+            EncodedData.Add(data.Substring(0, 23) + "11");
+
+            EncodedData.Add("0000"); // left padding of separate line
+            EncodedData.Add("11" + data.Substring(23, 23));
+
+            // convert line of strokes to black and white modules
+            string[] bars = new string[2];
+            for (int i = 0; i < EncodedData[0].Length; i++)
             {
-                string data = base.GetPattern();
-                EncodedData = new List<string>();
-                EncodedData.Add(data.Substring(0, 23) + "11");
-
-                EncodedData.Add("0000"); // left padding of separate line
-                EncodedData.Add("11" + data.Substring(23, 23));
-
-                // convert line of strokes to black and white modules
-                string[] bars = new string[2];
-                for (int i = 0; i < EncodedData[0].Length; i++)
+                if (i % 2 == 0)
                 {
-                    if (i % 2 == 0)
-                    {
-                        for (int x = 0; x < EncodedData[0][i] - '0'; x++)
-                            bars[0] += "0";
-                        for (int x = 0; x < EncodedData[2][i] - '0'; x++)
-                            bars[1] += "1";
-                    }
-                    else
-                    {
-                        for (int x = 0; x < EncodedData[0][i] - '0'; x++)
-                            bars[0] += "1";
-                        for (int x = 0; x < EncodedData[2][i] - '0'; x++)
-                            bars[1] += "0";
-                    }
+                    for (int x = 0; x < EncodedData[0][i] - '0'; x++)
+                        bars[0] += "0";
+                    for (int x = 0; x < EncodedData[2][i] - '0'; x++)
+                        bars[1] += "1";
                 }
-
-                // Encode separate line (applying encoding rules from sections 5.3.2.1)
-                for (int i = 4; i < bars[0].Length - 4; i++)
+                else
                 {
-                    if (bars[0][i] == '1' && bars[1][i] == '1')
-                        EncodedData[1] += "0";
-                    else if (bars[0][i] == '0' && bars[1][i] == '0')
-                        EncodedData[1] += "1";
-                    else if (bars[0][i] != bars[1][i])
-                    {
-                        EncodedData[1] += EncodedData[1][EncodedData[1].Length - 1] == '0' ? "1" : "0";
-                    }
+                    for (int x = 0; x < EncodedData[0][i] - '0'; x++)
+                        bars[0] += "1";
+                    for (int x = 0; x < EncodedData[2][i] - '0'; x++)
+                        bars[1] += "0";
                 }
-
-                return "";
             }
 
-            /// <inheritdoc />
-            internal override void DoLines(string data, IGraphics g, float zoom)
+            // Encode separate line (applying encoding rules from sections 5.3.2.1)
+            for (int i = 4; i < bars[0].Length - 4; i++)
             {
-                DrawLineBars(EncodedData[0], g, zoom, new RectangleF(0, 0, 0, barArea.Height * 5 / 13), false);
-                DrawLineBars(EncodedData[1], g, zoom, new RectangleF(0, barArea.Height * 5 / 13, 0, barArea.Height * 1 / 13), false, true);
-                DrawLineBars(EncodedData[2], g, zoom, new RectangleF(0, barArea.Height * 6 / 13, 0, barArea.Height * 7 / 13), true);
+                if (bars[0][i] == '1' && bars[1][i] == '1')
+                    EncodedData[1] += "0";
+                else if (bars[0][i] == '0' && bars[1][i] == '0')
+                    EncodedData[1] += "1";
+                else if (bars[0][i] != bars[1][i])
+                {
+                    EncodedData[1] += EncodedData[1][EncodedData[1].Length - 1] == '0' ? "1" : "0";
+                }
             }
 
-            internal override float GetWidth(string code)
-            {
-                float width = 0;
-                for (int x = 0; x < EncodedData[0].Length; x++)
-                    width += EncodedData[0][x] - '0';
-                return width * WideBarRatio;
+            return "";
+        }
+
+        /// <inheritdoc />
+        internal override void DoLines(string data, IGraphics g, float zoom)
+        {
+            DrawLineBars(EncodedData[0], g, zoom, new SKRect(0, 0, 0, barArea.Height * 5 / 13), false);
+            DrawLineBars(EncodedData[1], g, zoom, new SKRect(0, barArea.Height * 5 / 13, 0, barArea.Height * 1 / 13), false, true);
+            DrawLineBars(EncodedData[2], g, zoom, new SKRect(0, barArea.Height * 6 / 13, 0, barArea.Height * 7 / 13), true);
+        }
+
+        internal override float GetWidth(string code)
+        {
+            float width = 0;
+            for (int x = 0; x < EncodedData[0].Length; x++)
+                width += EncodedData[0][x] - '0';
+            return width * WideBarRatio;
         }
     }
 
@@ -1364,7 +1364,7 @@ namespace FastReport.Barcode
             {
                 float rowHeight = row.RowHeight * heightMultiplier;
 
-                RectangleF rowRect = new RectangleF(
+                SKRect rowRect = new SKRect(
                     0,
                     currentY,
                     0,
@@ -1486,11 +1486,11 @@ namespace FastReport.Barcode
         /// <inheritdoc />
         internal override void DoLines(string data, IGraphics g, float zoom)
         {
-            DrawLineBars(EncodedData[0], g, zoom, new RectangleF(0, 0, 0, barArea.Height * 33 / 69), false);
-            DrawLineBars(EncodedData[1], g, zoom, new RectangleF(0, barArea.Height * 33 / 69, 0, barArea.Height * 1 / 69), false, true);
-            DrawLineBars(EncodedData[2], g, zoom, new RectangleF(0, barArea.Height * 34 / 69, 0, barArea.Height * 1 / 69), false, true);
-            DrawLineBars(EncodedData[3], g, zoom, new RectangleF(0, barArea.Height * 35 / 69, 0, barArea.Height * 1 / 69), false, true);
-            DrawLineBars(EncodedData[4], g, zoom, new RectangleF(0, barArea.Height * 36 / 69, 0, barArea.Height * 33 / 69), true);
+            DrawLineBars(EncodedData[0], g, zoom, new SKRect(0, 0, 0, barArea.Height * 33 / 69), false);
+            DrawLineBars(EncodedData[1], g, zoom, new SKRect(0, barArea.Height * 33 / 69, 0, barArea.Height * 1 / 69), false, true);
+            DrawLineBars(EncodedData[2], g, zoom, new SKRect(0, barArea.Height * 34 / 69, 0, barArea.Height * 1 / 69), false, true);
+            DrawLineBars(EncodedData[3], g, zoom, new SKRect(0, barArea.Height * 35 / 69, 0, barArea.Height * 1 / 69), false, true);
+            DrawLineBars(EncodedData[4], g, zoom, new SKRect(0, barArea.Height * 36 / 69, 0, barArea.Height * 33 / 69), true);
         }
     }
 
@@ -1777,7 +1777,7 @@ namespace FastReport.Barcode
         /// <inheritdoc />
         internal override void DoLines(string data, IGraphics g, float zoom)
         {
-            DrawLineBars(EncodedData[0], g, zoom, new RectangleF(0, 0, 0, barArea.Height), false);
+            DrawLineBars(EncodedData[0], g, zoom, new SKRect(0, 0, 0, barArea.Height), false);
         }
 
         internal override float GetWidth(string code)

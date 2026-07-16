@@ -1,8 +1,8 @@
 ﻿using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
 using System.Text;
 
 namespace FastReport.Barcode
@@ -52,10 +52,10 @@ namespace FastReport.Barcode
             maxiCodeImpl.encode();
         }
 
-        internal override SizeF CalcBounds()
+        internal override SKSize CalcBounds()
         {
             int textAdd = showText ? (int)(FontHeight) : 0;
-            SizeF s = new SizeF();
+            SKSize s = new SKSize();
 
             foreach (MaxiCodeImpl.Hexagon hex in maxiCodeImpl.hexagons)
             {
@@ -83,30 +83,28 @@ namespace FastReport.Barcode
 
         internal override void Draw2DBarcode(IGraphics g, float kx, float ky)
         {
-            Brush b = new SolidBrush(Color);
-            Pen p = new Pen(Color, PenSizeFactor * ((kx + ky) / 2));
-
-            foreach (MaxiCodeImpl.Hexagon hex in maxiCodeImpl.hexagons)
+            using (SKPaint b = new SKPaint { Color = Color, Style = SKPaintStyle.Fill })
+            using (SKPaint p = new SKPaint { Color = Color, StrokeWidth = PenSizeFactor * ((kx + ky) / 2), Style = SKPaintStyle.Stroke })
             {
-                PointF[] points = new PointF[hex.pointX.Length];
+                foreach (MaxiCodeImpl.Hexagon hex in maxiCodeImpl.hexagons)
+                {
+                    SKPoint[] points = new SKPoint[hex.pointX.Length];
 
-                for (int i = 0; i < hex.pointX.Length; i++)
-                    points[i] = new PointF(FieldSizeFactor * kx * (float)hex.pointX[i], FieldSizeFactor * ky * (float)hex.pointY[i]);
+                    for (int i = 0; i < hex.pointX.Length; i++)
+                        points[i] = new SKPoint(FieldSizeFactor * kx * (float)hex.pointX[i], FieldSizeFactor * ky * (float)hex.pointY[i]);
 
-                g.FillPolygon(b, points);
+                    g.FillPolygon(b, points);
+                }
+
+                foreach (MaxiCodeImpl.Ellipse circle in maxiCodeImpl.target)
+                {
+                    g.DrawEllipse(p,
+                        FieldSizeFactor * kx * (float)circle.x,
+                        FieldSizeFactor * ky * (float)circle.y,
+                        FieldSizeFactor * kx * ((float)circle.w - (float)circle.x),
+                        FieldSizeFactor * ky * ((float)circle.h - (float)circle.y));
+                }
             }
-
-            foreach (MaxiCodeImpl.Ellipse circle in maxiCodeImpl.target)
-            {
-                g.DrawEllipse(p,
-                    FieldSizeFactor * kx * (float)circle.x,
-                    FieldSizeFactor * ky * (float)circle.y,
-                    FieldSizeFactor * kx * ((float)circle.w - (float)circle.x),
-                    FieldSizeFactor * ky * ((float)circle.h - (float)circle.y));
-            }
-
-            b.Dispose();
-            p.Dispose();
         }
 
         /// <inheritdoc/>

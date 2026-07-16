@@ -8,10 +8,9 @@
 using System;
 using System.Collections;
 using System.Text;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.ComponentModel;
 using FastReport.Utils;
+using SkiaSharp;
 
 namespace FastReport.Barcode
 {
@@ -124,7 +123,7 @@ namespace FastReport.Barcode
         private PDF417CompactionMode compactionMode;
         private byte[] bytes;
         private float aspectRatio;
-        private Size pixelSize;
+        private SKSize pixelSize;
         private int codePage;
         private int bitPtr;
         private int cwPtr;
@@ -679,7 +678,7 @@ namespace FastReport.Barcode
         /// <summary>
         /// Gets or sets the size of the pixel.
         /// </summary>
-        public Size PixelSize
+        public SKSize PixelSize
         {
             get { return pixelSize; }
             set { pixelSize = value; }
@@ -1512,32 +1511,32 @@ namespace FastReport.Barcode
             PaintCode();
         }
 
-        internal override SizeF CalcBounds()
+        internal override SKSize CalcBounds()
         {
             int textAdd = showText ? (int)(FontHeight) : 0;
-            return new SizeF(bitColumns * PixelSize.Width, codeRows * PixelSize.Height + textAdd);
+            return new SKSize(bitColumns * PixelSize.Width, codeRows * PixelSize.Height + textAdd);
         }
 
         internal override void Draw2DBarcode(IGraphics g, float kx, float ky)
         {
-            Brush light = Brushes.White;
-            Brush dark = new SolidBrush(Color);
-            int stride = (bitColumns + 7) / 8;
-
-            for (int k = 0; k < codeRows; ++k)
+            using (SKPaint light = new SKPaint { Color = new SKColor(255, 255, 255, 255), Style = SKPaintStyle.Fill })
+            using (SKPaint dark = new SKPaint { Color = Color, Style = SKPaintStyle.Fill })
             {
-                int p = k * stride;
-                for (int j = 0; j < bitColumns; ++j)
+                int stride = (bitColumns + 7) / 8;
+
+                for (int k = 0; k < codeRows; ++k)
                 {
-                    int b = outBits[p + (j / 8)] & 0xff;
-                    b <<= j % 8;
-                    Brush brush = /*(b & 0x80) == 0 ? light :*/ dark;
-                    if ((b & 0x80) != 0)
-                        g.FillRectangle(brush, j * PixelSize.Width * kx, k * PixelSize.Height * ky,
-                        PixelSize.Width * kx, PixelSize.Height * ky);
+                    int p = k * stride;
+                    for (int j = 0; j < bitColumns; ++j)
+                    {
+                        int b = outBits[p + (j / 8)] & 0xff;
+                        b <<= j % 8;
+                        if ((b & 0x80) != 0)
+                            g.FillRectangle(dark, j * PixelSize.Width * kx, k * PixelSize.Height * ky,
+                            PixelSize.Width * kx, PixelSize.Height * ky);
+                    }
                 }
             }
-            dark.Dispose();
         }
         #endregion
 
@@ -1548,7 +1547,7 @@ namespace FastReport.Barcode
         {
             outBits = null;
             bytes = new byte[0];
-            pixelSize = new Size(2, 8);
+            pixelSize = new SKSize(2, 8);
             aspectRatio = 0.5f;
             codePage = 437;
         }
