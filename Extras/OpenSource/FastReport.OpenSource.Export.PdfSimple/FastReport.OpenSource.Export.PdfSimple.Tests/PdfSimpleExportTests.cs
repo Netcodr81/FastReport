@@ -1,4 +1,5 @@
 ﻿using FastReport.Export.PdfSimple;
+using System;
 using System.IO;
 using System.Text;
 using Xunit;
@@ -28,7 +29,7 @@ namespace FastReport.Tests.OpenSource.Export.PdfSimple
 
             int i = 0;
             int index = 0;
-            while( (index = pdf.IndexOf("/Page ", index + 1, StringComparison.Ordinal)) != -1)
+            while ((index = pdf.IndexOf("/Page ", index + 1, StringComparison.Ordinal)) != -1)
             {
                 i++;
             }
@@ -91,7 +92,7 @@ namespace FastReport.Tests.OpenSource.Export.PdfSimple
         [Fact]
         public void TestExportPdfImages()
         {
-            
+
 
             PDFSimpleExport export = new PDFSimpleExport();
 
