@@ -1,16 +1,13 @@
-using System;
-
-#if NETSTANDARD || NETCOREAPP
 using FastReport.Code.CodeDom.Compiler;
 using FastReport.Code.CSharp;
 using FastReport.Code.VisualBasic;
-#else
-using System.CodeDom.Compiler;
+using FastReport.Utils;
 using Microsoft.CSharp;
 using Microsoft.VisualBasic;
-#endif
-
+using System;
+using System.CodeDom.Compiler;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Drawing;
@@ -19,8 +16,6 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Collections.Concurrent;
-using FastReport.Utils;
 #if SKIA
 using HMACSHA1 = FastReport.Utils.DetravHMACSHA1;
 #endif
@@ -199,7 +194,7 @@ namespace FastReport.Code.Ms
             if (Config.WebMode &&
                 Config.EnableScriptSecurity &&
                 Config.ScriptSecurityProps.AddStubClasses)
-                    AddStubClasses();
+                AddStubClasses();
         }
 
         private void InternalCompile()
@@ -366,7 +361,7 @@ namespace FastReport.Code.Ms
 
             var errors = new List<CompilerException.Info>();
             var errorMsg = "";
-            
+
             foreach (CompilerError ce in cr.Errors)
             {
                 int line = GetScriptLine(ce.Line);
@@ -412,8 +407,8 @@ namespace FastReport.Code.Ms
                 }
             }
 
-            if (errors.Count > 0) 
-            { 
+            if (errors.Count > 0)
+            {
                 return new CompilerException(errorMsg, errors.ToArray());
             }
 

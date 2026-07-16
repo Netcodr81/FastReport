@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-		<TargetFrameworks>$(NetFrameworkMinimum);net6.0</TargetFrameworks>
+		<TargetFramework>net10.0</TargetFramework>
 
     <Crossplatform>true</Crossplatform>
   </PropertyGroup>
@@ -8,6 +8,7 @@
   <Import Project="Shared.props" />
   
   <ItemGroup>
+    <ProjectReference Include="..\..\..\..\FastReport.Compat\FastReport.Compat\FastReport.Compat.csproj" />
     <ProjectReference Include="..\..\..\..\FastReport.OpenSource\FastReport.OpenSource.csproj" />
   </ItemGroup>
 </Project>

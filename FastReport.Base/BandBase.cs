@@ -1,11 +1,11 @@
-using System;
-using System.Drawing;
-using System.ComponentModel;
-using System.Collections.Generic;
 using FastReport.Utils;
-using System.Windows.Forms;
-using System.Drawing.Drawing2D;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
 using System.Drawing.Design;
+using System.Drawing.Drawing2D;
+using System.Windows.Forms;
 
 namespace FastReport
 {
@@ -878,7 +878,7 @@ namespace FastReport
                         breakComp.CanGrow = true;
                         breakComp.CanShrink = false;
                         breakComp.Height -= breakLine - obj.Top;
-                        breakComp.Top = 0; 
+                        breakComp.Top = 0;
                         obj.Height = breakLine - obj.Top;
                         (obj as BreakableComponent).Break(breakComp);
                     }
