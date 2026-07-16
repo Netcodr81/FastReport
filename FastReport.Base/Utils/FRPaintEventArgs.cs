@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Drawing;
+using SkiaSharp;
 
 namespace FastReport.Utils
 {
@@ -69,8 +69,8 @@ namespace FastReport.Utils
         /// <param name="scaleX">X scale factor.</param>
         /// <param name="scaleY">Y scale factor.</param>
         /// <param name="cache">Cache that contains graphics objects.</param>
-        public FRPaintEventArgs(Graphics g, float scaleX, float scaleY, GraphicCache cache) :
-            this(GdiGraphics.FromGraphics(g), scaleX, scaleY, cache)
+        public FRPaintEventArgs(SKCanvas g, float scaleX, float scaleY, GraphicCache cache) :
+            this(new GdiGraphics(g, false), scaleX, scaleY, cache)
         {
         }
     }

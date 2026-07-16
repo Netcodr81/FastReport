@@ -1,7 +1,6 @@
-using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 using FastReport.Utils;
+using SkiaSharp;
+using System.ComponentModel;
 
 namespace FastReport.Gauge.Simple
 {
@@ -114,28 +113,50 @@ namespace FastReport.Gauge.Simple
         internal virtual void DrawHorz(FRPaintEventArgs e)
         {
             IGraphics g = e.Graphics;
-            Pen pen = e.Cache.GetPen(BorderColor, BorderWidth * e.ScaleX, DashStyle.Solid);
+            using SKPaint pen = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = BorderColor,
+                StrokeWidth = BorderWidth * e.ScaleX,
+                IsAntialias = true
+            };
+            using SKPaint brush = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = Export.ExportUtils.GetColorFromFill(Fill),
+                IsAntialias = true
+            };
 
             left = (Parent.AbsLeft + Parent.Border.Width / 2 + horizontalOffset) * e.ScaleX;
             top = (Parent.AbsTop + Parent.Border.Width / 2 + (Parent.Height - Parent.Border.Width) / 2 - (Parent.Height - Parent.Border.Width) * ptrRatio / 2) * e.ScaleY;
             height = ((Parent.Height - Parent.Border.Width) * ptrRatio) * e.ScaleY;
             width = (float)((Parent.Width - Parent.Border.Width - horizontalOffset * 2) * (Parent.Value - Parent.Minimum) / (Parent.Maximum - Parent.Minimum) * e.ScaleX);
 
-            Brush brush = Fill.CreateBrush(new RectangleF(left, top, width, height), e.ScaleX, e.ScaleY);
             g.FillAndDrawRectangle(pen, brush, left, top, width, height);
         }
 
         internal virtual void DrawVert(FRPaintEventArgs e)
         {
             IGraphics g = e.Graphics;
-            Pen pen = e.Cache.GetPen(BorderColor, BorderWidth * e.ScaleY, DashStyle.Solid);
+            using SKPaint pen = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = BorderColor,
+                StrokeWidth = BorderWidth * e.ScaleY,
+                IsAntialias = true
+            };
+            using SKPaint brush = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = Export.ExportUtils.GetColorFromFill(Fill),
+                IsAntialias = true
+            };
 
             width = ((Parent.Width - Parent.Border.Width) * ptrRatio) * e.ScaleX;
             height = (float)((Parent.Height - Parent.Border.Width - horizontalOffset * 2) * (Parent.Value - Parent.Minimum) / (Parent.Maximum - Parent.Minimum) * e.ScaleY);
             left = (Parent.AbsLeft + Parent.Border.Width / 2 + (Parent.Width - Parent.Border.Width) / 2 - (Parent.Width - Parent.Border.Width) * ptrRatio / 2) * e.ScaleX;
             top = (Parent.AbsTop + Parent.Border.Width / 2 + Parent.Height - Parent.Border.Width - horizontalOffset) * e.ScaleY - height;
 
-            Brush brush = Fill.CreateBrush(new RectangleF(left, top, width, height), e.ScaleX, e.ScaleY);
             g.FillAndDrawRectangle(pen, brush, left, top, width, height);
         }
 

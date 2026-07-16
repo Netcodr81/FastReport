@@ -1,5 +1,5 @@
 ﻿using FastReport.Utils;
-using System.Drawing;
+using SkiaSharp;
 using System.ComponentModel;
 
 namespace FastReport.Gauge.Radial
@@ -14,6 +14,19 @@ namespace FastReport.Gauge.Radial
             Parent = parent as RadialGauge;
         }
 
+        private SKFont CreateFont(FRPaintEventArgs e)
+        {
+            float size = Parent.IsPrinting ? Font.Size : Font.Size * e.ScaleX * 96f / DrawUtils.ScreenDpi;
+            SKFontStyleWeight weight = (Font.Style & SKFontStyle.Bold) != 0
+                ? SKFontStyleWeight.Bold
+                : SKFontStyleWeight.Normal;
+            SKFontStyleSlant slant = (Font.Style & SKFontStyle.Italic) != 0
+                ? SKFontStyleSlant.Italic
+                : SKFontStyleSlant.Upright;
+            SKTypeface typeface = SKTypeface.FromFamilyName(Font.FontFamily.Name, new SKFontStyle(weight, SKFontStyleWidth.Normal, slant));
+            return new SKFont(typeface, size);
+        }
+
         public override void Draw(FRPaintEventArgs e)
         {
             if ((Parent as RadialGauge).Type == RadialGaugeType.Circle)
@@ -24,11 +37,17 @@ namespace FastReport.Gauge.Radial
                 float dx = (Parent.Width - Parent.Border.Width) * e.ScaleX - 1;
                 float dy = (Parent.Height - Parent.Border.Width) * e.ScaleY - 1;
 
-                PointF lblPt = new PointF(x + dx / 2, y + dy - ((Parent.Scale as RadialScale).AvrTick.Y - y));
-                SizeF txtSize = RadialUtils.GetStringSize(e, Parent, Font, Text);
-                Font font = RadialUtils.GetFont(e, Parent, Font);
-                Brush brush = e.Cache.GetBrush(Color);
-                e.Graphics.DrawString(Text, font, brush, lblPt.X - txtSize.Width / 2, lblPt.Y - txtSize.Height / 2);
+                SKPoint lblPt = new SKPoint(x + dx / 2, y + dy - ((Parent.Scale as RadialScale).AvrTick.Y - y));
+                using SKFont font = CreateFont(e);
+                using SKPaint paint = new SKPaint
+                {
+                    Style = SKPaintStyle.Fill,
+                    Color = new SKColor(Color.R, Color.G, Color.B, Color.A),
+                    IsAntialias = true
+                };
+
+                SKSize txtSize = e.Graphics.MeasureString(Text, font);
+                e.Graphics.DrawString(Text, font, paint, lblPt.X - txtSize.Width / 2, lblPt.Y - txtSize.Height / 2);
             }
         }
     }

@@ -114,7 +114,6 @@ namespace FastReport.Data
         /// This expression will be calculated each time you access a parameter's <b>Value</b>.
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string Expression
         {
             get { return expression; }

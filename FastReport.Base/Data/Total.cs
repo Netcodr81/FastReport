@@ -154,7 +154,6 @@ namespace FastReport.Data
         /// Gets or sets the condition which tells the total to evaluate.
         /// </summary>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string EvaluateCondition
         {
             get { return evaluateCondition; }

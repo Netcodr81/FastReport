@@ -1,9 +1,7 @@
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Design;
-using System.Drawing.Drawing2D;
-using FastReport.Utils;
 
 namespace FastReport.Gauge.Radial
 {
@@ -72,7 +70,7 @@ namespace FastReport.Gauge.Radial
     public partial class RadialGauge : GaugeObject
     {
         private const double RAD = Math.PI / 180.0;
-        private PointF center;
+        private SKPoint center;
         private RadialGaugeType type;
         private RadialGaugePosition position;
         private float semicircleOffsetRatio;
@@ -110,7 +108,7 @@ namespace FastReport.Gauge.Radial
         /// Returns centr of the gauge
         /// </summary>
         [Browsable(false)]
-        public PointF Center
+        public SKPoint Center
         {
             get { return center; }
             set { center = value; }
@@ -174,7 +172,6 @@ namespace FastReport.Gauge.Radial
         /// Gats or sets the Radial Gauge position. Doesn't work for Full Radial Gauge.
         /// </summary>
         [Category("Appearance")]
-        [Editor("FastReport.TypeEditors.FlagsEditor, FastReport", typeof(UITypeEditor))]
         public RadialGaugePosition Position
         {
             get { return position; }
@@ -257,25 +254,30 @@ namespace FastReport.Gauge.Radial
 
             if (Report != null && Report.SmoothGraphics)
             {
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.SamplingOptions = new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear);
             }
 
             float x = (AbsLeft + Border.Width / 2) * e.ScaleX;
             float y = (AbsTop + Border.Width / 2) * e.ScaleY;
             float dx = (Width - Border.Width) * e.ScaleX - 1;
             float dy = (Height - Border.Width) * e.ScaleY - 1;
-            float x1 = x + dx;
-            float y1 = y + dy;
 
-            Pen pen = e.Cache.GetPen(Border.Color, Border.Width * e.ScaleX, Border.DashStyle);
-            Brush brush;
-            if (Fill is SolidFill)
-                brush = e.Cache.GetBrush((Fill as SolidFill).Color);
-            else
-                brush = Fill.CreateBrush(new RectangleF(x, y, dx, dy), e.ScaleX, e.ScaleY);
+            center = new SKPoint(x + dx / 2, y + dy / 2);
 
-            center = new PointF(x + dx / 2, y + dy / 2);
+            using SKPaint pen = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = new SKColor(Border.Color.R, Border.Color.G, Border.Color.B, Border.Color.A),
+                StrokeWidth = Border.Width * e.ScaleX,
+                IsAntialias = true
+            };
+
+            using SKPaint brush = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = Export.ExportUtils.GetColorFromFill(Fill),
+                IsAntialias = true
+            };
 
             if (type == RadialGaugeType.Circle)
             {
@@ -284,61 +286,59 @@ namespace FastReport.Gauge.Radial
             else if (type == RadialGaugeType.Semicircle)
             {
                 float semiOffset = (Width / 16f / 2f + 2f) * semicircleOffsetRatio * e.ScaleY;
-                PointF[] points = new PointF[4];
+                SKPoint[] points = new SKPoint[4];
                 if (position == RadialGaugePosition.Top)
                 {
                     g.FillPie(brush, x, y, dx, dy, -180, 180);
                     g.DrawArc(pen, x, y, dx, dy, -180, 180);
 
-                    PointF startPoint = RadialUtils.RotateVector(new PointF[] { new PointF(x + dx / 2, y), center }, -90 * RAD, center)[0];
+                    SKPoint startPoint = new SKPoint(center.X + dx / 2, center.Y);
 
-                    points[0] = new PointF(startPoint.X, startPoint.Y - 1 * e.ScaleY);
-                    points[1] = new PointF(startPoint.X, startPoint.Y + semiOffset);
-                    points[2] = new PointF(startPoint.X + dx, startPoint.Y + semiOffset);
-                    points[3] = new PointF(startPoint.X + dx, startPoint.Y - 1 * e.ScaleY);
+                    points[0] = new SKPoint(startPoint.X, startPoint.Y - 1 * e.ScaleY);
+                    points[1] = new SKPoint(startPoint.X, startPoint.Y + semiOffset);
+                    points[2] = new SKPoint(startPoint.X + dx, startPoint.Y + semiOffset);
+                    points[3] = new SKPoint(startPoint.X + dx, startPoint.Y - 1 * e.ScaleY);
                 }
                 else if (position == RadialGaugePosition.Bottom)
                 {
                     g.FillPie(brush, x, y, dx, dy, 0, 180);
                     g.DrawArc(pen, x, y, dx, dy, 0, 180);
 
-                    PointF startPoint = RadialUtils.RotateVector(new PointF[] { new PointF(x + dx / 2, y), center }, 90 * RAD, center)[0];
+                    SKPoint startPoint = new SKPoint(center.X - dx / 2, center.Y);
 
-                    points[0] = new PointF(startPoint.X, startPoint.Y + 1 * e.ScaleY);
-                    points[1] = new PointF(startPoint.X, startPoint.Y - semiOffset);
-                    points[2] = new PointF(startPoint.X - dx, startPoint.Y - semiOffset);
-                    points[3] = new PointF(startPoint.X - dx, startPoint.Y + 1 * e.ScaleY);
+                    points[0] = new SKPoint(startPoint.X, startPoint.Y + 1 * e.ScaleY);
+                    points[1] = new SKPoint(startPoint.X, startPoint.Y - semiOffset);
+                    points[2] = new SKPoint(startPoint.X - dx, startPoint.Y - semiOffset);
+                    points[3] = new SKPoint(startPoint.X - dx, startPoint.Y + 1 * e.ScaleY);
                 }
                 else if (position == RadialGaugePosition.Left)
                 {
                     g.FillPie(brush, x, y, dx, dy, 90, 180);
                     g.DrawArc(pen, x, y, dx, dy, 90, 180);
 
-                    PointF startPoint = RadialUtils.RotateVector(new PointF[] { new PointF(x + dx / 2, y), center }, 180 * RAD, center)[0];
+                    SKPoint startPoint = new SKPoint(center.X, center.Y + dy / 2);
 
-                    points[0] = new PointF(startPoint.X - 1 * e.ScaleX, startPoint.Y);
-                    points[1] = new PointF(startPoint.X + semiOffset, startPoint.Y);
-                    points[2] = new PointF(startPoint.X + semiOffset, startPoint.Y - dy);
-                    points[3] = new PointF(startPoint.X - 1 * e.ScaleX, startPoint.Y - dy);
+                    points[0] = new SKPoint(startPoint.X - 1 * e.ScaleX, startPoint.Y);
+                    points[1] = new SKPoint(startPoint.X + semiOffset, startPoint.Y);
+                    points[2] = new SKPoint(startPoint.X + semiOffset, startPoint.Y - dy);
+                    points[3] = new SKPoint(startPoint.X - 1 * e.ScaleX, startPoint.Y - dy);
                 }
                 else if (position == RadialGaugePosition.Right)
                 {
                     g.FillPie(brush, x, y, dx, dy, -90, 180);
                     g.DrawArc(pen, x, y, dx, dy, -90, 180);
 
-                    PointF startPoint = RadialUtils.RotateVector(new PointF[] { new PointF(x + dx / 2, y), center }, -180 * RAD, center)[0];
+                    SKPoint startPoint = new SKPoint(center.X, center.Y + dy / 2);
 
-                    points[0] = new PointF(startPoint.X + 1 * e.ScaleX, startPoint.Y);
-                    points[1] = new PointF(startPoint.X - semiOffset, startPoint.Y);
-                    points[2] = new PointF(startPoint.X - semiOffset, startPoint.Y - dy);
-                    points[3] = new PointF(startPoint.X + 1 * e.ScaleX, startPoint.Y - dy);
+                    points[0] = new SKPoint(startPoint.X + 1 * e.ScaleX, startPoint.Y);
+                    points[1] = new SKPoint(startPoint.X - semiOffset, startPoint.Y);
+                    points[2] = new SKPoint(startPoint.X - semiOffset, startPoint.Y - dy);
+                    points[3] = new SKPoint(startPoint.X + 1 * e.ScaleX, startPoint.Y - dy);
                 }
 
                 if (position != RadialGaugePosition.None)
                 {
-                    GraphicsPath path = new GraphicsPath();
-                    path.AddLines(points);
-                    g.FillAndDrawPath(pen, brush, path);
+                    g.FillAndDrawPolygon(pen, brush, points);
                 }
             }
             else if (type == RadialGaugeType.Quadrant)
@@ -349,69 +349,59 @@ namespace FastReport.Gauge.Radial
                     g.FillPie(brush, x, y, dx, dy, -180, 90);
                     g.DrawArc(pen, x, y, dx, dy, -180, 90);
 
-                    PointF startPoint = RadialUtils.RotateVector(new PointF[] { new PointF(x + dx / 2, y), center }, -90 * RAD, center)[0];
+                    SKPoint startPoint = new SKPoint(center.X + dx / 2, center.Y);
 
-                    PointF[] points = new PointF[5];
-                    points[0] = new PointF(startPoint.X, startPoint.Y - 1 * e.ScaleY);
-                    points[1] = new PointF(startPoint.X, startPoint.Y + semiOffset);
-                    points[2] = new PointF(startPoint.X + dx / 2 + semiOffset, startPoint.Y + semiOffset);
-                    points[3] = new PointF(startPoint.X + dx / 2 + semiOffset, y);
-                    points[4] = new PointF(startPoint.X + dx / 2 - 1 * e.ScaleX, y);
-                    GraphicsPath path = new GraphicsPath();
-                    path.AddLines(points);
-                    g.FillAndDrawPath(pen, brush, path);
-
+                    SKPoint[] points = new SKPoint[5];
+                    points[0] = new SKPoint(startPoint.X, startPoint.Y - 1 * e.ScaleY);
+                    points[1] = new SKPoint(startPoint.X, startPoint.Y + semiOffset);
+                    points[2] = new SKPoint(startPoint.X + dx / 2 + semiOffset, startPoint.Y + semiOffset);
+                    points[3] = new SKPoint(startPoint.X + dx / 2 + semiOffset, y);
+                    points[4] = new SKPoint(startPoint.X + dx / 2 - 1 * e.ScaleX, y);
+                    g.FillAndDrawPolygon(pen, brush, points);
                 }
                 else if (RadialUtils.IsBottom(this) && RadialUtils.IsLeft(this))
                 {
-
                     g.FillPie(brush, x, y, dx, dy, -270, 90);
                     g.DrawArc(pen, x, y, dx, dy, -270, 90);
 
-                    PointF startPoint = RadialUtils.RotateVector(new PointF[] { new PointF(x + dx / 2, y), center }, -90 * RAD, center)[0];
-                    PointF[] points = new PointF[5];
-                    points[0] = new PointF(startPoint.X, startPoint.Y + 1 * e.ScaleY);
-                    points[1] = new PointF(startPoint.X, startPoint.Y - semiOffset);
-                    points[2] = new PointF(startPoint.X + dx / 2 + semiOffset, startPoint.Y - semiOffset);
-                    points[3] = new PointF(startPoint.X + dx / 2 + semiOffset, y + dy);
-                    points[4] = new PointF(x + dx / 2 - 1 * e.ScaleX, y + dy);
-                    GraphicsPath path = new GraphicsPath();
-                    path.AddLines(points);
-                    g.FillAndDrawPath(pen, brush, path);
+                    SKPoint startPoint = new SKPoint(center.X + dx / 2, center.Y);
+                    SKPoint[] points = new SKPoint[5];
+                    points[0] = new SKPoint(startPoint.X, startPoint.Y + 1 * e.ScaleY);
+                    points[1] = new SKPoint(startPoint.X, startPoint.Y - semiOffset);
+                    points[2] = new SKPoint(startPoint.X + dx / 2 + semiOffset, startPoint.Y - semiOffset);
+                    points[3] = new SKPoint(startPoint.X + dx / 2 + semiOffset, y + dy);
+                    points[4] = new SKPoint(x + dx / 2 - 1 * e.ScaleX, y + dy);
+                    g.FillAndDrawPolygon(pen, brush, points);
                 }
                 else if (RadialUtils.IsTop(this) && RadialUtils.IsRight(this))
                 {
                     g.FillPie(brush, x, y, dx, dy, -90, 90);
                     g.DrawArc(pen, x, y, dx, dy, -90, 90);
 
-                    PointF startPoint = RadialUtils.RotateVector(new PointF[] { new PointF(x + dx / 2, y), center }, 90 * RAD, center)[0];
+                    SKPoint startPoint = new SKPoint(center.X - dx / 2, center.Y);
 
-                    PointF[] points = new PointF[5];
-                    points[0] = new PointF(startPoint.X, startPoint.Y - 1 * e.ScaleY);
-                    points[1] = new PointF(startPoint.X, startPoint.Y + semiOffset);
-                    points[2] = new PointF(startPoint.X - dx / 2 - semiOffset, startPoint.Y + semiOffset);
-                    points[3] = new PointF(x + dx / 2 - semiOffset, y);
-                    points[4] = new PointF(x + dx / 2 + 1 * e.ScaleX, y);
-                    GraphicsPath path = new GraphicsPath();
-                    path.AddLines(points);
-                    g.FillAndDrawPath(pen, brush, path);
+                    SKPoint[] points = new SKPoint[5];
+                    points[0] = new SKPoint(startPoint.X, startPoint.Y - 1 * e.ScaleY);
+                    points[1] = new SKPoint(startPoint.X, startPoint.Y + semiOffset);
+                    points[2] = new SKPoint(startPoint.X - dx / 2 - semiOffset, startPoint.Y + semiOffset);
+                    points[3] = new SKPoint(x + dx / 2 - semiOffset, y);
+                    points[4] = new SKPoint(x + dx / 2 + 1 * e.ScaleX, y);
+                    g.FillAndDrawPolygon(pen, brush, points);
                 }
                 else if (RadialUtils.IsBottom(this) && RadialUtils.IsRight(this))
                 {
                     g.FillPie(brush, x, y, dx, dy, 0, 90);
                     g.DrawArc(pen, x, y, dx, dy, 0, 90);
 
-                    PointF startPoint = RadialUtils.RotateVector(new PointF[] { new PointF(x + dx / 2, y), center }, 90 * RAD, center)[0];
+                    SKPoint startPoint = new SKPoint(center.X - dx / 2, center.Y);
 
-                    PointF[] points = new PointF[5];
-                    points[0] = new PointF(startPoint.X, startPoint.Y + 1 * e.ScaleY);
-                    points[1] = new PointF(startPoint.X, startPoint.Y - semiOffset);
-                    points[2] = new PointF(x + dx / 2 - semiOffset, startPoint.Y - semiOffset);
-                    points[3] = new PointF(x + dx / 2 - semiOffset, y + dy);
-                    points[4] = new PointF(x + dx / 2 + 1 * e.ScaleX, y + dy);
-                    GraphicsPath path = new GraphicsPath();
-                    path.AddLines(points);
-                    g.FillAndDrawPath(pen, brush, path);
+                    SKPoint[] points = new SKPoint[5];
+                    points[0] = new SKPoint(startPoint.X, startPoint.Y + 1 * e.ScaleY);
+                    points[1] = new SKPoint(startPoint.X, startPoint.Y - semiOffset);
+                    points[2] = new SKPoint(x + dx / 2 - semiOffset, startPoint.Y - semiOffset);
+                    points[3] = new SKPoint(x + dx / 2 - semiOffset, y + dy);
+                    points[4] = new SKPoint(x + dx / 2 + 1 * e.ScaleX, y + dy);
+                    g.FillAndDrawPolygon(pen, brush, points);
                 }
             }
 
@@ -419,8 +409,6 @@ namespace FastReport.Gauge.Radial
             Pointer.Draw(e);
             Label.Draw(e);
             DrawMarkers(e);
-            if (!(Fill is SolidFill))
-                brush.Dispose();
         }
 
         /// <inheritdoc/>

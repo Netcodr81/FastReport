@@ -1,7 +1,6 @@
-﻿using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using FastReport.Utils;
+﻿using FastReport.Utils;
+using SkiaSharp;
+using System.ComponentModel;
 
 namespace FastReport.Gauge.Linear
 {
@@ -64,10 +63,22 @@ namespace FastReport.Gauge.Linear
 
         #region Private Methods
 
+        private static SKColor ToSKColor(System.Drawing.Color color)
+        {
+            return new SKColor(color.R, color.G, color.B, color.A);
+        }
+
+        private SKColor GetFillColor()
+        {
+            if (Fill is SolidFill solidFill)
+                return solidFill.Color;
+
+            return SKColors.Orange;
+        }
+
         private void DrawHorz(FRPaintEventArgs e)
         {
             IGraphics g = e.Graphics;
-            Pen pen = e.Cache.GetPen(BorderColor, BorderWidth * e.ScaleX, DashStyle.Solid);
 
             left = (float)(Parent.AbsLeft + 0.5f * Units.Centimeters + (Parent.Width - 1.0f * Units.Centimeters) * (Parent.Value - Parent.Minimum) / (Parent.Maximum - Parent.Minimum)) * e.ScaleX;
             top = (Parent.AbsTop + Parent.Height / 2) * e.ScaleY;
@@ -76,14 +87,13 @@ namespace FastReport.Gauge.Linear
 
             float dx = width / 2;
             float dy = height * 0.3f;
-            Brush brush = Fill.CreateBrush(new RectangleF(left - dx, top, width, height), e.ScaleX, e.ScaleY);
-            PointF[] p = new PointF[]
+            SKPoint[] p = new SKPoint[]
             {
-                new PointF(left, top),
-                new PointF(left + dx, top + dy),
-                new PointF(left + dx, top + height),
-                new PointF(left - dx, top + height),
-                new PointF(left - dx, top + dy)
+                new SKPoint(left, top),
+                new SKPoint(left + dx, top + dy),
+                new SKPoint(left + dx, top + height),
+                new SKPoint(left - dx, top + height),
+                new SKPoint(left - dx, top + dy)
             };
 
             if ((Parent as LinearGauge).Inverted)
@@ -94,9 +104,21 @@ namespace FastReport.Gauge.Linear
                 p[4].Y = top - dy;
             }
 
-            GraphicsPath path = new GraphicsPath();
-            path.AddLines(p);
-            path.AddLine(p[4], p[0]);
+            using SKPath path = new SKPath();
+            path.AddPoly(p, true);
+            using SKPaint pen = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSKColor(BorderColor),
+                StrokeWidth = BorderWidth * e.ScaleX,
+                IsAntialias = true
+            };
+            using SKPaint brush = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = GetFillColor(),
+                IsAntialias = true
+            };
 
             g.FillAndDrawPath(pen, brush, path);
         }
@@ -104,7 +126,6 @@ namespace FastReport.Gauge.Linear
         private void DrawVert(FRPaintEventArgs e)
         {
             IGraphics g = e.Graphics;
-            Pen pen = e.Cache.GetPen(BorderColor, BorderWidth * e.ScaleX, DashStyle.Solid);
 
             left = (Parent.AbsLeft + Parent.Width / 2) * e.ScaleX;
             top = (float)(Parent.AbsTop + Parent.Height - 0.5f * Units.Centimeters - (Parent.Height - 1.0f * Units.Centimeters) * (Parent.Value - Parent.Minimum) / (Parent.Maximum - Parent.Minimum)) * e.ScaleY;
@@ -113,14 +134,13 @@ namespace FastReport.Gauge.Linear
 
             float dx = width * 0.3f;
             float dy = height / 2;
-            Brush brush = Fill.CreateBrush(new RectangleF(left, top - dy, width, height), e.ScaleX, e.ScaleY);
-            PointF[] p = new PointF[]
+            SKPoint[] p = new SKPoint[]
             {
-                new PointF(left, top),
-                new PointF(left + dx, top - dy),
-                new PointF(left + width, top - dy),
-                new PointF(left + width, top + dy),
-                new PointF(left + dx, top + dy)
+                new SKPoint(left, top),
+                new SKPoint(left + dx, top - dy),
+                new SKPoint(left + width, top - dy),
+                new SKPoint(left + width, top + dy),
+                new SKPoint(left + dx, top + dy)
             };
 
             if ((Parent as LinearGauge).Inverted)
@@ -131,9 +151,21 @@ namespace FastReport.Gauge.Linear
                 p[4].X = left - dx;
             }
 
-            GraphicsPath path = new GraphicsPath();
-            path.AddLines(p);
-            path.AddLine(p[4], p[0]);
+            using SKPath path = new SKPath();
+            path.AddPoly(p, true);
+            using SKPaint pen = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSKColor(BorderColor),
+                StrokeWidth = BorderWidth * e.ScaleX,
+                IsAntialias = true
+            };
+            using SKPaint brush = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = GetFillColor(),
+                IsAntialias = true
+            };
 
             g.FillAndDrawPath(pen, brush, path);
         }

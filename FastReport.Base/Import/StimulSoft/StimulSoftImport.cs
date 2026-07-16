@@ -17,6 +17,7 @@ using FastReport.Matrix;
 using FastReport.Dialog;
 using FastReport.Data;
 using FastReport.Data.JsonConnection;
+using Padding = FastReport.Barcode.Padding;
 
 namespace FastReport.Import.StimulSoft
 {

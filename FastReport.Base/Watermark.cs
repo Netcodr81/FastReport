@@ -1,9 +1,8 @@
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.ComponentModel;
-using System.Drawing;
-using FastReport.Utils;
-using System.Windows.Forms;
-using System.Drawing.Design;
+
 
 namespace FastReport
 {
@@ -72,7 +71,6 @@ namespace FastReport
     /// watermark, set its <b>Enabled</b> property to <b>true</b>.
     /// </remarks>
     [TypeConverter(typeof(FastReport.TypeConverters.FRExpandableObjectConverter))]
-    [EditorAttribute("FastReport.TypeEditors.WatermarkEditor, FastReport", typeof(UITypeEditor))]
     public class Watermark : IDisposable
     {
         #region Fields
@@ -99,7 +97,7 @@ namespace FastReport
         /// <summary>
         /// Gets or sets the watermark image.
         /// </summary>
-        public Image Image
+        public SKImage Image
         {
             get { return pictureObject.Image; }
             set { pictureObject.Image = value; }
@@ -140,7 +138,7 @@ namespace FastReport
         /// <summary>
         /// Gets or sets a font of the watermark text.
         /// </summary>
-        public Font Font
+        public SKFont Font
         {
             get { return textObject.Font; }
             set { textObject.Font = value; }
@@ -149,7 +147,6 @@ namespace FastReport
         /// <summary>
         /// Gets or sets a text fill.
         /// </summary>
-        [Editor("FastReport.TypeEditors.FillEditor, FastReport", typeof(UITypeEditor))]
         public FillBase TextFill
         {
             get { return textObject.TextFill; }
@@ -226,7 +223,7 @@ namespace FastReport
         /// <param name="displayRect"></param>
         /// <param name="report"></param>
         /// <param name="isPrinting"></param>
-        public virtual void DrawImage(FRPaintEventArgs e, RectangleF displayRect, Report report, bool isPrinting)
+        public virtual void DrawImage(FRPaintEventArgs e, SKRect displayRect, Report report, bool isPrinting)
         {
             pictureObject.SetReport(report);
             pictureObject.Bounds = displayRect;
@@ -250,7 +247,7 @@ namespace FastReport
         /// <param name="displayRect"></param>
         /// <param name="report"></param>
         /// <param name="isPrinting"></param>
-        public void DrawText(FRPaintEventArgs e, RectangleF displayRect, Report report, bool isPrinting)
+        public void DrawText(FRPaintEventArgs e, SKRect displayRect, Report report, bool isPrinting)
         {
             textObject.SetReport(report);
             textObject.Bounds = displayRect;

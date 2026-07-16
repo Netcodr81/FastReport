@@ -1,9 +1,8 @@
 ﻿using FastReport.Format;
 using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
@@ -56,7 +55,7 @@ namespace FastReport.Export
 
 
         private static readonly NumberFormatInfo _provider;
-        
+
         /// <summary>
         /// Converts float value to string.
         /// </summary>
@@ -230,7 +229,7 @@ namespace FastReport.Export
                 switch (f.NumberNegativePattern)
                 {
                     case 0: negative_pattern = "(" + fm_str + ")"; break; // (n)
-                 // case 1: negative_pattern = "-" + fm_str; break;       // -n
+                                                                          // case 1: negative_pattern = "-" + fm_str; break;       // -n
                     case 2: negative_pattern = "- " + fm_str; break;      // - n
                     case 3: negative_pattern = fm_str + "-"; break;       // n-
                     case 4: negative_pattern = fm_str + " -"; break;      // n -
@@ -273,23 +272,23 @@ namespace FastReport.Export
             return "";
         }
 
-        internal static string HTMLColor(Color color)
+        internal static string HTMLColor(SKColor color)
         {
-            if (color.A < 255)
+            if (color.Alpha < 255)
             {
-                string alphaValue = (color.A / 255.0).ToString("0.00", INVARIANT_CULTURE);
-                return $"rgba({color.R}, {color.G}, {color.B}, {alphaValue})";
+                string alphaValue = (color.Alpha / 255.0).ToString("0.00", INVARIANT_CULTURE);
+                return $"rgba({color.Red}, {color.Green}, {color.Blue}, {alphaValue})";
             }
-            return $"rgb({color.R}, {color.G}, {color.B})";
+            return $"rgb({color.Red}, {color.Green}, {color.Blue})";
         }
 
-        internal static string HTMLColorCode(Color color)
+        internal static string HTMLColorCode(SKColor color)
         {
             return String.Join(String.Empty, new String[] {
                 "#",
-                color.R.ToString("X2"),
-                color.G.ToString("X2"),
-                color.B.ToString("X2")
+                color.Red.ToString("X2"),
+                color.Green.ToString("X2"),
+                color.Blue.ToString("X2")
             });
         }
 
@@ -691,28 +690,21 @@ namespace FastReport.Export
             return result.ToString();
         }
 
-        internal static Color GetColorFromFill(FillBase Fill)
+        internal static SKColor GetColorFromFill(FillBase Fill)
         {
             if (Fill is SolidFill)
                 return (Fill as SolidFill).Color;
-            else if (Fill is GlassFill)
-                return (Fill as GlassFill).Color;
-            else if (Fill is HatchFill)
-                return (Fill as HatchFill).BackColor;
-            else if (Fill is PathGradientFill)
-                return (Fill as PathGradientFill).CenterColor;
-            else if (Fill is LinearGradientFill)
-                return GetMiddleColor((Fill as LinearGradientFill).StartColor, (Fill as LinearGradientFill).EndColor);
             else
-                return Color.White;
+                return SKColors.White;
         }
 
-        private static Color GetMiddleColor(Color color1, Color color2)
+        private static SKColor GetMiddleColor(SKColor color1, SKColor color2)
         {
-            return Color.FromArgb(255,
-                (color1.R + color2.R) / 2,
-                (color1.G + color2.G) / 2,
-                (color1.B + color2.B) / 2);
+            return new SKColor(
+                (byte)((color1.Red + color2.Red) / 2),
+                (byte)((color1.Green + color2.Green) / 2),
+                (byte)((color1.Blue + color2.Blue) / 2),
+                (byte)((color1.Alpha + color2.Alpha) / 2));
         }
 
         internal static string GetRFCDate(DateTime datetime)
@@ -730,26 +722,17 @@ namespace FastReport.Export
             }
         }
 
-        internal static ImageCodecInfo GetCodec(string codec)
-        {
-            foreach (ImageCodecInfo ice in ImageCodecInfo.GetImageEncoders())
-            {
-                if (ice.MimeType == codec)
-                    return ice;
-            }
-            return null;
-        }
-
         /// <summary>
         /// For developers only
         /// </summary>
         [EditorBrowsable(EditorBrowsableState.Advanced)]
-        public static void SaveJpeg(System.Drawing.Image image, Stream buff, int quality)
+        public static void SaveJpeg(SKImage image, Stream buff, int quality)
         {
-            ImageCodecInfo ici = ExportUtils.GetCodec("image/jpeg");
-            EncoderParameters ep = new EncoderParameters();
-            ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
-            image.Save(buff, ici, ep);
+            if (image == null)
+                return;
+
+            using SKData data = image.Encode(SKEncodedImageFormat.Jpeg, quality);
+            data?.SaveTo(buff);
         }
 
         internal static string TruncLeadSlash(string line)

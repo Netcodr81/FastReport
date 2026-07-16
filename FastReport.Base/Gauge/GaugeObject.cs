@@ -1,9 +1,8 @@
-using System;
-using System.ComponentModel;
-using System.Collections.Generic;
 using FastReport.Utils;
-using System.Drawing;
-using System.Drawing.Design;
+using SkiaSharp;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 
 namespace FastReport.Gauge
 {
@@ -95,7 +94,6 @@ namespace FastReport.Gauge
         /// </summary>
         [Category("Appearance")]
         [TypeConverter(typeof(FastReport.TypeConverters.FRExpandableObjectConverter))]
-        [Editor("FastReport.TypeEditors.ScaleEditor, FastReport", typeof(UITypeEditor))]
         public GaugeScale Scale
         {
             get { return scale; }
@@ -107,7 +105,6 @@ namespace FastReport.Gauge
         /// </summary>
         [Category("Appearance")]
         [TypeConverter(typeof(FastReport.TypeConverters.FRExpandableObjectConverter))]
-        [Editor("FastReport.TypeEditors.PointerEditor, FastReport", typeof(UITypeEditor))]
         public GaugePointer Pointer
         {
             get { return pointer; }
@@ -119,7 +116,6 @@ namespace FastReport.Gauge
         /// </summary>
         [Category("Appearance")]
         [TypeConverter(typeof(FastReport.TypeConverters.FRExpandableObjectConverter))]
-        [Editor("FastReport.TypeEditors.LabelEditor, FastReport", typeof(UITypeEditor))]
         public virtual GaugeLabel Label
         {
             get { return label; }
@@ -130,7 +126,6 @@ namespace FastReport.Gauge
         /// Gets or sets an expression that determines the value of gauge object.
         /// </summary>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string Expression
         {
             get { return expression; }
@@ -271,7 +266,7 @@ namespace FastReport.Gauge
             base.Draw(e);
             scale.Draw(e);
             pointer.Draw(e);
-            Border.Draw(e, new RectangleF(AbsLeft, AbsTop, Width, Height));
+            Border.Draw(e, new SKRect(AbsLeft, AbsTop, AbsLeft + Width, AbsTop + Height));
         }
 
         /// <inheritdoc/>

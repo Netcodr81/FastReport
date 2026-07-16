@@ -1,8 +1,7 @@
-﻿using System;
-using System.Drawing;
-using System.Drawing.Drawing2D;
+﻿using FastReport.Utils;
+using SkiaSharp;
+using System;
 using System.ComponentModel;
-using FastReport.Utils;
 
 namespace FastReport.Gauge.Radial
 {
@@ -22,9 +21,9 @@ namespace FastReport.Gauge.Radial
         private float width;
         private float majorTicksOffset;
         private float minorTicksOffset;
-        private PointF avrTick;
+        private SKPoint avrTick;
         private double stepValue;
-        private PointF center;
+        private SKPoint center;
         private double avrValue;
         private float majorStep;
         private float minorStep;
@@ -52,7 +51,7 @@ namespace FastReport.Gauge.Radial
         #region Properties
 
         [Browsable(false)]
-        internal PointF AvrTick
+        internal SKPoint AvrTick
         {
             get { return avrTick; }
         }
@@ -89,8 +88,8 @@ namespace FastReport.Gauge.Radial
         /// <param name="parent">The parent gauge object.</param>
         public RadialScale(RadialGauge parent) : base(parent)
         {
-            MajorTicks = new ScaleTicks(5, 2, Color.Black, 11);
-            MinorTicks = new ScaleTicks(2, 1, Color.Black, 4);
+            MajorTicks = new ScaleTicks(5, 2, System.Drawing.Color.Black, 11);
+            MinorTicks = new ScaleTicks(2, 1, System.Drawing.Color.Black, 4);
             majorStep = 27; //degree, 135/5
             minorStep = 5.4f; // degree, 27/5
             drawRight = true;
@@ -142,11 +141,41 @@ namespace FastReport.Gauge.Radial
                 return false;
             else return true;
         }
-        private void DrawText(FRPaintEventArgs e, string text, Brush brush, float x, float y, HorAlign hAlign, VertAlign vAlign)
+        private static SKColor ToSKColor(System.Drawing.Color color)
+        {
+            return new SKColor(color.R, color.G, color.B, color.A);
+        }
+
+        private SKFont CreateFont(FRPaintEventArgs e)
+        {
+            float size = Parent.IsPrinting ? Font.Size : Font.Size * e.ScaleX * 96f / DrawUtils.ScreenDpi;
+            SKFontStyleWeight weight = (Font.Style & System.Drawing.FontStyle.Bold) != 0
+                ? SKFontStyleWeight.Bold
+                : SKFontStyleWeight.Normal;
+            SKFontStyleSlant slant = (Font.Style & System.Drawing.FontStyle.Italic) != 0
+                ? SKFontStyleSlant.Italic
+                : SKFontStyleSlant.Upright;
+            SKTypeface typeface = SKTypeface.FromFamilyName(Font.FontFamily.Name, new SKFontStyle(weight, SKFontStyleWidth.Normal, slant));
+            return new SKFont(typeface, size);
+        }
+
+        private static SKPoint[] RotateVector(SKPoint[] vector, double angle, SKPoint center)
+        {
+            SKPoint[] rotatedVector = new SKPoint[2];
+            rotatedVector[0] = new SKPoint(
+                (float)(center.X + (vector[0].X - center.X) * Math.Cos(angle) + (center.Y - vector[0].Y) * Math.Sin(angle)),
+                (float)(center.Y + (vector[0].X - center.X) * Math.Sin(angle) + (vector[0].Y - center.Y) * Math.Cos(angle)));
+            rotatedVector[1] = new SKPoint(
+                (float)(center.X + (vector[1].X - center.X) * Math.Cos(angle) + (center.Y - vector[1].Y) * Math.Sin(angle)),
+                (float)(center.Y + (vector[1].X - center.X) * Math.Sin(angle) + (vector[1].Y - center.Y) * Math.Cos(angle)));
+            return rotatedVector;
+        }
+
+        private void DrawText(FRPaintEventArgs e, string text, SKPaint brush, float x, float y, HorAlign hAlign, VertAlign vAlign)
         {
             IGraphics g = e.Graphics;
-            Font font = RadialUtils.GetFont(e, Parent, Font);
-            SizeF strSize = RadialUtils.GetStringSize(e, Parent, Font, text);
+            using SKFont font = CreateFont(e);
+            SKSize strSize = g.MeasureString(text, font);
             float dx = 0;
             float dy = 0;
             if (hAlign == HorAlign.Middle)
@@ -165,11 +194,11 @@ namespace FastReport.Gauge.Radial
             g.DrawString(text, font, brush, x + dx, y + dy);
         }
 
-        private PointF GetTextPoint(PointF[] tick, float txtOffset, bool negativ, bool isRight)
+        private SKPoint GetTextPoint(SKPoint[] tick, float txtOffset, bool negativ, bool isRight)
         {
             float dx = Math.Abs(tick[1].X - tick[0].X);
             float dy = Math.Abs(tick[1].Y - tick[0].Y);
-            float absA = (float)Math.Sqrt(Math.Pow(dx, 2) + Math.Pow(dy, 2)); //vectors length
+            float absA = (float)Math.Sqrt(Math.Pow(dx, 2) + Math.Pow(dy, 2));
             float sinAlpha = dy / absA;
             float cosAlpha = dx / absA;
             float absA1 = absA + txtOffset;
@@ -185,7 +214,7 @@ namespace FastReport.Gauge.Radial
                 pointX = tick[1].X + dx1;
             else
                 pointX = tick[1].X - dx1;
-            return new PointF(pointX, pointY);
+            return new SKPoint(pointX, pointY);
         }
 
         private void DrawMajorTicks(FRPaintEventArgs e)
@@ -199,26 +228,37 @@ namespace FastReport.Gauge.Radial
 
             bool isRightPart = true;
             bool isLeftPart = false;
-            PointF txtPoint;
+            SKPoint txtPoint;
 
             IGraphics g = e.Graphics;
-            Pen pen = e.Cache.GetPen(MajorTicks.Color, MajorTicks.Width * e.ScaleX, DashStyle.Solid);
-            Brush brush = TextFill.CreateBrush(new RectangleF(Parent.AbsLeft * e.ScaleX, Parent.AbsTop * e.ScaleY,
-    Parent.Width * e.ScaleX, Parent.Height * e.ScaleY), e.ScaleX, e.ScaleY);
+            using SKPaint pen = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSKColor(MajorTicks.Color),
+                StrokeWidth = MajorTicks.Width * e.ScaleX,
+                IsAntialias = true
+            };
+            using SKPaint brush = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = Export.ExportUtils.GetColorFromFill(TextFill),
+                IsAntialias = true
+            };
             sideTicksCount = (MajorTicks.Count - 1) / 2;
             MajorTicks.Length = width / 12;
 
-            SizeF maxTxt = RadialUtils.GetStringSize(e, Parent, Font, Parent.Maximum.ToString());
-            SizeF minTxt = RadialUtils.GetStringSize(e, Parent, Font, Parent.Minimum.ToString());
+            using SKFont measureFont = CreateFont(e);
+            SKSize maxTxt = g.MeasureString(Parent.Maximum.ToString(), measureFont);
+            SKSize minTxt = g.MeasureString(Parent.Minimum.ToString(), measureFont);
             float maxTxtOffset = maxTxt.Height > maxTxt.Width ? maxTxt.Height : maxTxt.Width;
             float minTxtOffset = minTxt.Height > minTxt.Width ? minTxt.Height : minTxt.Width;
             majorTicksOffset = maxTxtOffset > minTxtOffset ? maxTxtOffset : minTxtOffset;
 
-            PointF[] tick0 = new PointF[2];
-            avrTick = new PointF(left + width / 2, top + majorTicksOffset);
+            SKPoint[] tick0 = new SKPoint[2];
+            avrTick = new SKPoint(left + width / 2, top + majorTicksOffset);
             //first tick
             tick0[0] = avrTick;
-            tick0[1] = new PointF(tick0[0].X, tick0[0].Y + MajorTicks.Length);
+            tick0[1] = new SKPoint(tick0[0].X, tick0[0].Y + MajorTicks.Length);
 
             double angle = 0;
             HorAlign horAlign = HorAlign.Middle;
@@ -319,14 +359,14 @@ namespace FastReport.Gauge.Radial
                 drawLeft = true;
             }
 
-            tick0 = RadialUtils.RotateVector(tick0, angle, center);
+            tick0 = RotateVector(tick0, angle, center);
 
             g.DrawLine(pen, tick0[0].X, tick0[0].Y, tick0[1].X, tick0[1].Y);
             string text = startValue.ToString();
             DrawText(e, text, brush, tick0[0].X, tick0[0].Y, horAlign, vertAlign);
 
             //rest of ticks
-            PointF[] tick = new PointF[2];
+            SKPoint[] tick = new SKPoint[2];
             angle = majorStep * RadialGauge.Radians;
 
             for (int i = 0; i < sideTicksCount; i++)
@@ -334,7 +374,7 @@ namespace FastReport.Gauge.Radial
                 //right side
                 if (drawRight)
                 {
-                    tick = RadialUtils.RotateVector(tick0, angle, center);
+                    tick = RotateVector(tick0, angle, center);
                     g.DrawLine(pen, tick[0].X, tick[0].Y, tick[1].X, tick[1].Y);
                     text = Convert.ToString(Math.Round(startValue + stepValue * (i + 1)));
 
@@ -423,7 +463,7 @@ namespace FastReport.Gauge.Radial
                 {
                     //left side
                     angle *= -1;
-                    tick = RadialUtils.RotateVector(tick0, angle, center);
+                    tick = RotateVector(tick0, angle, center);
                     g.DrawLine(pen, tick[0].X, tick[0].Y, tick[1].X, tick[1].Y);
                     text = Convert.ToString(Math.Round(startValue - stepValue * (i + 1)));
 
@@ -512,16 +552,22 @@ namespace FastReport.Gauge.Radial
         private void DrawMinorTicks(FRPaintEventArgs e)
         {
             IGraphics g = e.Graphics;
-            Pen pen = e.Cache.GetPen(MinorTicks.Color, MinorTicks.Width * e.ScaleX, DashStyle.Solid);
+            using SKPaint pen = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSKColor(MinorTicks.Color),
+                StrokeWidth = MinorTicks.Width * e.ScaleX,
+                IsAntialias = true
+            };
 
             MinorTicks.Length = width / 24;
             minorTicksOffset = majorTicksOffset + MajorTicks.Length / 2 - MinorTicks.Length / 2;
-            PointF center = new PointF(left + width / 2, top + height / 2);
+            SKPoint center = new SKPoint(left + width / 2, top + height / 2);
 
-            PointF[] tick0 = new PointF[2];
+            SKPoint[] tick0 = new SKPoint[2];
             //first tick
-            tick0[0] = new PointF(left + width / 2, top + minorTicksOffset);
-            tick0[1] = new PointF(tick0[0].X, tick0[0].Y + MinorTicks.Length);
+            tick0[0] = new SKPoint(left + width / 2, top + minorTicksOffset);
+            tick0[1] = new SKPoint(tick0[0].X, tick0[0].Y + MinorTicks.Length);
 
             double angle = 0;
             if (RadialUtils.IsSemicircle(Parent) || RadialUtils.IsQuadrant(Parent))
@@ -553,10 +599,10 @@ namespace FastReport.Gauge.Radial
                     majorStep *= -1;
                 }
             }
-            tick0 = RadialUtils.RotateVector(tick0, angle, center);
+            tick0 = RotateVector(tick0, angle, center);
 
             //rest of ticks
-            PointF[] tick = new PointF[2];
+            SKPoint[] tick = new SKPoint[2];
             angle = minorStep * RadialGauge.Radians;
             for (int i = 0; i < MajorTicks.Count / 2 * (MinorTicks.Count + 1); i++)
             {
@@ -564,13 +610,13 @@ namespace FastReport.Gauge.Radial
                 {
                     if (drawRight)
                     {
-                        tick = RadialUtils.RotateVector(tick0, angle, center);
+                        tick = RotateVector(tick0, angle, center);
                         g.DrawLine(pen, tick[0].X, tick[0].Y, tick[1].X, tick[1].Y);
                     }
                     if (drawLeft)
                     {
                         angle *= -1;
-                        tick = RadialUtils.RotateVector(tick0, angle, center);
+                        tick = RotateVector(tick0, angle, center);
                         g.DrawLine(pen, tick[0].X, tick[0].Y, tick[1].X, tick[1].Y);
                         angle *= -1;
                     }

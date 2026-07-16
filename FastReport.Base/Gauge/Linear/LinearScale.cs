@@ -1,8 +1,7 @@
-﻿using System;
-using System.Drawing;
-using System.Drawing.Drawing2D;
+﻿using FastReport.Utils;
+using SkiaSharp;
+using System;
 using System.ComponentModel;
-using FastReport.Utils;
 
 namespace FastReport.Gauge.Linear
 {
@@ -38,8 +37,8 @@ namespace FastReport.Gauge.Linear
         /// <param name="parent">The parent gauge object.</param>
         public LinearScale(GaugeObject parent) : base(parent)
         {
-            MajorTicks = new ScaleTicks(10, 2, Color.Black);
-            MinorTicks = new ScaleTicks(6, 1, Color.Black);
+            MajorTicks = new ScaleTicks(10, 2, System.Drawing.Color.Black);
+            MinorTicks = new ScaleTicks(6, 1, System.Drawing.Color.Black);
             majorTicksNum = 6;
         }
 
@@ -47,39 +46,78 @@ namespace FastReport.Gauge.Linear
 
         #region Private Methods
 
+        private static SKColor ToSKColor(System.Drawing.Color color)
+        {
+            return new SKColor(color.R, color.G, color.B, color.A);
+        }
+
+        private SKFont CreateFont(float scaleX)
+        {
+            float size = Parent.IsPrinting ? Font.Size : Font.Size * scaleX * 96f / DrawUtils.ScreenDpi;
+            SKFontStyleWeight weight = (Font.Style & SKFontStyle.Bold) != 0
+                ? SKFontStyleWeight.Bold
+                : SKFontStyleWeight.Normal;
+            SKFontStyleSlant slant = (Font.Style & SKFontStyle.Italic) != 0
+                ? SKFontStyleSlant.Italic
+                : SKFontStyleSlant.Upright;
+            SKTypeface typeface = SKTypeface.FromFamilyName(Font.FontFamily.Name, new SKFontStyle(weight, SKFontStyleWidth.Normal, slant));
+            return new SKFont(typeface, size);
+        }
+
+        private SKPaint CreateTextPaint()
+        {
+            return new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = Export.ExportUtils.GetColorFromFill(TextFill),
+                IsAntialias = true
+            };
+        }
+
         private void DrawMajorTicksHorz(FRPaintEventArgs e)
         {
             IGraphics g = e.Graphics;
-            Pen pen = e.Cache.GetPen(MajorTicks.Color, MajorTicks.Width * e.ScaleX, DashStyle.Solid);
-            Brush brush = TextFill.CreateBrush(new RectangleF(Parent.AbsLeft * e.ScaleX, Parent.AbsTop * e.ScaleY,
-                Parent.Width * e.ScaleX, Parent.Height * e.ScaleY), e.ScaleX, e.ScaleY);
+            using SKPaint pen = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSKColor(MajorTicks.Color),
+                StrokeWidth = MajorTicks.Width * e.ScaleX,
+                IsAntialias = true
+            };
+            using SKPaint brush = CreateTextPaint();
+            using SKFont font = CreateFont(e.ScaleX);
+
             float x = left;
             float y1 = top;
             float y2 = top + height;
             float step = width / (majorTicksNum - 1);
             int textStep = (int)((Parent.Maximum - Parent.Minimum) / (majorTicksNum - 1));
-            Font font = e.Cache.GetFont(Font.FontFamily, Parent.IsPrinting ? Font.Size : Font.Size * e.ScaleX * 96f / DrawUtils.ScreenDpi, Font.Style);
             string text = Parent.Minimum.ToString();
             float y3 = y1 - 0.4f * Units.Centimeters * e.ScaleY;
             if ((Parent as LinearGauge).Inverted)
             {
-                y3 = y2 - g.MeasureString(text, Font).Height + 0.4f * Units.Centimeters * e.ScaleY;
+                y3 = y2 - g.MeasureString(text, font).Height + 0.4f * Units.Centimeters * e.ScaleY;
             }
             for (int i = 0; i < majorTicksNum; i++)
             {
                 g.DrawLine(pen, x, y1, x, y2);
-                SizeF strSize = g.MeasureString(text, Font);
+                SKSize strSize = g.MeasureString(text, font);
                 g.DrawString(text, font, brush, x - strSize.Width / 2 * e.ScaleX / (DrawUtils.ScreenDpi / 96f), y3);
                 text = Convert.ToString(textStep * (i + 1) + Parent.Minimum);
                 x += step;
             }
-            brush.Dispose();
         }
 
         private void DrawMinorTicksHorz(FRPaintEventArgs e)
         {
             IGraphics g = e.Graphics;
-            Pen pen = e.Cache.GetPen(MinorTicks.Color, MinorTicks.Width * e.ScaleX, DashStyle.Solid);
+            using SKPaint pen = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSKColor(MinorTicks.Color),
+                StrokeWidth = MinorTicks.Width * e.ScaleX,
+                IsAntialias = true
+            };
             float x = left;
             float y1 = top + height * 0.2f;
             float y2 = top + height - height * 0.2f;
@@ -98,20 +136,26 @@ namespace FastReport.Gauge.Linear
         private void DrawMajorTicksVert(FRPaintEventArgs e)
         {
             IGraphics g = e.Graphics;
-            Pen pen = e.Cache.GetPen(MajorTicks.Color, MajorTicks.Width * e.ScaleX, DashStyle.Solid);
-            Brush brush = TextFill.CreateBrush(new RectangleF(Parent.AbsLeft * e.ScaleX, Parent.AbsTop * e.ScaleY,
-     Parent.Width * e.ScaleX, Parent.Height * e.ScaleY), e.ScaleX, e.ScaleY);
+            using SKPaint pen = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSKColor(MajorTicks.Color),
+                StrokeWidth = MajorTicks.Width * e.ScaleX,
+                IsAntialias = true
+            };
+            using SKPaint brush = CreateTextPaint();
+            using SKFont font = CreateFont(e.ScaleX);
+
             float y = top + height;
             float x1 = left;
             float x2 = left + width;
             float step = height / (majorTicksNum - 1);
             int textStep = (int)((Parent.Maximum - Parent.Minimum) / (majorTicksNum - 1));
-            Font font = e.Cache.GetFont(Font.FontFamily, Parent.IsPrinting ? Font.Size : Font.Size * e.ScaleX * 96f / DrawUtils.ScreenDpi, Font.Style);
             string text = Parent.Minimum.ToString();
             for (int i = 0; i < majorTicksNum; i++)
             {
                 g.DrawLine(pen, x1, y, x2, y);
-                SizeF strSize = g.MeasureString(text, Font);
+                SKSize strSize = g.MeasureString(text, font);
                 float x3 = x1 - strSize.Width * e.ScaleX / (DrawUtils.ScreenDpi / 96f) - 0.04f * Units.Centimeters * e.ScaleX;
                 if ((Parent as LinearGauge).Inverted)
                 {
@@ -121,13 +165,18 @@ namespace FastReport.Gauge.Linear
                 text = Convert.ToString(textStep * (i + 1) + Parent.Minimum);
                 y -= step;
             }
-            brush.Dispose();
         }
 
         private void DrawMinorTicksVert(FRPaintEventArgs e)
         {
             IGraphics g = e.Graphics;
-            Pen pen = e.Cache.GetPen(MinorTicks.Color, MinorTicks.Width * e.ScaleX, DashStyle.Solid);
+            using SKPaint pen = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSKColor(MinorTicks.Color),
+                StrokeWidth = MinorTicks.Width * e.ScaleX,
+                IsAntialias = true
+            };
             float y = top + height;
             float x1 = left + width * 0.2f;
             float x2 = left + width - width * 0.2f;

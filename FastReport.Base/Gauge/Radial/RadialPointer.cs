@@ -1,6 +1,5 @@
-﻿using System.Drawing;
-using System.Drawing.Drawing2D;
-using FastReport.Utils;
+﻿using FastReport.Utils;
+using SkiaSharp;
 using System.ComponentModel;
 
 namespace FastReport.Gauge.Radial
@@ -46,17 +45,43 @@ namespace FastReport.Gauge.Radial
 
         #region Private Methods
 
+        private static SKColor ToSKColor(System.Drawing.Color color)
+        {
+            return new SKColor(color.R, color.G, color.B, color.A);
+        }
+
+        private static SKPoint[] RotateVector(SKPoint[] vector, double angle, SKPoint center)
+        {
+            SKPoint[] rotatedVector = new SKPoint[2];
+            rotatedVector[0] = new SKPoint(
+                (float)(center.X + (vector[0].X - center.X) * System.Math.Cos(angle) + (center.Y - vector[0].Y) * System.Math.Sin(angle)),
+                (float)(center.Y + (vector[0].X - center.X) * System.Math.Sin(angle) + (vector[0].Y - center.Y) * System.Math.Cos(angle)));
+            rotatedVector[1] = new SKPoint(
+                (float)(center.X + (vector[1].X - center.X) * System.Math.Cos(angle) + (center.Y - vector[1].Y) * System.Math.Sin(angle)),
+                (float)(center.Y + (vector[1].X - center.X) * System.Math.Sin(angle) + (vector[1].Y - center.Y) * System.Math.Cos(angle)));
+            return rotatedVector;
+        }
+
         private void DrawHorz(FRPaintEventArgs e)
         {
             IGraphics g = e.Graphics;
-            Pen pen = e.Cache.GetPen(BorderColor, BorderWidth * e.ScaleX, DashStyle.Solid);
+            using SKPaint pen = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSKColor(BorderColor),
+                StrokeWidth = BorderWidth * e.ScaleX,
+                IsAntialias = true
+            };
 
-            PointF center = (Parent as RadialGauge).Center;
+            SKPoint center = (Parent as RadialGauge).Center;
             float circleWidth = Parent.Width / 16f;
             float circleHeight = Parent.Height / 16f;
-            RectangleF pointerCircle = new RectangleF(center.X - circleWidth / 2 * e.ScaleX, center.Y - circleHeight / 2 * e.ScaleY, circleWidth * e.ScaleX, circleHeight * e.ScaleY);
+            SKRect pointerCircle = new SKRect(
+                center.X - circleWidth / 2 * e.ScaleX,
+                center.Y - circleHeight / 2 * e.ScaleY,
+                center.X + circleWidth / 2 * e.ScaleX,
+                center.Y + circleHeight / 2 * e.ScaleY);
 
-            //double rotateTo = (scale.AverageValue - Parent.Minimum);
             double startAngle = -135 * RadialGauge.Radians;
             double angle = (Parent.Value - Parent.Minimum) / scale.StepValue * scale.MajorStep * RadialGauge.Radians;
             if ((Parent as RadialGauge).Type == RadialGaugeType.Semicircle)
@@ -89,83 +114,48 @@ namespace FastReport.Gauge.Radial
                     angle *= -1;
                 }
             }
-            //double startAngle = rotateTo / scale.StepValue * -scale.MajorStep * RadialGauge.Radians;
 
             float ptrLineY = center.Y - pointerCircle.Width / 2 - pointerCircle.Width / 5;
             float ptrLineY1 = scale.AvrTick.Y + scale.MinorTicks.Length * 1.7f;
             float ptrLineWidth = circleWidth / 3 * e.ScaleX;
-            PointF[] pointerPerpStrt = new PointF[2];
-            pointerPerpStrt[0] = new PointF(center.X - ptrLineWidth, ptrLineY);
-            pointerPerpStrt[1] = new PointF(center.X + ptrLineWidth, ptrLineY);
+            SKPoint[] pointerPerpStrt = new SKPoint[2];
+            pointerPerpStrt[0] = new SKPoint(center.X - ptrLineWidth, ptrLineY);
+            pointerPerpStrt[1] = new SKPoint(center.X + ptrLineWidth, ptrLineY);
 
-            PointF[] pointerPerpEnd = new PointF[2];
-            pointerPerpEnd[0] = new PointF(center.X - ptrLineWidth / 3, ptrLineY1);
-            pointerPerpEnd[1] = new PointF(center.X + ptrLineWidth / 3, ptrLineY1);
+            SKPoint[] pointerPerpEnd = new SKPoint[2];
+            pointerPerpEnd[0] = new SKPoint(center.X - ptrLineWidth / 3, ptrLineY1);
+            pointerPerpEnd[1] = new SKPoint(center.X + ptrLineWidth / 3, ptrLineY1);
 
+            pointerPerpStrt = RotateVector(pointerPerpStrt, startAngle, center);
+            pointerPerpEnd = RotateVector(pointerPerpEnd, startAngle, center);
 
-            pointerPerpStrt = RadialUtils.RotateVector(pointerPerpStrt, startAngle, center);
-            pointerPerpEnd = RadialUtils.RotateVector(pointerPerpEnd, startAngle, center);
+            SKPoint[] rotatedPointerPerpStrt = RotateVector(pointerPerpStrt, angle, center);
+            SKPoint[] rotatedPointerPerpEnd = RotateVector(pointerPerpEnd, angle, center);
 
-            PointF[] rotatedPointerPerpStrt = RadialUtils.RotateVector(pointerPerpStrt, angle, center);
-            PointF[] rotatedPointerPerpEnd = RadialUtils.RotateVector(pointerPerpEnd, angle, center);
-
-            //calc brush rect
-            float x = 0, y = 0, dx = 0, dy = 0;
-            if (angle / RadialGauge.Radians >= 0 && angle / RadialGauge.Radians < 45)
-            {
-                x = rotatedPointerPerpEnd[1].X;
-                y = rotatedPointerPerpEnd[0].Y - (rotatedPointerPerpEnd[0].Y - pointerCircle.Y);
-                dx = pointerCircle.X + pointerCircle.Width - rotatedPointerPerpEnd[0].X;
-                dy = rotatedPointerPerpEnd[0].Y - pointerCircle.Y;
-            }
-            else if (angle / RadialGauge.Radians >= 45 && angle / RadialGauge.Radians < 90)
-            {
-                x = rotatedPointerPerpEnd[0].X;
-                y = rotatedPointerPerpEnd[1].Y;
-                dx = pointerCircle.X + pointerCircle.Width - rotatedPointerPerpEnd[0].X;
-                dy = pointerCircle.Y + pointerCircle.Height - rotatedPointerPerpEnd[0].Y;
-            }
-            else if (angle / RadialGauge.Radians >= 90 && angle / RadialGauge.Radians < 135)
-            {
-                x = rotatedPointerPerpEnd[0].X;
-                y = rotatedPointerPerpEnd[1].Y;
-                dx = pointerCircle.X + pointerCircle.Width - rotatedPointerPerpEnd[0].X;
-                dy = pointerCircle.Y + pointerCircle.Height - rotatedPointerPerpEnd[1].Y;
-            }
-            else if (angle / RadialGauge.Radians >= 135 && angle / RadialGauge.Radians < 225)
-            {
-                x = pointerCircle.X;
-                y = rotatedPointerPerpEnd[0].Y;
-                dx = rotatedPointerPerpEnd[1].X - pointerCircle.X;
-                dy = pointerCircle.Y + pointerCircle.Height - rotatedPointerPerpEnd[0].Y;
-            }
-            else if (angle / RadialGauge.Radians >= 225)
-            {
-                x = pointerCircle.X;
-                y = pointerCircle.Y;
-                dx = rotatedPointerPerpEnd[0].X - pointerCircle.X;
-                dy = rotatedPointerPerpEnd[1].Y - pointerCircle.Y;
-            }
-            RectangleF brushRect = new RectangleF(x, y, dx, dy);
             if (gradAutoRotate && Fill is LinearGradientFill)
             {
                 (Fill as LinearGradientFill).Angle = (int)(startAngle / RadialGauge.Radians + angle / RadialGauge.Radians) + 90;
             }
-            Brush brush = Fill.CreateBrush(brushRect, e.ScaleX, e.ScaleY);
 
-            PointF[] p = new PointF[]
+            using SKPaint brush = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = Export.ExportUtils.GetColorFromFill(Fill),
+                IsAntialias = true
+            };
+
+            SKPoint[] p = new SKPoint[]
             {
                 rotatedPointerPerpStrt[0],
                 rotatedPointerPerpStrt[1],
                 rotatedPointerPerpEnd[1],
                 rotatedPointerPerpEnd[0],
             };
-            GraphicsPath path = new GraphicsPath();
-            path.AddLines(p);
-            path.AddLine(p[3], p[0]);
+
+            using SKPath path = new SKPath();
+            path.AddPoly(p, true);
 
             g.FillAndDrawEllipse(pen, brush, pointerCircle);
-
             g.FillAndDrawPath(pen, brush, path);
         }
 

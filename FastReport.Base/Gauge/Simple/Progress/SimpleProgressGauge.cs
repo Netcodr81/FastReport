@@ -1,6 +1,6 @@
 ﻿using FastReport.Utils;
+using SkiaSharp;
 using System.ComponentModel;
-using System.Drawing;
 
 namespace FastReport.Gauge.Simple.Progress
 {
@@ -43,7 +43,7 @@ namespace FastReport.Gauge.Simple.Progress
             (Pointer as SimplePointer).PointerRatio = 1f;
             (Pointer as SimplePointer).HorizontalOffset = 0;
             Label = new SimpleProgressLabel(this);
-            Pointer.BorderColor = Color.Transparent;
+            Pointer.BorderColor = SKColors.Transparent;
             Border.Lines = BorderLines.All;
         }
 

@@ -89,7 +89,6 @@ namespace FastReport.Data
         /// This way is not good because you hardcode the report object's name.
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.CommandParametersEditor, FastReport", typeof(UITypeEditor))]
         public CommandParameterCollection Parameters
         {
             get { return parameters; }
