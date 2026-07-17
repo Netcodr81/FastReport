@@ -1,12 +1,6 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Text;
-using System.Drawing;
-using System.ComponentModel;
-using System.Drawing.Drawing2D;
 using FastReport.Utils;
-using FastReport.Data;
+using System;
+using System.ComponentModel;
 
 namespace FastReport.Table
 {

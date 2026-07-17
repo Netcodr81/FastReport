@@ -1,6 +1,5 @@
+using SkiaSharp;
 using System;
-using System.Drawing;
-using System.Windows.Forms;
 
 namespace FastReport.Table
 {
@@ -20,7 +19,7 @@ namespace FastReport.Table
         private TableCell style;
         private TableCell cell;
         private TableBase table;
-        private Point address;
+        private SKPoint address;
         private bool updatingLayout;
 
         #endregion // Fields
@@ -117,7 +116,7 @@ namespace FastReport.Table
         /// <summary>
         /// Gets or sets the address of the table cell.
         /// </summary>
-        public Point Address
+        public SKPoint Address
         {
             get { return address; }
             set { address = value; }
@@ -189,8 +188,9 @@ namespace FastReport.Table
                 float result = 0;
                 for (int i = 0; i < ColSpan; i++)
                 {
-                    if (Address.X + i < Table.Columns.Count)
-                        result += Table.Columns[Address.X + i].Width;
+                    int columnIndex = (int)Address.X + i;
+                    if (columnIndex < Table.Columns.Count)
+                        result += Table.Columns[columnIndex].Width;
                 }
                 return result;
             }
@@ -209,8 +209,9 @@ namespace FastReport.Table
                 float result = 0;
                 for (int i = 0; i < RowSpan; i++)
                 {
-                    if (Address.Y + i < Table.Rows.Count)
-                        result += Table.Rows[Address.Y + i].Height;
+                    int rowIndex = (int)Address.Y + i;
+                    if (rowIndex < Table.Rows.Count)
+                        result += Table.Rows[rowIndex].Height;
                 }
                 return result;
             }
@@ -460,61 +461,58 @@ namespace FastReport.Table
             updatingLayout = true;
             try
             {
-                RectangleF remainingBounds = new RectangleF(0, 0, width, height);
-                remainingBounds.Width += dx;
-                remainingBounds.Height += dy;
+                SKRect remainingBounds = new SKRect(0, 0, width + dx, height + dy);
                 foreach (ReportComponentBase c in Objects)
                 {
-                    if ((c.Anchor & AnchorStyles.Right) != 0)
+                    int anchor = (int)c.Anchor;
+                    if ((anchor & 8) != 0)
                     {
-                        if ((c.Anchor & AnchorStyles.Left) != 0)
+                        if ((anchor & 4) != 0)
                             c.Width += dx;
                         else
                             c.Left += dx;
                     }
-                    else if ((c.Anchor & AnchorStyles.Left) == 0)
+                    else if ((anchor & 4) == 0)
                     {
                         c.Left += dx / 2;
                     }
-                    if ((c.Anchor & AnchorStyles.Bottom) != 0)
+                    if ((anchor & 2) != 0)
                     {
-                        if ((c.Anchor & AnchorStyles.Top) != 0)
+                        if ((anchor & 1) != 0)
                             c.Height += dy;
                         else
                             c.Top += dy;
                     }
-                    else if ((c.Anchor & AnchorStyles.Top) == 0)
+                    else if ((anchor & 1) == 0)
                     {
                         c.Top += dy / 2;
                     }
-                    switch (c.Dock)
+
+                    switch ((int)c.Dock)
                     {
-                        case DockStyle.Left:
-                            c.Bounds = new RectangleF(remainingBounds.Left, remainingBounds.Top, c.Width, remainingBounds.Height);
-                            remainingBounds.X += c.Width;
-                            remainingBounds.Width -= c.Width;
+                        case 3:
+                            c.Bounds = ToRectangleF(new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Left + c.Width, remainingBounds.Bottom));
+                            remainingBounds = new SKRect(remainingBounds.Left + c.Width, remainingBounds.Top, remainingBounds.Right, remainingBounds.Bottom);
                             break;
 
-                        case DockStyle.Top:
-                            c.Bounds = new RectangleF(remainingBounds.Left, remainingBounds.Top, remainingBounds.Width, c.Height);
-                            remainingBounds.Y += c.Height;
-                            remainingBounds.Height -= c.Height;
+                        case 1:
+                            c.Bounds = ToRectangleF(new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Right, remainingBounds.Top + c.Height));
+                            remainingBounds = new SKRect(remainingBounds.Left, remainingBounds.Top + c.Height, remainingBounds.Right, remainingBounds.Bottom);
                             break;
 
-                        case DockStyle.Right:
-                            c.Bounds = new RectangleF(remainingBounds.Right - c.Width, remainingBounds.Top, c.Width, remainingBounds.Height);
-                            remainingBounds.Width -= c.Width;
+                        case 4:
+                            c.Bounds = ToRectangleF(new SKRect(remainingBounds.Right - c.Width, remainingBounds.Top, remainingBounds.Right, remainingBounds.Bottom));
+                            remainingBounds = new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Right - c.Width, remainingBounds.Bottom);
                             break;
 
-                        case DockStyle.Bottom:
-                            c.Bounds = new RectangleF(remainingBounds.Left, remainingBounds.Bottom - c.Height, remainingBounds.Width, c.Height);
-                            remainingBounds.Height -= c.Height;
+                        case 2:
+                            c.Bounds = ToRectangleF(new SKRect(remainingBounds.Left, remainingBounds.Bottom - c.Height, remainingBounds.Right, remainingBounds.Bottom));
+                            remainingBounds = new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Right, remainingBounds.Bottom - c.Height);
                             break;
 
-                        case DockStyle.Fill:
-                            c.Bounds = remainingBounds;
-                            remainingBounds.Width = 0;
-                            remainingBounds.Height = 0;
+                        case 5:
+                            c.Bounds = ToRectangleF(remainingBounds);
+                            remainingBounds = new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Left, remainingBounds.Top);
                             break;
                     }
                 }
@@ -525,6 +523,11 @@ namespace FastReport.Table
             }
         }
 
-#endregion // Public Methods
+        private static System.Drawing.RectangleF ToRectangleF(SKRect rect)
+        {
+            return new System.Drawing.RectangleF(rect.Left, rect.Top, rect.Width, rect.Height);
+        }
+
+        #endregion // Public Methods
     }
 }

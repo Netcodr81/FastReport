@@ -1,11 +1,11 @@
 using System;
 using System.Collections;
-using System.Drawing;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
-using System.Collections.Specialized;
 using System.Text;
+using SkiaSharp;
 
 namespace FastReport.Utils
 {
@@ -31,11 +31,11 @@ namespace FastReport.Utils
                 return ((double)value).ToString(CultureInfo.InvariantCulture.NumberFormat);
             if (value is Enum)
                 return Enum.Format(value.GetType(), value, "G");
-            if (value is Image)
+            if (value is SKBitmap)
             {
                 using (MemoryStream stream = new MemoryStream())
                 {
-                    ImageHelper.Save(value as Image, stream);
+                    ImageHelper.Save(value as SKBitmap, stream);
                     return Convert.ToBase64String(stream.ToArray());
                 }
             }
@@ -72,14 +72,14 @@ namespace FastReport.Utils
                     return type.FullName;
                 return type.AssemblyQualifiedName;
             }
-            if (value is Font)
+            if (value is SKFont)
             {
                 return new TypeConverters.FontConverter().ConvertToInvariantString(value);
             }
-            if (value is System.Drawing.Imaging.ImageFormat)
+            if (value is SKImage)
             {
-                var imageFormat = value as System.Drawing.Imaging.ImageFormat;
-                return imageFormat.ToString();
+                var image = value as SKImage;
+                return image.ToString();
             }
             return TypeDescriptor.GetConverter(value).ConvertToInvariantString(value);
         }
@@ -115,7 +115,7 @@ namespace FastReport.Utils
                 return double.Parse(value, CultureInfo.InvariantCulture.NumberFormat);
             if (type == typeof(Enum))
                 return Enum.Parse(type, value);
-            if (type == typeof(Image) || type == typeof(Bitmap))
+            if (type == typeof(SKImage) || type == typeof(SKBitmap))
                 return ImageHelper.Load(Convert.FromBase64String(value));
             if (type == typeof(Stream))
                 return new MemoryStream(Convert.FromBase64String(value));
@@ -128,10 +128,10 @@ namespace FastReport.Utils
                 value = value.Replace("\r\n", "\r");
                 return value.Split('\r');
             }
-            if (type == typeof(Font))
-                return new TypeConverters.FontConverter().ConvertFromInvariantString(value) as Font;
-            if (type == typeof(Color))
-                return new ColorConverter().ConvertFromInvariantString(value);
+            if (type == typeof(SKFont))
+                return new TypeConverters.FontConverter().ConvertFromInvariantString(value) as SKFont;
+            if (type == typeof(SKColor))
+                return ColorHelper.FromString(value) ?? SKColors.Gray;
             return TypeDescriptor.GetConverter(type).ConvertFromInvariantString(value);
         }
 

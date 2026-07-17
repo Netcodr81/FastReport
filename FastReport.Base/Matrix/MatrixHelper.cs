@@ -1,11 +1,10 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
 using FastReport.Data;
 using FastReport.Table;
 using FastReport.Utils;
-using System.Drawing;
+using SkiaSharp;
+using System;
 using System.Collections;
+using System.Collections.Generic;
 
 namespace FastReport.Matrix
 {
@@ -279,17 +278,17 @@ namespace FastReport.Matrix
             cell.Assign(Matrix.Styles.DefaultStyle);
             cell.Text = text;
             cell.Font = DrawUtils.DefaultReportFont;
-            cell.TextFill = new SolidFill(Color.Gray);
+            cell.TextFill = new SolidFill(SKColors.Gray);
             cell.HorzAlign = HorzAlign.Center;
             cell.VertAlign = VertAlign.Center;
             cell.SetFlags(Flags.CanEdit, false);
         }
 
-        private Point GetBodyLocation()
+        private SKPoint GetBodyLocation()
         {
             // determine the template's body location. Do not rely on HeaderWidth, HeaderHeight - 
             // the template may be empty
-            Point result = new Point();
+            SKPoint result = new SKPoint();
 
             foreach (MatrixHeaderDescriptor descr in Matrix.Data.Columns)
             {
@@ -339,11 +338,11 @@ namespace FastReport.Matrix
                 TableColumn column = new TableColumn();
                 if (descr.TemplateColumn != null)
                     column.Assign(descr.TemplateColumn);
-                ResultTable.Columns.Add(column);
+                ResultTable.Columns.Insert(ResultTable.Columns.Count, column);
             }
 
             // determine the body location
-            Point bodyLocation = GetBodyLocation();
+            SKPoint bodyLocation = GetBodyLocation();
 
             // create columns
             foreach (MatrixHeaderItem item in columnTerminalItems)
@@ -352,8 +351,8 @@ namespace FastReport.Matrix
                 {
                     TableColumn column = new TableColumn();
                     if (item.TemplateColumn != null && descr.TemplateColumn != null)
-                        column.Assign(Matrix.Columns[item.TemplateColumn.Index + (descr.TemplateColumn.Index - bodyLocation.X)]);
-                    ResultTable.Columns.Add(column);
+                        column.Assign(Matrix.Columns[item.TemplateColumn.Index + (int)(descr.TemplateColumn.Index - bodyLocation.X)]);
+                    ResultTable.Columns.Insert(ResultTable.Columns.Count, column);
 
                     if (!Matrix.CellsSideBySide)
                         break;
@@ -367,8 +366,8 @@ namespace FastReport.Matrix
                 {
                     TableRow row = new TableRow();
                     if (item.TemplateRow != null && descr.TemplateRow != null)
-                        row.Assign(Matrix.Rows[item.TemplateRow.Index + (descr.TemplateRow.Index - bodyLocation.Y)]);
-                    ResultTable.Rows.Add(row);
+                        row.Assign(Matrix.Rows[item.TemplateRow.Index + (int)(descr.TemplateRow.Index - bodyLocation.Y)]);
+                    ResultTable.Rows.Insert(ResultTable.Rows.Count, row);
 
                     if (Matrix.CellsSideBySide)
                         break;
@@ -783,7 +782,7 @@ namespace FastReport.Matrix
             List<MatrixHeaderItem> rowTerminalItems = Matrix.Data.Rows.RootItem.GetTerminalItems();
             int dataCount = Matrix.Data.Cells.Count;
             int top = HeaderHeight;
-            Point bodyLocation = GetBodyLocation();
+            SKPoint bodyLocation = GetBodyLocation();
             bool firstTimePrintingData = true;
             cellValues = new object[dataCount];
             Matrix.RowIndex = 0;
@@ -809,7 +808,7 @@ namespace FastReport.Matrix
                             if (columnItem.TemplateColumn != null && rowItem.TemplateRow != null && descr.TemplateColumn != null)
                             {
                                 templateCell = Matrix[
-                                  columnItem.TemplateColumn.Index + (descr.TemplateColumn.Index - bodyLocation.X),
+                                  columnItem.TemplateColumn.Index + (int)(descr.TemplateColumn.Index - bodyLocation.X),
                                   rowItem.TemplateRow.Index];
                             }
                             else
@@ -822,7 +821,7 @@ namespace FastReport.Matrix
                             if (columnItem.TemplateColumn != null && rowItem.TemplateRow != null && descr.TemplateColumn != null)
                             {
                                 templateCell = Matrix[columnItem.TemplateColumn.Index,
-                                  rowItem.TemplateRow.Index + (descr.TemplateRow.Index - bodyLocation.Y)];
+                                  rowItem.TemplateRow.Index + (int)(descr.TemplateRow.Index - bodyLocation.Y)];
                             }
                             else
                                 templateCell = CreateDataCell();
@@ -844,7 +843,7 @@ namespace FastReport.Matrix
                             cellValues[cellIndex] = value;
                             templateCell.Text = templateCell.FormatValue(value);
                             templateCell.SaveState();
-                            
+
                             if (String.IsNullOrEmpty(templateCell.Hyperlink.Expression) &&
                                 (templateCell.Hyperlink.Kind == HyperlinkKind.DetailReport ||
                                 templateCell.Hyperlink.Kind == HyperlinkKind.DetailPage ||

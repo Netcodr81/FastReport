@@ -1,49 +1,49 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Drawing;
+using SkiaSharp;
 
 namespace FastReport.Matrix
 {
     internal class MatrixStyleSheet : StyleSheet
     {
-        public Bitmap GetStyleBitmap(int index)
+        public SKBitmap GetStyleBitmap(int index)
         {
             StyleCollection styleCollection = this[index];
             Style style = styleCollection[styleCollection.IndexOf("Header")];
 
-            Color headerColor = Color.White;
-            if (style.Fill is SolidFill)
-                headerColor = (style.Fill as SolidFill).Color;
-            else if (style.Fill is LinearGradientFill)
-                headerColor = (style.Fill as LinearGradientFill).StartColor;
+            SKColor headerColor = SKColors.White;
+            if (style.Fill is SolidFill solidHeaderFill)
+                headerColor = solidHeaderFill.Color;
+            else if (style.Fill is LinearGradientFill linearHeaderFill)
+                headerColor = ConvertColor(linearHeaderFill.StartColor);
 
             style = styleCollection[styleCollection.IndexOf("Body")];
-            Color bodyColor = Color.White;
-            if (style.Fill is SolidFill)
-                bodyColor = (style.Fill as SolidFill).Color;
-            else if (style.Fill is LinearGradientFill)
-                bodyColor = (style.Fill as LinearGradientFill).StartColor;
+            SKColor bodyColor = SKColors.White;
+            if (style.Fill is SolidFill solidBodyFill)
+                bodyColor = solidBodyFill.Color;
+            else if (style.Fill is LinearGradientFill linearBodyFill)
+                bodyColor = ConvertColor(linearBodyFill.StartColor);
 
-            // draw style picture
-            Bitmap result = new Bitmap(16, 16);
-            using (Graphics g = Graphics.FromImage(result))
-            {
-                g.FillRectangle(Brushes.White, 0, 0, 16, 16);
+            SKBitmap result = new SKBitmap(16, 16, true);
+            using SKCanvas canvas = new SKCanvas(result);
+            using SKPaint fillPaint = new SKPaint { Style = SKPaintStyle.Fill, IsAntialias = false };
+            using SKPaint borderPaint = new SKPaint { Style = SKPaintStyle.Stroke, Color = SKColors.Silver, IsAntialias = false };
 
-                using (Brush b = new SolidBrush(headerColor))
-                {
-                    g.FillRectangle(b, 0, 0, 15, 8);
-                }
-                using (Brush b = new SolidBrush(bodyColor))
-                {
-                    g.FillRectangle(b, 0, 8, 15, 8);
-                }
+            fillPaint.Color = SKColors.White;
+            canvas.DrawRect(0, 0, 16, 16, fillPaint);
 
-                g.DrawRectangle(Pens.Silver, 0, 0, 14, 14);
-            }
+            fillPaint.Color = headerColor;
+            canvas.DrawRect(0, 0, 15, 8, fillPaint);
+
+            fillPaint.Color = bodyColor;
+            canvas.DrawRect(0, 8, 15, 8, fillPaint);
+
+            canvas.DrawRect(0, 0, 14, 14, borderPaint);
 
             return result;
+        }
+
+        private static SKColor ConvertColor(System.Drawing.Color color)
+        {
+            return new SKColor(color.R, color.G, color.B, color.A);
         }
     }
 }

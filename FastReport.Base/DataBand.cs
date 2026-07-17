@@ -1,9 +1,8 @@
+using FastReport.Data;
+using FastReport.Utils;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using FastReport.Utils;
-using FastReport.Data;
-using System.Drawing.Design;
 
 namespace FastReport
 {
@@ -139,7 +138,6 @@ namespace FastReport
         /// If there is only one relation (in most cases it is), you can leave this property empty.
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.RelationEditor, FastReport", typeof(UITypeEditor))]
         public Relation Relation
         {
             get { return relation; }
@@ -163,7 +161,6 @@ namespace FastReport
         /// the corresponding data row will not be printed.
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string Filter
         {
             get { return filter; }
@@ -174,7 +171,6 @@ namespace FastReport
         /// Gets the band columns.
         /// </summary>
         [Category("Appearance")]
-        [Editor("FastReport.TypeEditors.DataBandColumnEditor, FastReport", typeof(UITypeEditor))]
         public BandColumns Columns
         {
             get { return columns; }
@@ -240,7 +236,6 @@ namespace FastReport
         /// on its original position, or shrink.
         /// </remarks>
         [Category("Hierarchy")]
-        [Editor("FastReport.TypeEditors.DataColumnEditor, FastReport", typeof(UITypeEditor))]
         public string IdColumn
         {
             get { return idColumn; }
@@ -255,7 +250,6 @@ namespace FastReport
         /// <see cref="IdColumn"/> property for more details.
         /// </remarks>
         [Category("Hierarchy")]
-        [Editor("FastReport.TypeEditors.DataColumnEditor, FastReport", typeof(UITypeEditor))]
         public string ParentIdColumn
         {
             get { return parentIdColumn; }

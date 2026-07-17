@@ -1,7 +1,7 @@
-﻿using System;
+﻿using SkiaSharp;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Drawing;
 
 namespace FastReport.Utils
 {
@@ -194,7 +194,7 @@ namespace FastReport.Utils
             /// <summary>
             /// Gets or sets the image.
             /// </summary>
-            public Bitmap Image { get; set; }
+            public SKBitmap Image { get; set; }
 
             /// <summary>
             /// Gets or sets the tag.
@@ -231,7 +231,7 @@ namespace FastReport.Utils
             /// <param name="text">The category display text.</param>
             /// <param name="image">The image.</param>
             /// <returns>The category node.</returns>
-            public ExportsTreeNode AddCategory(string name, string text, Bitmap image)
+            public ExportsTreeNode AddCategory(string name, string text, SKBitmap image)
             {
                 var node = new ExportsTreeNode() { Name = name, Text = text, Image = image };
                 Nodes.Add(node);
@@ -260,7 +260,7 @@ namespace FastReport.Utils
             /// <param name="text">The display text.</param>
             /// <param name="image">The image.</param>
             /// <returns>Returns this object to allow method chaining.</returns>
-            public ExportsTreeNode AddExport(Type type, string text, Bitmap image)
+            public ExportsTreeNode AddExport(Type type, string text, SKBitmap image)
             {
                 var node = new ExportsTreeNode() { Name = type.Name, ExportType = type, Text = text, Image = image };
                 node.Tag = RegisteredObjects.AddExport(node.ExportType, text, -1);

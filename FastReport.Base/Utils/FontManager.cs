@@ -1,11 +1,91 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Text;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+
+using SkiaSharp;
 
 namespace FastReport
 {
+    public sealed class FontFamily
+    {
+        public string Name { get; }
+
+        public static FontFamily GenericSansSerif { get; } = new FontFamily(SKTypeface.Default?.FamilyName ?? "Sans Serif");
+
+        public FontFamily(string name)
+        {
+            Name = string.IsNullOrWhiteSpace(name) ? GenericSansSerif.Name : name;
+        }
+    }
+
+    public abstract class FontCollection : IDisposable
+    {
+        private readonly List<FontFamily> families = new List<FontFamily>();
+
+        public FontFamily[] Families => families.ToArray();
+
+        protected void AddFamily(FontFamily family)
+        {
+            if (family == null)
+                return;
+            if (families.Any(f => string.Equals(f.Name, family.Name, StringComparison.OrdinalIgnoreCase)))
+                return;
+            families.Add(family);
+        }
+
+        protected void AddFamily(string familyName)
+        {
+            AddFamily(new FontFamily(familyName));
+        }
+
+        public virtual void Dispose()
+        {
+        }
+    }
+
+    public sealed class PrivateFontCollection : FontCollection
+    {
+        public void AddFontFile(string filename)
+        {
+            try
+            {
+                using SKTypeface typeface = SKTypeface.FromFile(filename);
+                AddFamily(typeface?.FamilyName ?? Path.GetFileNameWithoutExtension(filename));
+            }
+            catch
+            {
+            }
+        }
+
+        public void AddMemoryFont(IntPtr memory, int length)
+        {
+            if (memory == IntPtr.Zero || length <= 0)
+                return;
+
+            try
+            {
+                byte[] bytes = new byte[length];
+                Marshal.Copy(memory, bytes, 0, length);
+                using SKData data = SKData.CreateCopy(bytes);
+                using SKTypeface typeface = SKTypeface.FromData(data);
+                AddFamily(typeface?.FamilyName ?? FontFamily.GenericSansSerif.Name);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    public sealed class InstalledFontCollection : FontCollection
+    {
+        public InstalledFontCollection()
+        {
+            AddFamily(SKTypeface.Default?.FamilyName ?? "Sans Serif");
+        }
+    }
+
     /// <summary>
     /// Contains font management methods and properties.
     /// </summary>

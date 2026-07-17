@@ -1,5 +1,8 @@
-﻿using System.Drawing;
+﻿using SkiaSharp;
+using System;
 using System.Linq;
+using System.Reflection;
+
 namespace FastReport.Utils
 {
     /// <summary>
@@ -50,7 +53,7 @@ namespace FastReport.Utils
         ///   </item>
         /// </list>
         /// </remarks>
-        public static Color? FromString(string input)
+        public static SKColor? FromString(string input)
         {
             if (string.IsNullOrWhiteSpace(input))
                 return null;
@@ -74,11 +77,11 @@ namespace FastReport.Utils
                 // parse the 8-digit hex as ARGB
                 if (uint.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out uint argb))
                 {
-                    return Color.FromArgb(
-                        (byte)(argb >> 24), // alpha
+                    return new SKColor(
                         (byte)(argb >> 16), // red
                         (byte)(argb >> 8),  // green
-                        (byte)(argb)        // blue
+                        (byte)(argb),       // blue
+                        (byte)(argb >> 24)  // alpha
                     );
                 }
 
@@ -99,8 +102,8 @@ namespace FastReport.Utils
                         if (nums.All(n => n >= 0 && n <= 255))
                         {
                             return parts.Length == 3
-                              ? Color.FromArgb(nums[0], nums[1], nums[2])           // RGB
-                              : Color.FromArgb(nums[0], nums[1], nums[2], nums[3]); // ARGB
+                              ? new SKColor((byte)nums[0], (byte)nums[1], (byte)nums[2])           // RGB
+                              : new SKColor((byte)nums[1], (byte)nums[2], (byte)nums[3], (byte)nums[0]); // ARGB
                         }
                     }
                 }
@@ -111,18 +114,19 @@ namespace FastReport.Utils
             {
                 // convert to unsigned to correctly interpret negative ARGB values
                 uint argb = unchecked((uint)argbInt);
-                return Color.FromArgb(
-                        (byte)(argb >> 24), // alpha
+                return new SKColor(
                         (byte)(argb >> 16), // red
                         (byte)(argb >> 8),  // green
-                        (byte)(argb)        // blue
+                        (byte)(argb),       // blue
+                        (byte)(argb >> 24)  // alpha
                     );
             }
 
             // named color (e.g., "Red", "Blue")
-            Color named = Color.FromName(input);
-            if (named.IsKnownColor)
-                return named;
+            PropertyInfo namedColorProperty = typeof(SKColors).GetProperties(BindingFlags.Public | BindingFlags.Static)
+                .FirstOrDefault(p => p.PropertyType == typeof(SKColor) && string.Equals(p.Name, input, StringComparison.OrdinalIgnoreCase));
+            if (namedColorProperty != null)
+                return (SKColor)namedColorProperty.GetValue(null);
 
             // no format matched - invalid color string
             return null;
@@ -143,18 +147,18 @@ namespace FastReport.Utils
         /// <param name="fallback">The color to return if conversion fails.
         /// If not specified, defaults to <see cref="Color.Gray"/>.</param>
         /// <returns>
-        /// A valid <see cref="Color"/> instance. Never returns <see langword="null"/>.
+        /// A valid <see cref="SKColor"/> instance. Never returns <see langword="null"/>.
         /// </returns>
-        public static Color FromObject(object value, Color fallback = default)
+        public static SKColor FromObject(object value, SKColor fallback = default)
         {
             // if no fallback was provided, use Gray color
-            if (fallback == default) fallback = Color.Gray;
+            if (fallback == default) fallback = SKColors.Gray;
 
             // use pattern matching to handle supported types
             return value switch
             {
-                Color c => c, // direct Color instance
-                int argb => Color.FromArgb(argb), // ARGB integer
+                SKColor c => c, // direct SKColor instance
+                int argb => FromString(argb.ToString()) ?? fallback, // ARGB integer
                 string s => FromString(s) ?? fallback, // parse string, fallback on failure
                 _ => fallback // unsupported type - fallback
             };

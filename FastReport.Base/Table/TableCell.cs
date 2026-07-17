@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.ComponentModel;
-using System.Drawing;
+using SkiaSharp;
 using FastReport.Utils;
-using System.Windows.Forms;
 
 namespace FastReport.Table
 {
@@ -153,9 +152,9 @@ namespace FastReport.Table
         /// Gets the address of this cell.
         /// </summary>
         [Browsable(false)]
-        public Point Address
+        public SKPoint Address
         {
-            get { return CellData == null ? new Point() : CellData.Address; }
+            get { return CellData == null ? new SKPoint() : new SKPoint(CellData.Address.X, CellData.Address.Y); }
         }
 
         /// <summary>
@@ -496,6 +495,11 @@ namespace FastReport.Table
             if (CellData != null)
                 CellData.UpdateLayout(dx, dy);
         }
+
+        private static System.Windows.Forms.Padding ToPadding(SKRectI rect)
+        {
+            return new System.Windows.Forms.Padding(rect.Left, rect.Top, rect.Right, rect.Bottom);
+        }
         #endregion
 
         /// <summary>
@@ -505,7 +509,7 @@ namespace FastReport.Table
         {
             colSpan = 1;
             rowSpan = 1;
-            Padding = new Padding(2, 1, 2, 1);
+            Padding = ToPadding(new SKRectI(2, 1, 2, 1));
             SetFlags(Flags.CanDelete | Flags.CanCopy | Flags.CanMove | Flags.CanResize |
               Flags.CanChangeParent | Flags.CanDraw | Flags.CanWriteBounds, false);
             BaseName = "Cell";

@@ -1,10 +1,9 @@
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.IO;
-using System.Drawing;
 using System.ComponentModel;
-using FastReport.Utils;
+using System.IO;
 
 namespace FastReport.Preview
 {
@@ -316,7 +315,7 @@ namespace FastReport.Preview
         /// </summary>
         /// <param name="index">Index of page.</param>
         /// <returns>the size of specified page, in pixels.</returns>
-        public SizeF GetPageSize(int index)
+        public SKSize GetPageSize(int index)
         {
             return preparedPages[index].PageSize;
         }

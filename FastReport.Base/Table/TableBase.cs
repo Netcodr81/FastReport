@@ -1,8 +1,8 @@
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.ComponentModel;
-using FastReport.Utils;
 
 namespace FastReport.Table
 {
@@ -51,7 +51,7 @@ namespace FastReport.Table
         private bool lockColumnRowChange;
 #pragma warning restore CS0414
         private TableLayout layout;
-        private List<Rectangle> spanList;
+        private List<SKRect> spanList;
         private TableResult resultTable;
         private TableCellData printingCell;
         //private static float FLeftRtl;
@@ -426,7 +426,7 @@ namespace FastReport.Table
 
                     }
                 }
-                    top += height;
+                top += height;
             }
         }
 
@@ -510,7 +510,7 @@ namespace FastReport.Table
             {
                 DrawTable(e);
             }
-            Border.Draw(e, new RectangleF(AbsLeft, AbsTop, Width, Height));
+            Border.Draw(e, new SKRect(AbsLeft, AbsTop, AbsLeft + Width, AbsTop + Height));
             DrawDesign(e);
         }
 
@@ -521,7 +521,7 @@ namespace FastReport.Table
                 return false;
             Width = Columns[Columns.Count - 1].Right;
             Height = Rows[Rows.Count - 1].Bottom;
-            RectangleF objRect = new RectangleF(AbsLeft * e.ScaleX, AbsTop * e.ScaleY,
+            SKRect objRect = new SKRect(AbsLeft * e.ScaleX, AbsTop * e.ScaleY,
               Width * e.ScaleX + 1, Height * e.ScaleY + 1);
             return e.Graphics.IsVisible(objRect);
         }
@@ -544,18 +544,18 @@ namespace FastReport.Table
             return rows[row].CellData(col);
         }
 
-        internal List<Rectangle> GetSpanList()
+        internal List<SKRect> GetSpanList()
         {
             if (spanList == null)
             {
-                spanList = new List<Rectangle>();
+                spanList = new List<SKRect>();
                 for (int y = 0; y < Rows.Count; y++)
                 {
                     for (int x = 0; x < Columns.Count; x++)
                     {
                         TableCellData cell = GetCellData(x, y);
                         if (cell.ColSpan > 1 || cell.RowSpan > 1)
-                            spanList.Add(new Rectangle(x, y, cell.ColSpan, cell.RowSpan));
+                            spanList.Add(new SKRect(x, y, x + cell.ColSpan, y + cell.RowSpan));
                     }
                 }
             }
@@ -614,9 +614,9 @@ namespace FastReport.Table
         /// <returns>true if the cell is inside span.</returns>
         public bool IsInsideSpan(TableCell cell)
         {
-            Point address = cell.Address;
-            List<Rectangle> spans = GetSpanList();
-            foreach (Rectangle span in spans)
+            SKPoint address = new SKPoint(cell.Address.X, cell.Address.Y);
+            List<SKRect> spans = GetSpanList();
+            foreach (SKRect span in spans)
             {
                 if (span.Contains(address) && span.Location != address)
                     return true;
@@ -728,24 +728,24 @@ namespace FastReport.Table
             if (Fill.IsTransparent)
                 return;
 
-            Bitmap image = null;
-            Color fillColor = Color.Empty;
-            
+            SKBitmap image = null;
+            SKColor fillColor = SKColors.Transparent;
+
             if (Fill is SolidFill solidFill)
             {
                 fillColor = solidFill.Color;
             }
             else
             {
-                image = new Bitmap((int)Width, (int)Height);
+                image = new SKBitmap((int)Width, (int)Height);
 
-                using (Graphics g = Graphics.FromImage(image))
+                using (var canvas = new SKCanvas(image))
                 {
-                    g.Clear(Color.Transparent);
-                    g.TranslateTransform(-AbsLeft, -AbsTop);
+                    canvas.Clear(SKColors.Transparent);
+                    canvas.Translate(-AbsLeft, -AbsTop);
                     BorderLines oldLines = Border.Lines;
                     Border.Lines = BorderLines.None;
-                    Draw(new FRPaintEventArgs(g, 1, 1, Report.GraphicCache));
+                    Draw(new FRPaintEventArgs(canvas, 1, 1, Report.GraphicCache));
                     Border.Lines = oldLines;
                 }
             }
@@ -755,7 +755,7 @@ namespace FastReport.Table
                 for (int x = 0; x < ColumnCount; x++)
                 {
                     TableCell cell = this[x, y];
-                    if (cell.Fill is SolidFill cellSolidFill && cellSolidFill.Color == Color.Transparent)
+                    if (cell.Fill is SolidFill cellSolidFill && cellSolidFill.Color == SKColors.Transparent)
                     {
                         if (image == null)
                         {
@@ -1156,27 +1156,27 @@ namespace FastReport.Table
             }
 
             // get the span list
-            List<Rectangle> spans = GetSpanList();
+            List<SKRect> spans = GetSpanList();
 
             // break the spans
-            foreach (Rectangle span in spans)
+            foreach (SKRect span in spans)
             {
                 if (span.Top < breakRowIndex + breakRowIndexAdd && span.Bottom > breakRowIndex)
                 {
-                    TableCell cell = this[span.Left, span.Top];
-                    TableCell cellTo = tableTo[span.Left, span.Top];
+                    TableCell cell = this[(int)span.Left, (int)span.Top];
+                    TableCell cellTo = tableTo[(int)span.Left, (int)span.Top];
 
                     // update cell spans
-                    cell.RowSpan = breakRowIndex + breakRowIndexAdd - span.Top;
-                    cellTo.RowSpan = span.Bottom - breakRowIndex;
+                    cell.RowSpan = (int)(breakRowIndex + breakRowIndexAdd - span.Top);
+                    cellTo.RowSpan = (int)(span.Bottom - breakRowIndex);
 
                     // break the cell
                     if (!rowBroken && !cell.Break(cellTo))
                         cell.Text = "";
 
                     // set the top span cell to the correct place
-                    tableTo[span.Left, span.Top] = new TableCell();
-                    tableTo[span.Left, breakRowIndex] = cellTo;
+                    tableTo[(int)span.Left, (int)span.Top] = new TableCell();
+                    tableTo[(int)span.Left, breakRowIndex] = cellTo;
                 }
             }
 

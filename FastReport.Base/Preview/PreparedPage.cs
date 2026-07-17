@@ -2,10 +2,8 @@ using FastReport.Engine;
 using FastReport.Utils;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
 using System.IO;
-using System.Windows.Forms;
+using SkiaSharp;
 
 namespace FastReport.Preview
 {
@@ -15,7 +13,7 @@ namespace FastReport.Preview
 
         private XmlItem xmlItem;
         private PreparedPages preparedPages;
-        private SizeF pageSize;
+        private SKSize pageSize;
         private long tempFilePosition;
         private bool uploaded;
         private PreparedPagePostprocessor postprocessor;
@@ -44,7 +42,7 @@ namespace FastReport.Preview
             }
         }
 
-        public SizeF PageSize
+        public SKSize PageSize
         {
             get
             {
@@ -303,7 +301,7 @@ namespace FastReport.Preview
                                     float bandWidth = 0.0f;
                                     foreach (ComponentBase comp in band.Objects)
                                     {
-                                        if ((comp.Anchor & AnchorStyles.Right) == 0 && comp.Dock == DockStyle.None)
+                                        if ((((int)comp.Anchor) & 8) == 0 && (int)comp.Dock == 0)
                                         {
                                             bandWidth = Math.Max(bandWidth, comp.Left + comp.Width);
                                         }
@@ -320,7 +318,7 @@ namespace FastReport.Preview
                             page.UnlimitedWidthValue = maxWidth + (page.LeftMargin + page.RightMargin) * Units.Millimeters;
 
                     }
-                    pageSize = new SizeF(page.WidthInPixels, page.HeightInPixels);
+                    pageSize = new SKSize(page.WidthInPixels, page.HeightInPixels);
 
                     using (FRWriter writer = new FRWriter(item))
                     {
@@ -352,7 +350,7 @@ namespace FastReport.Preview
                     writer.Write(page);
                 }
 
-                pageSize = new SizeF(page.WidthInPixels, page.HeightInPixels);
+                pageSize = new SKSize(page.WidthInPixels, page.HeightInPixels);
             }
         }
 

@@ -1,17 +1,9 @@
-﻿using System;
-#if NETSTANDARD || NETCOREAPP
-using FastReport.Code.CodeDom.Compiler;
-using FastReport.Code.CSharp;
+﻿#if NETSTANDARD || NETCOREAPP
 #else
 using System.CodeDom.Compiler;
 using Microsoft.CSharp;
 #endif
-using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
-using System.Text;
 using System.Globalization;
-using FastReport.Code;
 
 namespace FastReport.Utils
 {
@@ -110,7 +102,7 @@ namespace FastReport.Utils
         {
             get
             {
-                if(cultureInfo == null)
+                if (cultureInfo == null)
                 {
                     return Res.CurrentCulture;
                 }
@@ -123,7 +115,7 @@ namespace FastReport.Utils
         }
 #endif
 
-#endregion Properties
+        #endregion Properties
 
         #region Constructors
 

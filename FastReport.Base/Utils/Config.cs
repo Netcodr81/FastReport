@@ -1,12 +1,11 @@
 ﻿using System;
-using System.Drawing;
-using System.Drawing.Text;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using SkiaSharp;
 
 namespace FastReport.Utils
 {
@@ -332,15 +331,15 @@ namespace FastReport.Utils
 
         private static void InitTextRenderingHint()
         {
-            // init TextRenderingHint.SystemDefault
-            // bug in .Net: if you use any other hint before SystemDefault, the SystemDefault will
-            // look like SingleBitPerPixel
-            using (Bitmap bmp = new Bitmap(1, 1))
-            using (Graphics g = Graphics.FromImage(bmp))
+            using SKBitmap bmp = new SKBitmap(1, 1);
+            using SKCanvas canvas = new SKCanvas(bmp);
+            using SKPaint paint = new SKPaint
             {
-                g.TextRenderingHint = TextRenderingHint.SystemDefault;
-                g.DrawString(" ", SystemFonts.DefaultFont, Brushes.Black, 0, 0);
-            }
+                Color = SKColors.Black,
+                IsAntialias = true
+            };
+            using SKFont font = new SKFont(SKTypeface.Default, 12);
+            canvas.DrawText(" ", 0, 12, SKTextAlign.Left, font, paint);
         }
 
         private static void CheckWebMode()

@@ -1,10 +1,8 @@
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.ComponentModel;
-using System.Drawing;
-using FastReport.Data;
-using FastReport.Utils;
 
 namespace FastReport.Table
 {
@@ -174,11 +172,11 @@ namespace FastReport.Table
             }
 
             // update spanned cells that contains this column
-            List<Rectangle> spanList = table.GetSpanList();
-            foreach (Rectangle span in spanList)
+            List<SKRect> spanList = table.GetSpanList();
+            foreach (SKRect span in spanList)
             {
                 if (Index > span.Left && Index < span.Right)
-                    table[span.Left, span.Top].CellData.UpdateLayout(dx, 0);
+                    table[(int)span.Left, (int)span.Top].CellData.UpdateLayout(dx, 0);
             }
         }
         #endregion

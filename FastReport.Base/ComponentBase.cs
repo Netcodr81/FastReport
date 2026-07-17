@@ -1,13 +1,31 @@
 using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Design;
-using System.Windows.Forms;
 
 namespace FastReport
 {
+    [Flags]
+    public enum AnchorStyles
+    {
+        None = 0,
+        Top = 1,
+        Bottom = 2,
+        Left = 4,
+        Right = 8
+    }
+
+    public enum DockStyle
+    {
+        None = 0,
+        Top = 1,
+        Bottom = 2,
+        Left = 3,
+        Right = 4,
+        Fill = 5
+    }
+
     /// <summary>
     /// Class that implements some object's properties such as location, size and visibility.
     /// </summary>
@@ -45,9 +63,9 @@ namespace FastReport
         /// Gets the absolute bounding rectangle of the object.
         /// </summary>
         [Browsable(false)]
-        public RectangleF AbsBounds
+        public SKRect AbsBounds
         {
-            get { return new RectangleF(AbsLeft, AbsTop, Width, Height); }
+            get { return new SKRect(AbsLeft, AbsTop, AbsLeft + Width, AbsTop + Height); }
         }
 
         /// <summary>
@@ -118,9 +136,9 @@ namespace FastReport
         /// <see cref="Top"/>, <see cref="Width"/>, <see cref="Height"/> properties.
         /// </remarks>
         [Browsable(false)]
-        public RectangleF Bounds
+        public SKRect Bounds
         {
-            get { return new RectangleF(Left, Top, Width, Height); }
+            get { return new SKRect(Left, Top, Left + Width, Top + Height); }
             set
             {
                 Left = value.Left;
@@ -137,9 +155,9 @@ namespace FastReport
         /// This property is used in the <see cref="FastReport.Dialog.DialogPage"/> class.
         /// </remarks>
         [Browsable(false)]
-        public virtual SizeF ClientSize
+        public virtual SKSize ClientSize
         {
-            get { return new SizeF(Width, Height); }
+            get { return new SKSize(Width, Height); }
             set
             {
                 Width = value.Width;
@@ -342,7 +360,6 @@ namespace FastReport
         /// </summary>
         [DefaultValue("")]
         [Category("Behavior")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public virtual string VisibleExpression
         {
             get { return visibleExpression; }
@@ -369,7 +386,6 @@ namespace FastReport
         /// </summary>
         [DefaultValue("")]
         [Category("Behavior")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string PrintableExpression
         {
             get { return printableExpression; }
@@ -570,7 +586,7 @@ namespace FastReport
         /// Return the increased size with the tips. It is used only by the validator, but not in the engine.
         /// </summary>
         /// <returns></returns>
-        internal virtual RectangleF GetExtendedSize() => Bounds;
+        internal virtual SKRect GetExtendedSize() => Bounds;
 
         #endregion
     }

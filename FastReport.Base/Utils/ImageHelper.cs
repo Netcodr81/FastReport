@@ -1,44 +1,37 @@
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Net;
+using Bitmap = SkiaSharp.SKBitmap;
+using Image = SkiaSharp.SKBitmap;
+using RectangleF = SkiaSharp.SKRect;
 
 namespace FastReport.Utils
 {
+    public enum ImageFormat
+    {
+        Bmp,
+        Png,
+        Jpeg,
+        Gif,
+        Tiff,
+        Icon,
+        MemoryBmp,
+        Wmf,
+        Emf
+    }
+
     /// <summary>
     /// Interface allows to load images with custom format or custom type
     /// </summary>
     [EditorBrowsable(EditorBrowsableState.Never)]
     public interface IImageHelperLoader
     {
-        /// <summary>
-        /// Returns true if image can be loaded
-        /// </summary>
-        /// <param name="imageData"></param>
-        /// <returns></returns>
         bool CanLoad(byte[] imageData);
-        /// <summary>
-        /// Returns true if image can be loaded
-        /// </summary>
-        /// <param name="fileName"></param>
-        /// <returns></returns>
         bool CanLoad(string fileName);
-        /// <summary>
-        /// Try to load the image, must not throw exception!
-        /// </summary>
-        /// <param name="imageData"></param>
-        /// <param name="result"></param>
-        /// <returns></returns>
         bool TryLoad(byte[] imageData, out Image result);
-        /// <summary>
-        /// Try to load the image, must not throw exception!
-        /// </summary>
-        /// <param name="fileName"></param>
-        /// <param name="result"></param>
-        /// <returns></returns>
         bool TryLoad(string fileName, out Image result);
     }
 
@@ -51,10 +44,6 @@ namespace FastReport.Utils
         private readonly static object _customLoadersLocker = new object();
         private readonly static List<IImageHelperLoader> _customLoaders = new List<IImageHelperLoader>();
 
-        /// <summary>
-        /// Register a new custom loader
-        /// </summary>
-        /// <param name="imageHelperLoader"></param>
         public static void Register(IImageHelperLoader imageHelperLoader)
         {
             lock (_customLoadersLocker)
@@ -66,42 +55,39 @@ namespace FastReport.Utils
                 _customLoaders.Add(imageHelperLoader);
             }
         }
+
         internal static Bitmap CloneBitmap(Image source)
         {
             if (source == null)
                 return null;
 
-            Bitmap image = new Bitmap(source.Width, source.Height);
-            if (!Config.IsRunningOnMono) // mono fw bug workaround
-                image.SetResolution(source.HorizontalResolution, source.VerticalResolution);
-            using (Graphics g = Graphics.FromImage(image))
-            {
-                g.DrawImageUnscaled(source, 0, 0);
-            }
+            Bitmap image = CreateBitmap(source.Width, source.Height, source.ColorType, source.AlphaType, source.ColorSpace);
+            using SKCanvas canvas = new SKCanvas(image);
+            canvas.DrawBitmap(source, 0, 0);
             return image;
-
-            // this can throw OutOfMemory when creating a grayscale image from a cloned bitmap
-            //      return source.Clone() as Bitmap;
         }
 
         internal static Bitmap CutImage(Bitmap src, RectangleF rect)
         {
-            var bitmap = new Bitmap((int)rect.Width, (int)rect.Height);
-            using (var g = Graphics.FromImage(bitmap))
+            if (src == null)
+                return null;
+
+            SKRectI subset = new SKRectI((int)rect.Left, (int)rect.Top, (int)Math.Ceiling(rect.Right), (int)Math.Ceiling(rect.Bottom));
+            Bitmap bitmap = CreateBitmap(Math.Max(1, subset.Width), Math.Max(1, subset.Height), src.ColorType, src.AlphaType, src.ColorSpace);
+            if (!src.ExtractSubset(bitmap, subset))
             {
-                g.DrawImage(src, new Rectangle(0, 0, bitmap.Width, bitmap.Height),
-                    rect, GraphicsUnit.Pixel);
+                using SKCanvas canvas = new SKCanvas(bitmap);
+                canvas.Clear(SKColors.Transparent);
+                canvas.DrawBitmap(src, -subset.Left, -subset.Top);
             }
             return bitmap;
         }
 
         internal static byte[] ToByteArray(Image image, ImageFormat format)
         {
-            using (MemoryStream ms = new MemoryStream())
-            {
-                image.Save(ms, format);
-                return ms.ToArray();
-            }
+            using MemoryStream ms = new MemoryStream();
+            Save(image, ms, format);
+            return ms.ToArray();
         }
 
         internal static void Save(Image image, Stream stream)
@@ -111,97 +97,42 @@ namespace FastReport.Utils
 
         internal static void Save(Image image, string fileName, ImageFormat format)
         {
-            using (FileStream stream = new FileStream(fileName, FileMode.Create))
-            {
-                Save(image, stream, format);
-            }
+            using FileStream stream = new FileStream(fileName, FileMode.Create);
+            Save(image, stream, format);
         }
 
         internal static void Save(Image image, Stream stream, ImageFormat format)
         {
-            if (image == null)
+            if (image == null || stream == null)
                 return;
-            if (image is Bitmap)
+
+            if (format == ImageFormat.Icon)
             {
-                if (format == ImageFormat.Icon)
-                    SaveAsIcon(image, stream, true);
-                else
-                    image.Save(stream, format);
+                SaveAsIcon(image, stream, true);
+                return;
             }
-            else if (image is Metafile)
-            {
-                Metafile emf = null;
-                using (Bitmap bmp = new Bitmap(1, 1))
-                using (Graphics g = Graphics.FromImage(bmp))
-                {
-                    IntPtr hdc = g.GetHdc();
-                    emf = new Metafile(stream, hdc);
-                    g.ReleaseHdc(hdc);
-                }
-                using (Graphics g = Graphics.FromImage(emf))
-                {
-                    g.DrawImage(image, 0, 0);
-                }
-            }
+
+            if (TryEncode(image, stream, format))
+                return;
+
+            TryEncode(image, stream, ImageFormat.Png);
         }
 
         internal static bool SaveAndConvert(Image image, Stream stream, ImageFormat format)
         {
-            if (image == null)
+            if (image == null || stream == null)
                 return false;
-            if (format == ImageFormat.Jpeg || format == ImageFormat.Gif
-                || format == ImageFormat.Tiff || format == ImageFormat.Bmp
-                || format == ImageFormat.Png
-                || format == ImageFormat.MemoryBmp)
-            {
-                if (image is Bitmap)
-                {
-                    if (format == ImageFormat.MemoryBmp)
-                        throw new Exception(Res.Get("Export,Image,ImageParceFormatException"));
-                    image.Save(stream, format);
-                    return true;
-                }
-                //from mf to bitmap
-                using (Metafile metafile = image as Metafile)
-                using (Bitmap bitmap = new Bitmap(image.Width, image.Height))
-                {
-                    bitmap.SetResolution(96F, 96F);
-                    using (Graphics g = Graphics.FromImage(bitmap))
-                    {
-                        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                        g.DrawImage(metafile, 0, 0, (float)image.Width, (float)image.Height);
-                        g.Dispose();
-                    }
-                    bitmap.Save(stream, format);
-                }
-                return true;
 
-            }
-            else if (format == ImageFormat.Icon)
-            {
+            if (format == ImageFormat.MemoryBmp)
+                throw new Exception(Res.Get("Export,Image,ImageParceFormatException"));
+
+            if (format == ImageFormat.Icon)
                 return SaveAsIcon(image, stream, true);
-            }
-            else if (format == ImageFormat.Wmf || format == ImageFormat.Emf)
-            {
-                if (image is Metafile)
-                {
-                    Metafile emf = null;
-                    using (Bitmap bmp = new Bitmap(1, 1))
-                    using (Graphics g = Graphics.FromImage(bmp))
-                    {
-                        IntPtr hdc = g.GetHdc();
-                        emf = new Metafile(stream, hdc);
-                        g.ReleaseHdc(hdc);
-                    }
-                    using (Graphics g = Graphics.FromImage(emf))
-                    {
-                        g.DrawImage(image, 0, 0);
-                    }
-                    return true;
-                }
-            }
-            //throw new Exception(Res.Get("Export,Image,ImageParceFormatException")); // we cant convert image to exif or from bitmap to mf 
-            return false;
+
+            if (format == ImageFormat.Wmf || format == ImageFormat.Emf || format == ImageFormat.Tiff)
+                return false;
+
+            return TryEncode(image, stream, format);
         }
 
         internal static byte[] Load(string fileName)
@@ -211,47 +142,51 @@ namespace FastReport.Utils
             return null;
         }
 
+        public static Image Load(Stream stream)
+        {
+            if (stream == null)
+                return null;
+
+            using MemoryStream memory = new MemoryStream();
+            stream.CopyTo(memory);
+            return Load(memory.ToArray());
+        }
+
         /// <summary>
         /// Load the image from bytes, Internal only method
         /// </summary>
-        /// <param name="bytes"></param>
-        /// <returns></returns>
         public static Image Load(byte[] bytes)
         {
             if (bytes != null && bytes.Length > 0)
             {
                 try
                 {
-#if CROSSPLATFORM
-                    // TODO memory leaks image converter
-                    return Image.FromStream(new MemoryStream(bytes));
-#else
-                    return new ImageConverter().ConvertFrom(bytes) as Image;
-#endif
-
+                    Bitmap bitmap = SKBitmap.Decode(bytes);
+                    if (bitmap != null)
+                        return bitmap;
                 }
                 catch
                 {
-                    if (_customLoaders.Count > 0)
+                }
+
+                if (_customLoaders.Count > 0)
+                {
+                    lock (_customLoadersLocker)
                     {
-                        lock (_customLoadersLocker)
+                        foreach (var loader in _customLoaders)
                         {
-                            foreach (var loader in _customLoaders)
-                            {
-                                if (loader.CanLoad(bytes) && loader.TryLoad(bytes, out Image result))
-                                    return result;
-                            }
+                            if (loader.CanLoad(bytes) && loader.TryLoad(bytes, out Image result))
+                                return result;
                         }
                     }
-
-                    Bitmap errorBmp = new Bitmap(10, 10);
-                    using (Graphics g = Graphics.FromImage(errorBmp))
-                    {
-                        g.DrawLine(Pens.Red, 0, 0, 10, 10);
-                        g.DrawLine(Pens.Red, 0, 10, 10, 0);
-                    }
-                    return errorBmp;
                 }
+
+                Bitmap errorBmp = CreateBitmap(10, 10, SKColorType.Bgra8888, SKAlphaType.Premul, null);
+                using SKCanvas canvas = new SKCanvas(errorBmp);
+                using SKPaint paint = new SKPaint { Color = SKColors.Red, StrokeWidth = 1, IsAntialias = true };
+                canvas.DrawLine(0, 0, 10, 10, paint);
+                canvas.DrawLine(0, 10, 10, 0, paint);
+                return errorBmp;
             }
             return null;
         }
@@ -260,13 +195,11 @@ namespace FastReport.Utils
         {
             if (!String.IsNullOrEmpty(url))
             {
-                System.Net.ServicePointManager.SecurityProtocol = (SecurityProtocolType)(0xc0 | 0x300 | 0xc00);
-#pragma warning disable SYSLIB0014 // alternative is async only
-                using (WebClient web = new WebClient())
+                ServicePointManager.SecurityProtocol = (SecurityProtocolType)(0xc0 | 0x300 | 0xc00);
+#pragma warning disable SYSLIB0014
+                using WebClient web = new WebClient();
 #pragma warning restore SYSLIB0014
-                {
-                    return web.DownloadData(url);
-                }
+                return web.DownloadData(url);
             }
             return null;
         }
@@ -276,74 +209,50 @@ namespace FastReport.Utils
             if (source == null)
                 return null;
 
-            ColorMatrix colorMatrix = new ColorMatrix();
-            colorMatrix.Matrix33 = 1 - transparency;
-            ImageAttributes imageAttributes = new ImageAttributes();
-            imageAttributes.SetColorMatrix(
-               colorMatrix,
-               ColorMatrixFlag.Default,
-               ColorAdjustType.Bitmap);
-
-            int width = source.Width;
-            int height = source.Height;
-            Bitmap image = new Bitmap(width, height);
-            image.SetResolution(source.HorizontalResolution, source.VerticalResolution);
-
-            using (Graphics g = Graphics.FromImage(image))
+            byte alpha = (byte)Math.Clamp((1f - transparency) * 255f, 0f, 255f);
+            Bitmap image = CreateBitmap(source.Width, source.Height, source.ColorType, source.AlphaType, source.ColorSpace);
+            using SKCanvas canvas = new SKCanvas(image);
+            using SKPaint paint = new SKPaint
             {
-                g.Clear(Color.Transparent);
-                g.DrawImage(
-                  source,
-                  new Rectangle(0, 0, width, height),
-                  0, 0, width, height,
-                  GraphicsUnit.Pixel,
-                  imageAttributes);
-            }
+                Color = new SKColor(255, 255, 255, alpha),
+                BlendMode = SKBlendMode.Modulate,
+                IsAntialias = true
+            };
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawBitmap(source, 0, 0, paint);
             return image;
         }
 
         internal static Bitmap GetGrayscaleBitmap(Image source)
         {
-            Bitmap grayscaleBitmap = new Bitmap(source.Width, source.Height, source.PixelFormat);
+            if (source == null)
+                return null;
 
-            // Red should be converted to (R*.299)+(G*.587)+(B*.114)
-            // Green should be converted to (R*.299)+(G*.587)+(B*.114)
-            // Blue should be converted to (R*.299)+(G*.587)+(B*.114)
-            // Alpha should stay the same.
-            ColorMatrix grayscaleMatrix = new ColorMatrix(new float[][]{
-                                                          new float[] {0.299f, 0.299f, 0.299f, 0, 0},
-                                                          new float[] {0.587f, 0.587f, 0.587f, 0, 0},
-                                                          new float[] {0.114f, 0.114f, 0.114f, 0, 0},
-                                                          new float[] {     0,      0,      0, 1, 0},
-                                                          new float[] {     0,      0,      0, 0, 1}});
-
-            ImageAttributes attributes = new ImageAttributes();
-            attributes.SetColorMatrix(grayscaleMatrix);
-
-            // Use a Graphics object from the new image
-            using (Graphics graphics = Graphics.FromImage(grayscaleBitmap))
+            Bitmap grayscaleBitmap = CreateBitmap(source.Width, source.Height, source.ColorType, source.AlphaType, source.ColorSpace);
+            float[] grayscaleMatrix =
             {
-                // Draw the original image using the ImageAttributes we created
-                graphics.DrawImage(source,
-                    new Rectangle(0, 0, grayscaleBitmap.Width, grayscaleBitmap.Height),
-                    0, 0, grayscaleBitmap.Width, grayscaleBitmap.Height,
-                    GraphicsUnit.Pixel, attributes);
-            }
-
+                0.299f, 0.299f, 0.299f, 0, 0,
+                0.587f, 0.587f, 0.587f, 0, 0,
+                0.114f, 0.114f, 0.114f, 0, 0,
+                0, 0, 0, 1, 0
+            };
+            using SKCanvas canvas = new SKCanvas(grayscaleBitmap);
+            using SKPaint paint = new SKPaint
+            {
+                ColorFilter = SKColorFilter.CreateColorMatrix(grayscaleMatrix)
+            };
+            canvas.DrawBitmap(source, 0, 0, paint);
             return grayscaleBitmap;
         }
 
-        /// <summary>
-        /// Converts a PNG image to a icon (ico)
-        /// </summary>
-        /// <param name="image">The input image</param>
-        /// <param name="output">The output stream</param>
-        /// <param name="preserveAspectRatio">Preserve the aspect ratio</param>
-        /// <returns>Wether or not the icon was succesfully generated</returns>
         internal static bool SaveAsIcon(Image image, Stream output, bool preserveAspectRatio = false)
         {
+            if (image == null || output == null)
+                return false;
+
             int size = 256;
-            float width = size, height = size;
+            float width = size;
+            float height = size;
             if (preserveAspectRatio)
             {
                 if (image.Width > image.Height)
@@ -352,60 +261,29 @@ namespace FastReport.Utils
                     width = ((float)image.Width / image.Height) * size;
             }
 
-            var newBitmap = new Bitmap(image, new Size((int)width, (int)height));
+            using Bitmap newBitmap = ResizeBitmap(image, Math.Max(1, (int)width), Math.Max(1, (int)height));
             if (newBitmap == null)
                 return false;
 
-            // save the resized png into a memory stream for future use
-            using (MemoryStream memoryStream = new MemoryStream())
-            {
-                newBitmap.Save(memoryStream, ImageFormat.Png);
+            using MemoryStream memoryStream = new MemoryStream();
+            if (!TryEncode(newBitmap, memoryStream, ImageFormat.Png))
+                return false;
 
-                var iconWriter = new BinaryWriter(output);
-                if (output == null || iconWriter == null)
-                    return false;
-
-                // 0-1 reserved, 0
-                iconWriter.Write((byte)0);
-                iconWriter.Write((byte)0);
-
-                // 2-3 image type, 1 = icon, 2 = cursor
-                iconWriter.Write((short)1);
-
-                // 4-5 number of images
-                iconWriter.Write((short)1);
-
-                // image entry 1
-                // 0 image width
-                iconWriter.Write((byte)width);
-                // 1 image height
-                iconWriter.Write((byte)height);
-
-                // 2 number of colors
-                iconWriter.Write((byte)0);
-
-                // 3 reserved
-                iconWriter.Write((byte)0);
-
-                // 4-5 color planes
-                iconWriter.Write((short)0);
-
-                // 6-7 bits per pixel
-                iconWriter.Write((short)32);
-
-                // 8-11 size of image data
-                iconWriter.Write((int)memoryStream.Length);
-
-                // 12-15 offset of image data
-                iconWriter.Write((int)(6 + 16));
-
-                // write image data
-                // png data must contain the whole png data file
-                iconWriter.Write(memoryStream.ToArray());
-
-                iconWriter.Flush();
-            }
-
+            BinaryWriter iconWriter = new BinaryWriter(output);
+            iconWriter.Write((byte)0);
+            iconWriter.Write((byte)0);
+            iconWriter.Write((short)1);
+            iconWriter.Write((short)1);
+            iconWriter.Write((byte)(width >= 256 ? 0 : width));
+            iconWriter.Write((byte)(height >= 256 ? 0 : height));
+            iconWriter.Write((byte)0);
+            iconWriter.Write((byte)0);
+            iconWriter.Write((short)0);
+            iconWriter.Write((short)32);
+            iconWriter.Write((int)memoryStream.Length);
+            iconWriter.Write(6 + 16);
+            iconWriter.Write(memoryStream.ToArray());
+            iconWriter.Flush();
             return true;
         }
 
@@ -413,7 +291,10 @@ namespace FastReport.Utils
         {
             try
             {
-                return Image.FromFile(fileName);
+                Bitmap bitmap = SKBitmap.Decode(fileName);
+                if (bitmap != null)
+                    return bitmap;
+                throw new InvalidOperationException($"Cannot load image '{fileName}'.");
             }
             catch (Exception ex)
             {
@@ -432,6 +313,49 @@ namespace FastReport.Utils
                 throw new ImageLoadException(ex);
             }
         }
+
+        private static Bitmap CreateBitmap(int width, int height, SKColorType colorType, SKAlphaType alphaType, SKColorSpace colorSpace)
+        {
+            return new Bitmap(new SKImageInfo(width, height, colorType, alphaType, colorSpace));
+        }
+
+        private static Bitmap ResizeBitmap(Bitmap image, int width, int height)
+        {
+            Bitmap resized = CreateBitmap(width, height, image.ColorType, image.AlphaType, image.ColorSpace);
+            using SKCanvas canvas = new SKCanvas(resized);
+            using SKPaint paint = new SKPaint { IsAntialias = true, IsDither = true };
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawBitmap(image, new SKRect(0, 0, width, height), paint);
+            return resized;
+        }
+
+        private static bool TryEncode(Bitmap image, Stream stream, ImageFormat format)
+        {
+            SKEncodedImageFormat? encodedFormat = ToEncodedFormat(format);
+            if (encodedFormat == null)
+                return false;
+
+            using SKImage skImage = SKImage.FromBitmap(image);
+            using SKData data = skImage.Encode(encodedFormat.Value, 100);
+            if (data == null)
+                return false;
+
+            data.SaveTo(stream);
+            return true;
+        }
+
+        private static SKEncodedImageFormat? ToEncodedFormat(ImageFormat format)
+        {
+            return format switch
+            {
+                ImageFormat.Bmp => SKEncodedImageFormat.Bmp,
+                ImageFormat.MemoryBmp => SKEncodedImageFormat.Bmp,
+                ImageFormat.Png => SKEncodedImageFormat.Png,
+                ImageFormat.Jpeg => SKEncodedImageFormat.Jpeg,
+                ImageFormat.Gif => SKEncodedImageFormat.Gif,
+                _ => null
+            };
+        }
     }
 
     /// <summary>
@@ -444,44 +368,7 @@ namespace FastReport.Utils
         /// </summary>
         public static ImageFormat GetImageFormat(this Image bitmap)
         {
-            if (bitmap == null || bitmap.RawFormat == null)
-                return null;
-            ImageFormat format = null;
-            if (ImageFormat.Jpeg.Equals(bitmap.RawFormat))
-            {
-                format = ImageFormat.Jpeg;
-            }
-            else if (ImageFormat.Gif.Equals(bitmap.RawFormat))
-            {
-                format = ImageFormat.Gif;
-            }
-            else if (ImageFormat.Png.Equals(bitmap.RawFormat))
-            {
-                format = ImageFormat.Png;
-            }
-            else if (ImageFormat.Emf.Equals(bitmap.RawFormat))
-            {
-                format = ImageFormat.Emf;
-            }
-            else if (ImageFormat.Icon.Equals(bitmap.RawFormat))
-            {
-                format = ImageFormat.Icon;
-            }
-            else if (ImageFormat.Tiff.Equals(bitmap.RawFormat))
-            {
-                format = ImageFormat.Tiff;
-            }
-            else if (ImageFormat.Bmp.Equals(bitmap.RawFormat) || ImageFormat.MemoryBmp.Equals(bitmap.RawFormat)) // MemoryBmp format raises a GDI exception
-            {
-                format = ImageFormat.Bmp;
-            }
-            else if (ImageFormat.Wmf.Equals(bitmap.RawFormat))
-            {
-                format = ImageFormat.Wmf;
-            }
-            if (format != null)
-                return format;
-            return ImageFormat.Bmp;
+            return bitmap == null ? ImageFormat.Bmp : ImageFormat.Png;
         }
     }
 }
