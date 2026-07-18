@@ -1,7 +1,6 @@
 using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Design;
 using FastReport.Utils;
+using SkiaSharp;
 
 namespace FastReport
 {
@@ -45,7 +44,6 @@ namespace FastReport
         /// Gets or sets a report page that contains the subreport bands and objects.
         /// </summary>
         //[Browsable(false)]
-        [Editor("FastReport.TypeEditors.SubreportPageEditor, FastReport", typeof(UITypeEditor))]
         [TypeConverter(typeof(FastReport.TypeConverters.ComponentRefConverter))]
         public ReportPage ReportPage
         {
@@ -147,7 +145,7 @@ namespace FastReport
         /// </summary>
         public SubreportObject()
         {
-            Fill = new SolidFill(SystemColors.Control);
+            Fill = new SolidFill(new SKColor(240, 240, 240));
             FlagUseBorder = false;
             FlagUseFill = false;
             FlagPreviewVisible = false;

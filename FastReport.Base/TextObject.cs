@@ -1,15 +1,17 @@
-using System;
-using System.Text;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Text;
-using System.Drawing.Drawing2D;
-using System.ComponentModel;
-using FastReport.Utils;
-using FastReport.Format;
 using FastReport.Code;
-using System.Windows.Forms;
-using System.Drawing.Design;
+using FastReport.Format;
+using FastReport.Utils;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Text;
+using SkiaSharp;
+using Font = SkiaSharp.SKFont;
+using RectangleF = SkiaSharp.SKRect;
+using SizeF = SkiaSharp.SKSize;
+using PointF = SkiaSharp.SKPoint;
+using Bitmap = SkiaSharp.SKBitmap;
+using GraphicsPath = SkiaSharp.SKPath;
 
 namespace FastReport
 {
@@ -299,7 +301,7 @@ namespace FastReport
         private bool rightToLeft;
         private bool wordWrap;
         private bool underlines;
-        private Font font;
+        private SKFont font;
         private FillBase textFill;
         private TextOutline textOutline;
         private StringTrimming trimming;
@@ -317,7 +319,7 @@ namespace FastReport
         private float autoShrinkMinSize;
         private float paragraphOffset;
         private FillBase savedTextFill;
-        private Font savedFont;
+        private SKFont savedFont;
         private string savedText;
         private FormatBase savedFormat;
         private InlineImageCache inlineImageCache;
@@ -406,7 +408,6 @@ namespace FastReport
         /// </summary>
         [DefaultValue(0)]
         [Category("Appearance")]
-        [Editor("FastReport.TypeEditors.AngleEditor, FastReport", typeof(UITypeEditor))]
         public int Angle
         {
             get { return angle; }
@@ -450,7 +451,7 @@ namespace FastReport
         /// Gets or sets the font settings for this object.
         /// </summary>
         [Category("Appearance")]
-        public Font Font
+        public SKFont Font
         {
             get { return font; }
             set
@@ -488,7 +489,6 @@ namespace FastReport
         /// Use the <see cref="TextColor"/> property to set the solid text color.
         /// </remarks>
         [Category("Appearance")]
-        [Editor("FastReport.TypeEditors.FillEditor, FastReport", typeof(UITypeEditor))]
         public FillBase TextFill
         {
             get { return textFill; }
@@ -506,7 +506,6 @@ namespace FastReport
         /// Gets or sets the text outline.
         /// </summary>
         [Category("Appearance")]
-        [Editor("FastReport.TypeEditors.OutlineEditor, FastReport", typeof(UITypeEditor))]
         public TextOutline TextOutline
         {
             get { return textOutline; }
@@ -528,9 +527,9 @@ namespace FastReport
         /// equivalent to: <code>textObject1.TextFill = new SolidFill(color);</code>
         /// </remarks>
         [Browsable(false)]
-        public Color TextColor
+        public SKColor TextColor
         {
-            get { return TextFill is SolidFill ? (TextFill as SolidFill).Color : Color.Black; }
+            get { return TextFill is SolidFill ? (TextFill as SolidFill).Color : SKColors.Black; }
             set { TextFill = new SolidFill(value); }
         }
 
@@ -628,7 +627,6 @@ namespace FastReport
         /// </code>
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.HighlightEditor, FastReport", typeof(UITypeEditor))]
         public ConditionCollection Highlight
         {
             get { return highlight; }
@@ -754,7 +752,6 @@ namespace FastReport
         /// </summary>
         [DefaultValue(MergeMode.None)]
         [Category("Behavior")]
-        [Editor("FastReport.TypeEditors.FlagsEditor, FastReport", typeof(UITypeEditor))]
         public MergeMode MergeMode
         {
             get { return mergeMode; }
@@ -763,19 +760,65 @@ namespace FastReport
         #endregion
 
         #region Private Methods
+        private static SKColor ToSKColor(System.Drawing.Color color)
+        {
+            return new SKColor(color.R, color.G, color.B, color.A);
+        }
+
+        private static FastReport.Utils.FontStyle ToUtilsFontStyle(Font font)
+        {
+            FastReport.Utils.FontStyle style = FastReport.Utils.FontStyle.Regular;
+            SKTypeface typeface = font?.Typeface;
+            if (typeface != null)
+            {
+                if (typeface.FontWeight >= (int)SKFontStyleWeight.SemiBold)
+                    style |= FastReport.Utils.FontStyle.Bold;
+                if (typeface.FontSlant != SKFontStyleSlant.Upright)
+                    style |= FastReport.Utils.FontStyle.Italic;
+            }
+            return style;
+        }
+
+        private static FastReport.Utils.StringFormat ToUtilsStringFormat(StringFormat format)
+        {
+            if (format == null)
+                return null;
+
+            return new FastReport.Utils.StringFormat
+            {
+                Alignment = format.Alignment,
+                LineAlignment = format.LineAlignment,
+                Trimming = format.Trimming,
+                FormatFlags = format.FormatFlags
+            };
+        }
+
+        private Font CreateFont(float size)
+        {
+            SKTypeface typeface = Font?.Typeface ?? SKTypeface.Default;
+            SKFontStyle style = new SKFontStyle(typeface.FontWeight, typeface.FontWidth, typeface.FontSlant);
+            return new Font(SKTypeface.FromFamilyName(typeface.FamilyName, style) ?? SKTypeface.Default, size);
+        }
+
+        private static float GetFontLineHeight(Font font)
+        {
+            SKFontMetrics metrics = font.Metrics;
+            return metrics.Descent - metrics.Ascent + metrics.Leading;
+        }
+
         private void DrawUnderlines(FRPaintEventArgs e)
         {
             if (!Underlines || Angle != 0)
                 return;
 
             IGraphics g = e.Graphics;
-            float lineHeight = LineHeight == 0 ? Font.GetHeight() * DrawUtils.ScreenDpiFX : LineHeight;
+            float lineHeight = LineHeight == 0 ? GetFontLineHeight(Font) * DrawUtils.ScreenDpiFX : LineHeight;
             lineHeight *= e.ScaleY;
             float curY = AbsTop * e.ScaleY + lineHeight + 1;
-            Pen pen = e.Cache.GetPen(Border.Color, Border.Width * e.ScaleY, DashStyle.Solid);
+            using SKPaint pen = new SKPaint { Color = Border.Color, StrokeWidth = Border.Width * e.ScaleY, Style = SKPaintStyle.Stroke, IsAntialias = true };
             while (curY < AbsBottom * e.ScaleY)
             {
-                g.DrawLine(pen, AbsLeft * e.ScaleX, curY, AbsRight * e.ScaleY, curY);
+                g.DrawLine(pen, AbsLeft * e.ScaleX, curY, AbsRight * e.ScaleX, curY);
                 curY += lineHeight;
             }
         }
@@ -786,7 +829,7 @@ namespace FastReport
             if (String.IsNullOrEmpty(Text) || report == null)
                 return new SizeF(0, 0);
 
-            Font font = report.GraphicCache.GetFont(Font.FontFamily, Font.Size * 96f / DrawUtils.ScreenDpi, Font.Style);
+            Font font = CreateFont(Font.Size * 96f / DrawUtils.ScreenDpi);
             float width = 0;
             if (WordWrap)
             {
@@ -800,8 +843,6 @@ namespace FastReport
             IGraphicsState state = g.Save();
             try
             {
-                if (report.TextQuality != TextQuality.Default)
-                    g.TextRenderingHint = report.GetTextQuality();
                 if (TextRenderType == TextRenderType.HtmlParagraph)
                 {
                     if (width == 0)
@@ -827,8 +868,8 @@ namespace FastReport
                 {
                     if (width == 0)
                         width = 100000;
-                    AdvancedTextRenderer renderer = new AdvancedTextRenderer(Text, g, font, Brushes.Black, Pens.Black,
-                        new RectangleF(0, 0, width, 100000), GetStringFormat(report.GraphicCache, 0),
+                    AdvancedTextRenderer renderer = new AdvancedTextRenderer(Text, g, font, new SolidBrush(SKColors.Black), new FastReport.Pen(SKColors.Black, 1),
+                        new RectangleF(0, 0, width, 100000), ToUtilsStringFormat(GetStringFormat(report.GraphicCache, 0)),
                         HorzAlign, VertAlign, LineHeight, Angle, FontWidthRatio, false, Wysiwyg, HasHtmlTags, false, 96f / DrawUtils.ScreenDpi,
                         96f / DrawUtils.ScreenDpi, InlineImageCache);
                     float height = renderer.CalcHeight();
@@ -900,12 +941,10 @@ namespace FastReport
             IGraphics g = report.MeasureGraphics;
             IGraphicsState state = g.Save();
 
-            if (report.TextQuality != TextQuality.Default)
-                g.TextRenderingHint = report.GetTextQuality();
 
             try
             {
-                using (HtmlTextRenderer htmlRenderer = GetHtmlTextRenderer(g, 1, 1, textRect, format))
+                using (HtmlTextRenderer htmlRenderer = GetHtmlTextRenderer(g, 1, 1, textRect, ToUtilsStringFormat(format)))
                 {
                     htmlRenderer.CalcHeight(out charactersFitted);
                     if (charactersFitted == 0)
@@ -940,7 +979,7 @@ namespace FastReport
             if (report == null)
                 return "";
 
-            Font font = report.GraphicCache.GetFont(Font.FontFamily, Font.Size * 96f / DrawUtils.ScreenDpi, Font.Style);
+            Font font = CreateFont(Font.Size * 96f / DrawUtils.ScreenDpi);
             StringFormat format = GetStringFormat(report.GraphicCache, StringFormatFlags.LineLimit);
             RectangleF textRect = new RectangleF(0, 0, Width - Padding.Horizontal, Height - Padding.Vertical);
             if (textRect.Height < 0)
@@ -953,15 +992,13 @@ namespace FastReport
             IGraphicsState state = g.Save();
             try
             {
-                if (report.TextQuality != TextQuality.Default)
-                    g.TextRenderingHint = report.GetTextQuality();
 
                 AdvancedTextRenderer.StyleDescriptor htmlStyle = null;
 
                 if (IsAdvancedRendererNeeded)
                 {
-                    AdvancedTextRenderer renderer = new AdvancedTextRenderer(Text, g, font, Brushes.Black, Pens.Black,
-                      textRect, format, HorzAlign, VertAlign, LineHeight, Angle, FontWidthRatio, false, Wysiwyg, HasHtmlTags, false, 96f / DrawUtils.ScreenDpi,
+                    AdvancedTextRenderer renderer = new AdvancedTextRenderer(Text, g, font, new SolidBrush(SKColors.Black), new FastReport.Pen(SKColors.Black, 1),
+                      textRect, ToUtilsStringFormat(format), HorzAlign, VertAlign, LineHeight, Angle, FontWidthRatio, false, Wysiwyg, HasHtmlTags, false, 96f / DrawUtils.ScreenDpi,
                        96f / DrawUtils.ScreenDpi, InlineImageCache);
                     renderer.CalcHeight(out charactersFitted, out htmlStyle);
 
@@ -972,7 +1009,7 @@ namespace FastReport
                 }
                 else
                 {
-                    g.MeasureString(Text, font, textRect.Size, format, out charactersFitted, out linesFilled);
+                    g.MeasureString(Text, font, textRect.Size, null, out charactersFitted, out linesFilled);
                 }
 
 
@@ -1022,7 +1059,7 @@ namespace FastReport
             {
                 while (CalcWidth() > Width - 1 && Font.Size > AutoShrinkMinSize && Font.Size > 1)
                 {
-                    Font = new Font(Font.FontFamily, Font.Size - 1, Font.Style);
+                    Font = CreateFont(Font.Size - 1);
                 }
             }
             else if (AutoShrink == AutoShrinkMode.FontWidth)
@@ -1036,7 +1073,7 @@ namespace FastReport
             {
                 while (CalcHeight() > Height - 1 && Font.Size > AutoShrinkMinSize && Font.Size > 1)
                 {
-                    Font = new Font(Font.FontFamily, Font.Size - 1, Font.Style);
+                    Font = CreateFont(Font.Size - 1);
                 }
             }
         }
@@ -1158,29 +1195,29 @@ namespace FastReport
 
         internal HtmlTextRenderer GetHtmlTextRenderer(IGraphics g, float scale, float fontScale)
         {
-            StringFormat format = GetStringFormat(Report.GraphicCache, 0, scale);
+            FastReport.Utils.StringFormat format = ToUtilsStringFormat(GetStringFormat(Report.GraphicCache, 0, scale));
             RectangleF textRect = new RectangleF(
                 (AbsLeft + Padding.Left) * scale,
                 (AbsTop + Padding.Top) * scale,
-                (Width - Padding.Horizontal) * scale,
-                (Height - Padding.Vertical) * scale);
+                (AbsLeft + Width - Padding.Right) * scale,
+                (AbsTop + Height - Padding.Bottom) * scale);
             return GetHtmlTextRenderer(g, scale, fontScale, textRect, format);
 
         }
 
         internal HtmlTextRenderer GetHtmlTextRenderer(IGraphics g, RectangleF textRect, float scale, float fontScale)
         {
-            StringFormat format = GetStringFormat(Report.GraphicCache, 0, fontScale);
+            FastReport.Utils.StringFormat format = ToUtilsStringFormat(GetStringFormat(Report.GraphicCache, 0, fontScale));
             return GetHtmlTextRenderer(g, scale, fontScale, textRect, format);
         }
 
-        internal HtmlTextRenderer GetHtmlTextRenderer(IGraphics g, float scale, float fontScale, RectangleF textRect, StringFormat format)
+        internal HtmlTextRenderer GetHtmlTextRenderer(IGraphics g, float scale, float fontScale, RectangleF textRect, FastReport.Utils.StringFormat format)
         {
             return GetHtmlTextRenderer(Text, g, fontScale, scale, fontScale, textRect, format, false);
         }
 
         internal HtmlTextRenderer GetHtmlTextRenderer(string text, IGraphics g, float formatScale, float scale, float fontScale,
-            RectangleF textRect, StringFormat format, bool isPrinting)
+            RectangleF textRect, FastReport.Utils.StringFormat format, bool isPrinting)
         {
 #if true
             HtmlTextRenderer.RendererContext context;
@@ -1188,11 +1225,11 @@ namespace FastReport
             context.widthRatio = FontWidthRatio;
             context.text = text;
             context.g = g;
-            context.font = font.FontFamily;
+            context.font = new FontFamily(font.Typeface?.FamilyName ?? FontFamily.GenericSansSerif.Name);
             context.size = font.Size;
-            context.style = font.Style; // no keep
+            context.style = ToUtilsFontStyle(font);
             context.color = TextColor; // no keep
-            context.underlineColor = textOutline.Color;
+            context.underlineColor = ToSKColor(textOutline.Color);
             context.rect = textRect;
             context.underlines = Underlines;
             context.format = format; // no keep
@@ -1230,43 +1267,37 @@ namespace FastReport
                 RectangleF textRect = new RectangleF(
                   (AbsLeft + Padding.Left) * e.ScaleX,
                   (AbsTop + Padding.Top) * e.ScaleY,
-                  (Width - Padding.Horizontal) * e.ScaleX,
-                  (Height - Padding.Vertical) * e.ScaleY);
+                  (AbsLeft + Width - Padding.Right) * e.ScaleX,
+                  (AbsTop + Height - Padding.Bottom) * e.ScaleY);
 
                 if (ParagraphOffset != 0 && IsDesigning)
                     text = MakeParagraphOffset(text);
                 StringFormat format = GetStringFormat(e.Cache, 0, e.ScaleX);
+                FastReport.Utils.StringFormat utilsFormat = ToUtilsStringFormat(format);
 
-                Font font = e.Cache.GetFont(Font.FontFamily,
-                  IsPrinting ? Font.Size : Font.Size * e.ScaleX * 96f / DrawUtils.ScreenDpi,
-                  Font.Style);
+                Font font = CreateFont(IsPrinting ? Font.Size : Font.Size * e.ScaleX * 96f / DrawUtils.ScreenDpi);
 
-                Brush textBrush = null;
-                if (TextFill is SolidFill)
-                    textBrush = e.Cache.GetBrush((TextFill as SolidFill).Color);
-                else
-                    textBrush = TextFill.CreateBrush(textRect, e.ScaleX, e.ScaleY);
+                Brush textBrush = TextFill is SolidFill
+                    ? e.Cache.GetBrush((TextFill as SolidFill).Color)
+                    : TextFill.CreateBrush(textRect, e.ScaleX, e.ScaleY);
 
                 Pen outlinePen = null;
                 if (textOutline.Enabled)
-                    outlinePen = e.Cache.GetPen(textOutline.Color, textOutline.Width * e.ScaleX, textOutline.Style);
-
-                Report report = Report;
-                if (report != null && report.TextQuality != TextQuality.Default)
-                    g.TextRenderingHint = report.GetTextQuality();
+                    outlinePen = e.Cache.GetPen(ToSKColor(textOutline.Color), textOutline.Width * e.ScaleX, textOutline.Style);
 
                 if (textRect.Width > 0 && textRect.Height > 0)
                 {
                     switch (TextRenderType)
                     {
                         case TextRenderType.Inline:
-                            g.DrawString(text, font, textBrush, textRect.X, textRect.Y, StringFormat.GenericTypographic);
+                            using (SKPaint inlinePaint = new SKPaint { Color = (textBrush as SolidBrush)?.Color ?? SKColors.Black, Style = SKPaintStyle.Fill, IsAntialias = true })
+                                g.DrawString(text, font, inlinePaint, textRect, null);
                             break;
                         case TextRenderType.HtmlParagraph:
                             try
                             {
                                 using (HtmlTextRenderer htmlRenderer = GetHtmlTextRenderer(text, e.Graphics, e.ScaleX,
-                                    IsPrinting ? 1 : e.ScaleX, IsPrinting ? 1 / (96f / DrawUtils.ScreenDpi) : e.ScaleX, textRect, format, IsPrinting))
+                                    IsPrinting ? 1 : e.ScaleX, IsPrinting ? 1 / (96f / DrawUtils.ScreenDpi) : e.ScaleX, textRect, utilsFormat, IsPrinting))
                                 {
                                     htmlRenderer.Draw();
                                 }
@@ -1280,9 +1311,8 @@ namespace FastReport
                         default:
                             if (IsAdvancedRendererNeeded)
                             {
-                                // use advanced rendering
                                 AdvancedTextRenderer advancedRenderer = new AdvancedTextRenderer(text, g, font, textBrush,
-                                    outlinePen, textRect, format, HorzAlign, VertAlign, LineHeight * e.ScaleY, Angle,
+                                    outlinePen, textRect, utilsFormat, HorzAlign, VertAlign, LineHeight * e.ScaleY, Angle,
                                     FontWidthRatio, ForceJustify, Wysiwyg, HasHtmlTags, false,
                                     e.ScaleX * 96f / DrawUtils.ScreenDpi,
                                     IsPrinting ? 1 : e.ScaleX * 96f / DrawUtils.ScreenDpi, InlineImageCache, IsPrinting);
@@ -1290,52 +1320,24 @@ namespace FastReport
                             }
                             else
                             {
-                                // use simple rendering
-                                if (Angle == 0 && FontWidthRatio == 1)
+                                text = text.Replace('\v', '\n');
+                                if (Angle == 0 && FontWidthRatio == 1 && outlinePen == null)
                                 {
-                                    text = text.Replace('\v', '\n');
-                                    if (outlinePen == null)
-                                    {
-                                        if (WordWrap)
-                                            format.Trimming = StringTrimming.Word;
-
-                                        g.DrawString(text, font, textBrush, textRect, format);
-                                    }
-                                    else
-                                    {
-                                        GraphicsPath path = new GraphicsPath();
-                                        path.AddString(text, font.FontFamily, Convert.ToInt32(font.Style),
-                                            g.DpiY * font.Size / 72, textRect, format);
-
-                                        IGraphicsState state = g.Save();
-                                        g.SetClip(textRect);
-                                        //g.FillPath(textBrush, path);
-
-                                        //regime for text output with drawbehind 
-                                        if (TextOutline.DrawBehind)
-                                        {
-                                            g.DrawPath(outlinePen, path);
-                                            g.FillPath(textBrush, path);
-                                        }
-                                        else //without. default
-                                        {
-                                            g.FillAndDrawPath(outlinePen, textBrush, path);
-                                        }
-                                        g.Restore(state);
-
-                                    }
+                                    using SKPaint simplePaint = new SKPaint { Color = (textBrush as SolidBrush)?.Color ?? SKColors.Black, Style = SKPaintStyle.Fill, IsAntialias = true };
+                                    g.DrawString(text, font, simplePaint, textRect, null);
                                 }
                                 else
-                                    StandardTextRenderer.Draw(text, g, font, textBrush, outlinePen, textRect, format, Angle,
+                                {
+                                    StandardTextRenderer.Draw(text, g, font, textBrush, outlinePen, textRect, utilsFormat, Angle,
                                         FontWidthRatio);
-
+                                }
                             }
                             DrawUnderlines(e);
                             break;
                     }
 
                 }
-                if (!(TextFill is SolidFill))
+                if (!(TextFill is SolidFill) && textBrush != null)
                 {
                     textBrush.Dispose();
                 }
@@ -1349,7 +1351,7 @@ namespace FastReport
             base.Draw(e);
             DrawText(e);
             DrawMarkers(e);
-            Border.Draw(e, new RectangleF(AbsLeft, AbsTop, Width, Height));
+            Border.Draw(e, new RectangleF(AbsLeft, AbsTop, AbsLeft + Width, AbsTop + Height));
             DrawDesign(e);
         }
 
@@ -1529,7 +1531,7 @@ namespace FastReport
                                 {
                                     if (major < 2016)
                                     {
-                                        Font = new Font("Arial", 10);
+                                        Font = new Font(SKTypeface.FromFamilyName("Arial") ?? SKTypeface.Default, 10);
                                     }
                                 }
                             }
@@ -1747,11 +1749,11 @@ namespace FastReport
                     RectangleF textRect = new RectangleF(
                       (AbsLeft + Padding.Left),
                       (AbsTop + Padding.Top),
-                      (Width - Padding.Horizontal),
-                      (Height - Padding.Vertical));
+                      (AbsLeft + Width - Padding.Right),
+                      (AbsTop + Height - Padding.Bottom));
                     StringFormat format = GetStringFormat(Report.GraphicCache, StringFormatFlags.LineLimit);
-                    renderer = new AdvancedTextRenderer(Text, g, Font, Brushes.Black, Pens.Black,
-                        textRect, format, HorzAlign, VertAlign, LineHeight, Angle, FontWidthRatio,
+                    renderer = new AdvancedTextRenderer(Text, g, Font, new SolidBrush(SKColors.Black), new FastReport.Pen(SKColors.Black, 1),
+                        textRect, ToUtilsStringFormat(format), HorzAlign, VertAlign, LineHeight, Angle, FontWidthRatio,
                         ForceJustify, Wysiwyg, HasHtmlTags, false, 1, 1,
                         InlineImageCache);
                     foreach (PictureObject obj in GetPictureFromHtmlText(renderer))
@@ -1792,13 +1794,13 @@ namespace FastReport
 
                                     if (left < 0 || top < 0 || width < runImage.Width || height < runImage.Height)
                                     {
-                                        Bitmap bmp = new Bitmap((int)width, (int)height);
-                                        using (Graphics g = Graphics.FromImage(bmp))
+                                        int bmpWidth = Math.Max(1, (int)width);
+                                        int bmpHeight = Math.Max(1, (int)height);
+                                        Bitmap bmp = new Bitmap(bmpWidth, bmpHeight);
+                                        using (SKCanvas canvas = new SKCanvas(bmp))
                                         {
-                                            g.DrawImage(runImage.Image, new PointF(
-                                              left < 0 ? left : 0,
-                                              top < 0 ? top : 0
-                                              ));
+                                            canvas.Clear(SKColors.Transparent);
+                                            canvas.DrawBitmap(runImage.Image, left < 0 ? left : 0, top < 0 ? top : 0);
                                         }
                                         obj.Image = bmp;
                                         obj.Left = (left < 0 ? textRect.Left : runImage.Left) / renderer.Scale;
@@ -1830,7 +1832,7 @@ namespace FastReport
             paragraphFormat = new ParagraphFormat();
             wordWrap = true;
             font = DrawUtils.DefaultReportFont;
-            textFill = new SolidFill(Color.Black);
+            textFill = new SolidFill(SKColors.Black);
             textOutline = new TextOutline();
             trimming = StringTrimming.None;
             fontWidthRatio = 1;

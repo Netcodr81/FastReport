@@ -1,10 +1,8 @@
+using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using FastReport.Utils;
-using System.Drawing.Design;
 
 namespace FastReport
 {
@@ -29,7 +27,7 @@ namespace FastReport
         private string expression;
         private string text;
 
-        private static List<Point[]> FDigits;
+        private static List<SKPoint[]> FDigits;
         #endregion
 
         #region Properties
@@ -109,7 +107,6 @@ namespace FastReport
         /// Value must be in the form "Datasource.Column".
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.DataColumnEditor, FastReport", typeof(UITypeEditor))]
         public string DataColumn
         {
             get { return dataColumn; }
@@ -120,7 +117,6 @@ namespace FastReport
         /// Gets or sets an expression that contains the zip code.
         /// </summary>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string Expression
         {
             get { return expression; }
@@ -142,10 +138,13 @@ namespace FastReport
         private void DrawSegmentGrid(FRPaintEventArgs e, float offsetX, float offsetY)
         {
             IGraphics g = e.Graphics;
-            SmoothingMode saveSmoothing = g.SmoothingMode;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
 
-            Brush b = e.Cache.GetBrush(Border.Color);
+            using SKPaint paint = new SKPaint
+            {
+                Color = Border.Color,
+                Style = SKPaintStyle.Fill,
+                IsAntialias = true
+            };
 
             int[] grid = new int[] { 111111, 110001, 101001, 100101, 100011, 111111, 110001, 101001, 100101, 100011, 111111 };
             float ratioX = segmentWidth / (Units.Centimeters * 0.5f);
@@ -161,7 +160,7 @@ namespace FastReport
                 while (row > 0)
                 {
                     if (row % 10 == 1)
-                        g.FillEllipse(b, (x + offsetX - pointSize / 2) * e.ScaleX, (y + offsetY - pointSize / 2) * e.ScaleY,
+                        g.FillEllipse(paint, (x + offsetX - pointSize / 2) * e.ScaleX, (y + offsetY - pointSize / 2) * e.ScaleY,
                           pointSize * e.ScaleX, pointSize * e.ScaleY);
                     row /= 10;
 
@@ -170,24 +169,27 @@ namespace FastReport
 
                 y += Units.Millimeters * 1 * ratioY;
             }
-
-            g.SmoothingMode = saveSmoothing;
         }
 
         private void DrawReferenceLine(FRPaintEventArgs e, float offsetX)
         {
             IGraphics g = e.Graphics;
-            Brush b = e.Cache.GetBrush(Border.Color);
+            using SKPaint paint = new SKPaint
+            {
+                Color = Border.Color,
+                Style = SKPaintStyle.Fill,
+                IsAntialias = true
+            };
 
-            g.FillRectangle(b,
-              new RectangleF((AbsLeft + offsetX) * e.ScaleX, AbsTop * e.ScaleY,
+            g.FillRectangle(paint,
+              new SKRect((AbsLeft + offsetX) * e.ScaleX, AbsTop * e.ScaleY,
                 Units.Millimeters * 7 * e.ScaleX, Units.Millimeters * 2 * e.ScaleY));
 
             // draw start line
             if (offsetX == 0)
             {
-                g.FillRectangle(b,
-                  new RectangleF((AbsLeft + offsetX) * e.ScaleX, (AbsTop + Units.Millimeters * 3) * e.ScaleY,
+                g.FillRectangle(paint,
+                  new SKRect((AbsLeft + offsetX) * e.ScaleX, (AbsTop + Units.Millimeters * 3) * e.ScaleY,
                     Units.Millimeters * 7 * e.ScaleX, Units.Millimeters * 1 * e.ScaleY));
             }
         }
@@ -220,23 +222,25 @@ namespace FastReport
             // draw symbol
             if (symbol != -1)
             {
-                Point[] digit = FDigits[symbol];
-                PointF[] path = new PointF[digit.Length];
+                SKPoint[] digit = FDigits[symbol];
+                SKPoint[] path = new SKPoint[digit.Length];
                 float ratioX = segmentWidth / (Units.Centimeters * 0.5f);
                 float ratioY = segmentHeight / (Units.Centimeters * 1);
 
                 for (int i = 0; i < digit.Length; i++)
                 {
-                    path[i] = new PointF((AbsLeft + digit[i].X * Units.Millimeters * ratioX + offsetX) * e.ScaleX,
+                    path[i] = new SKPoint((AbsLeft + digit[i].X * Units.Millimeters * ratioX + offsetX) * e.ScaleX,
                       (AbsTop + digit[i].Y * Units.Millimeters * ratioY + offsetY) * e.ScaleY);
                 }
 
-                using (Pen pen = new Pen(Border.Color, Border.Width * e.ScaleX))
+                using (SKPaint paint = new SKPaint())
                 {
-                    pen.StartCap = LineCap.Round;
-                    pen.EndCap = LineCap.Round;
-                    pen.LineJoin = LineJoin.Round;
-                    g.DrawLines(pen, path);
+                    paint.Color = Border.Color;
+                    paint.StrokeWidth = Border.Width * e.ScaleX;
+                    paint.IsStroke = true;
+                    paint.StrokeCap = SKStrokeCap.Round;
+                    paint.StrokeJoin = SKStrokeJoin.Round;
+                    g.DrawLines(paint, path);
                 }
             }
         }
@@ -379,17 +383,17 @@ namespace FastReport
 
         static ZipCodeObject()
         {
-            FDigits = new List<Point[]>();
-            FDigits.Add(new Point[] { new Point(0, 0), new Point(5, 0), new Point(5, 10), new Point(0, 10), new Point(0, 0) });
-            FDigits.Add(new Point[] { new Point(0, 5), new Point(5, 0), new Point(5, 10) });
-            FDigits.Add(new Point[] { new Point(0, 0), new Point(5, 0), new Point(5, 5), new Point(0, 10), new Point(5, 10) });
-            FDigits.Add(new Point[] { new Point(0, 0), new Point(5, 0), new Point(0, 5), new Point(5, 5), new Point(0, 10) });
-            FDigits.Add(new Point[] { new Point(0, 0), new Point(0, 5), new Point(5, 5), new Point(5, 0), new Point(5, 10) });
-            FDigits.Add(new Point[] { new Point(5, 0), new Point(0, 0), new Point(0, 5), new Point(5, 5), new Point(5, 10), new Point(0, 10) });
-            FDigits.Add(new Point[] { new Point(5, 0), new Point(0, 5), new Point(0, 10), new Point(5, 10), new Point(5, 5), new Point(0, 5) });
-            FDigits.Add(new Point[] { new Point(0, 0), new Point(5, 0), new Point(0, 5), new Point(0, 10) });
-            FDigits.Add(new Point[] { new Point(0, 5), new Point(0, 0), new Point(5, 0), new Point(5, 10), new Point(0, 10), new Point(0, 5), new Point(5, 5) });
-            FDigits.Add(new Point[] { new Point(5, 5), new Point(0, 5), new Point(0, 0), new Point(5, 0), new Point(5, 5), new Point(0, 10) });
+            FDigits = new List<SKPoint[]>();
+            FDigits.Add(new SKPoint[] { new SKPoint(0, 0), new SKPoint(5, 0), new SKPoint(5, 10), new SKPoint(0, 10), new SKPoint(0, 0) });
+            FDigits.Add(new SKPoint[] { new SKPoint(0, 5), new SKPoint(5, 0), new SKPoint(5, 10) });
+            FDigits.Add(new SKPoint[] { new SKPoint(0, 0), new SKPoint(5, 0), new SKPoint(5, 5), new SKPoint(0, 10), new SKPoint(5, 10) });
+            FDigits.Add(new SKPoint[] { new SKPoint(0, 0), new SKPoint(5, 0), new SKPoint(0, 5), new SKPoint(5, 5), new SKPoint(0, 10) });
+            FDigits.Add(new SKPoint[] { new SKPoint(0, 0), new SKPoint(0, 5), new SKPoint(5, 5), new SKPoint(5, 0), new SKPoint(5, 10) });
+            FDigits.Add(new SKPoint[] { new SKPoint(5, 0), new SKPoint(0, 0), new SKPoint(0, 5), new SKPoint(5, 5), new SKPoint(5, 10), new SKPoint(0, 10) });
+            FDigits.Add(new SKPoint[] { new SKPoint(5, 0), new SKPoint(0, 5), new SKPoint(0, 10), new SKPoint(5, 10), new SKPoint(5, 5), new SKPoint(0, 5) });
+            FDigits.Add(new SKPoint[] { new SKPoint(0, 0), new SKPoint(5, 0), new SKPoint(0, 5), new SKPoint(0, 10) });
+            FDigits.Add(new SKPoint[] { new SKPoint(0, 5), new SKPoint(0, 0), new SKPoint(5, 0), new SKPoint(5, 10), new SKPoint(0, 10), new SKPoint(0, 5), new SKPoint(5, 5) });
+            FDigits.Add(new SKPoint[] { new SKPoint(5, 5), new SKPoint(0, 5), new SKPoint(0, 0), new SKPoint(5, 0), new SKPoint(5, 5), new SKPoint(0, 10) });
         }
     }
 }

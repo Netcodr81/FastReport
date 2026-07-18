@@ -1,8 +1,6 @@
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.ComponentModel;
 using FastReport.Utils;
-using System.Drawing.Design;
+using SkiaSharp;
+using System.ComponentModel;
 
 namespace FastReport
 {
@@ -16,7 +14,7 @@ namespace FastReport
         #region Fields
 
         private bool enabled;
-        private Color color;
+        private SKColor color;
         private float width;
         private DashStyle style;
         private bool drawbehind;
@@ -50,8 +48,7 @@ namespace FastReport
         /// <summary>
         /// Gets or sets the outline color.
         /// </summary>
-        [Editor("FastReport.TypeEditors.ColorEditor, FastReport", typeof(UITypeEditor))]
-        public Color Color
+        public SKColor Color
         {
             get { return color; }
             set { color = value; }
@@ -89,7 +86,7 @@ namespace FastReport
         public TextOutline()
         {
             enabled = false;
-            color = Color.Black;
+            color = SKColors.Black;
             width = 1.0f;
             style = DashStyle.Solid;
             drawbehind = false;
@@ -103,7 +100,7 @@ namespace FastReport
         /// <param name="width">Outline width.</param>
         /// <param name="style">Outline style.</param>
         /// <param name="drawbehind">True if outline should be drawn behind text.</param>
-        public TextOutline(bool enabled, Color color, float width, DashStyle style, bool drawbehind)
+        public TextOutline(bool enabled, SKColor color, float width, DashStyle style, bool drawbehind)
         {
             this.enabled = enabled;
             this.color = color;
