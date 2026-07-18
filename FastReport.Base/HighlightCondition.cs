@@ -1,7 +1,5 @@
-using System.Drawing;
-using System.ComponentModel;
 using FastReport.Utils;
-using System.Drawing.Design;
+using SkiaSharp;
 
 namespace FastReport
 {
@@ -24,7 +22,6 @@ namespace FastReport
         /// This property can contain any valid boolean expression. If value of this expression is <b>true</b>,
         /// the fill and font settings will be applied to the <b>TextObject</b>.
         /// </remarks>
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string Expression
         {
             get { return expression; }
@@ -102,7 +99,7 @@ namespace FastReport
         public HighlightCondition()
         {
             Expression = "";
-            TextFill = new SolidFill(Color.Red);
+            TextFill = new SolidFill(SKColors.Red);
             Visible = true;
             ApplyBorder = false;
             ApplyFill = false;

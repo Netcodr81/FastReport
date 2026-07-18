@@ -1,8 +1,10 @@
 using FastReport.Utils;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Drawing2D;
+using SkiaSharp;
+using GdiGraphics = FastReport.GdiGraphics;
+using RectangleF = SkiaSharp.SKRect;
+using Bitmap = SkiaSharp.SKBitmap;
 
 namespace FastReport
 {
@@ -20,22 +22,34 @@ namespace FastReport
             pictObj.Assign(this);
             pictObj.SetParentCore(this.Parent);
 
-            RectangleF rect = CreatePath().GetBounds();
-            rect.X -= Border.Width / 2;
-            rect.Width += Border.Width;
-            rect.Y -= Border.Width / 2;
-            rect.Height += Border.Width;
-            Bitmap b = new Bitmap((int)Math.Ceiling(rect.Width), (int)Math.Ceiling(rect.Height));
-            using (Graphics g = Graphics.FromImage(b))
+            SKRect skRect;
+            CreatePath().GetBounds(out skRect);
+            skRect.Left -= Border.Width / 2;
+            skRect.Top -= Border.Width / 2;
+            skRect.Right += Border.Width / 2;
+            skRect.Bottom += Border.Width / 2;
+
+            int width = (int)Math.Ceiling(skRect.Width);
+            int height = (int)Math.Ceiling(skRect.Height);
+            using SKBitmap bitmap = new SKBitmap(width, height);
+            using (SKCanvas canvas = new SKCanvas(bitmap))
+            using (GdiGraphics g = new GdiGraphics(canvas, false))
             {
-                g.TranslateTransform(-(int)Math.Ceiling(rect.X), -(int)Math.Ceiling(rect.Y));
+                g.TranslateTransform(-skRect.Left, -skRect.Top);
                 Draw(new FRPaintEventArgs(g, 1, 1, Report.GraphicCache));
+                canvas.Flush();
             }
-            pictObj.Left += rect.Left - pictObj.AbsLeft;
-            pictObj.Top += rect.Top - pictObj.AbsTop;
-            pictObj.Width = rect.Width;
-            pictObj.Height = rect.Height;
-            pictObj.Image = b;
+
+            using (SKImage image = SKImage.FromBitmap(bitmap))
+            using (SKData data = image.Encode(SKEncodedImageFormat.Png, 100))
+            {
+                pictObj.SetImageData(data.ToArray());
+            }
+
+            pictObj.Left += skRect.Left - pictObj.AbsLeft;
+            pictObj.Top += skRect.Top - pictObj.AbsTop;
+            pictObj.Width = skRect.Width;
+            pictObj.Height = skRect.Height;
 
             yield return pictObj;
         }

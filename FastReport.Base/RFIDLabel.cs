@@ -1,9 +1,8 @@
 ﻿using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.ComponentModel;
-using System.Drawing;
 using System.Text;
-using System.Windows.Forms;
 
 namespace FastReport
 {
@@ -505,7 +504,7 @@ namespace FastReport
         {
             DrawBackground(e);
             DrawMarkers(e);
-            Border.Draw(e, new RectangleF(AbsLeft, AbsTop, Width, Height));
+            Border.Draw(e, new SKRect(AbsLeft, AbsTop, AbsLeft + Width, AbsTop + Height));
             base.Draw(e);
         }
 

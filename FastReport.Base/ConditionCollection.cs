@@ -1,9 +1,5 @@
-using System;
-using System.IO;
-using System.Collections;
-using System.Collections.Generic;
-using System.ComponentModel;
 using FastReport.Utils;
+using System.Collections;
 
 namespace FastReport
 {

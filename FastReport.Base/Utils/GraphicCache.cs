@@ -1,11 +1,115 @@
 using FastReport.Utils;
 using System;
 using System.Collections;
-using System.Drawing;
-using System.Drawing.Drawing2D;
+using SkiaSharp;
 
 namespace FastReport
 {
+    public enum DashStyle
+    {
+        Solid,
+        Dash,
+        Dot,
+        DashDot,
+        DashDotDot,
+        Double
+    }
+
+    public enum LineJoin
+    {
+        Miter,
+        Round,
+        Bevel
+    }
+
+    public enum StringAlignment
+    {
+        Near,
+        Center,
+        Far
+    }
+
+    public enum StringTrimming
+    {
+        None,
+        Character,
+        Word,
+        EllipsisCharacter,
+        EllipsisWord,
+        EllipsisPath
+    }
+
+    [Flags]
+    public enum StringFormatFlags
+    {
+        None = 0,
+        DirectionRightToLeft = 1,
+        DirectionVertical = 2,
+        FitBlackBox = 4,
+        DisplayFormatControl = 32,
+        NoFontFallback = 1024,
+        MeasureTrailingSpaces = 2048,
+        NoWrap = 4096,
+        LineLimit = 8192,
+        NoClip = 16384
+    }
+
+    public abstract class Brush : IDisposable
+    {
+        public virtual void Dispose()
+        {
+        }
+    }
+
+    public sealed class SolidBrush : Brush
+    {
+        public SKColor Color { get; }
+
+        public SolidBrush(SKColor color)
+        {
+            Color = color;
+        }
+    }
+
+    public sealed class Pen : IDisposable
+    {
+        public SKColor Color { get; }
+        public float Width { get; }
+        public DashStyle DashStyle { get; set; }
+        public float[] DashPattern { get; set; }
+        public LineJoin LineJoin { get; set; }
+
+        public Pen(SKColor color, float width)
+        {
+            Color = color;
+            Width = width;
+            DashStyle = DashStyle.Solid;
+            LineJoin = LineJoin.Miter;
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    public sealed class StringFormat : IDisposable
+    {
+        public StringAlignment Alignment { get; set; }
+        public StringAlignment LineAlignment { get; set; }
+        public StringTrimming Trimming { get; set; }
+        public StringFormatFlags FormatFlags { get; set; }
+        public float[] TabStops { get; private set; }
+
+        public void SetTabStops(float firstTabOffset, float[] tabStops)
+        {
+            TabStops = tabStops;
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
     /// <summary>
     /// Represents a cache of graphics objects such as pens, brushes, fonts and text formats.
     /// </summary>
@@ -38,7 +142,7 @@ namespace FastReport
         /// <param name="width">Width of a pen.</param>
         /// <param name="style">Dash style of a pen.</param>
         /// <returns>The <b>Pen</b> object.</returns>
-        public Pen GetPen(Color color, float width, DashStyle style)
+        public Pen GetPen(SKColor color, float width, DashStyle style)
         {
             return GetPen(color, width, style, LineJoin.Miter);
         }
@@ -51,7 +155,7 @@ namespace FastReport
         /// <param name="style">Dash style of a pen.</param>
         /// <param name="lineJoin">Line join of a pen.</param>
         /// <returns>The <b>Pen</b> object.</returns>
-        public Pen GetPen(Color color, float width, DashStyle style, LineJoin lineJoin)
+        public Pen GetPen(SKColor color, float width, DashStyle style, LineJoin lineJoin)
         {
             int hash = color.GetHashCode() ^ width.GetHashCode() ^ style.GetHashCode() ^ lineJoin.GetHashCode();
             Pen result = pens[hash] as Pen;
@@ -70,7 +174,7 @@ namespace FastReport
         /// </summary>
         /// <param name="color">Color of a brush.</param>
         /// <returns>The <b>SolidBrush</b> object.</returns>
-        public SolidBrush GetBrush(Color color)
+        public SolidBrush GetBrush(SKColor color)
         {
             int hash = color.GetHashCode();
             SolidBrush result = brushes[hash] as SolidBrush;
@@ -89,13 +193,14 @@ namespace FastReport
         /// <param name="size">Size of a font.</param>
         /// <param name="style">Style of a font.</param>
         /// <returns>The <b>Font</b> object.</returns>
-        public Font GetFont(FontFamily name, float size, FontStyle style)
+        public SKFont GetFont(FontFamily name, float size, SKFontStyle style)
         {
             int hash = name.GetHashCode() ^ size.GetHashCode() ^ style.GetHashCode();
-            Font result = fonts[hash] as Font;
+            SKFont result = fonts[hash] as SKFont;
             if (result == null)
             {
-                result = new Font(name, size, style);
+                SKTypeface typeface = SKTypeface.FromFamilyName(name?.Name, style) ?? SKTypeface.Default;
+                result = new SKFont(typeface, size);
                 fonts[hash] = result;
             }
             return result;
@@ -199,7 +304,7 @@ namespace FastReport
             {
                 brush.Dispose();
             }
-            foreach (Font font in fonts.Values)
+            foreach (SKFont font in fonts.Values)
             {
                 font.Dispose();
             }

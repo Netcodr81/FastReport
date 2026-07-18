@@ -1,7 +1,6 @@
-using System.ComponentModel;
-using System.Drawing.Drawing2D;
-using System.Drawing;
 using FastReport.Utils;
+using SkiaSharp;
+using System.ComponentModel;
 
 namespace FastReport
 {
@@ -77,32 +76,36 @@ namespace FastReport
             set { style = value; }
         }
 
-        internal void GetCustomCapPath(out GraphicsPath path, out float inset)
+        internal void GetCustomCapPath(out SKPath path, out float inset)
         {
-            path = new GraphicsPath();
+            path = new SKPath();
             inset = 0;
             switch (Style)
             {
                 case CapStyle.Arrow:
-                    path.AddLine(new PointF(0, 0), new PointF(-Width, -Height));
-                    path.AddLine(new PointF(0, 0), new PointF(Width, -Height));
+                    path.MoveTo(0, 0);
+                    path.LineTo(-Width, -Height);
+                    path.MoveTo(0, 0);
+                    path.LineTo(Width, -Height);
                     break;
 
                 case CapStyle.Circle:
-                    path.AddEllipse(-Width / 2, -Height / 2, Width, Height);
+                    path.AddOval(new SKRect(-Width / 2, -Height / 2, Width / 2, Height / 2));
+
                     inset = Height / 2;
                     break;
 
                 case CapStyle.Square:
-                    path.AddRectangle(new RectangleF(-Width / 2, -Height / 2, Width, Height));
+                    path.AddRect(new SKRect(-Width / 2, -Height / 2, Width / 2, Height / 2));
                     inset = Height / 2;
                     break;
 
                 case CapStyle.Diamond:
-                    path.AddLine(new PointF(0, -Height / 1.4f), new PointF(-Width / 1.4f, 0));
-                    path.AddLine(new PointF(-Width / 1.4f, 0), new PointF(0, Height / 1.4f));
-                    path.AddLine(new PointF(0, Height / 1.4f), new PointF(Width / 1.4f, 0));
-                    path.AddLine(new PointF(Width / 1.4f, 0), new PointF(0, -Height / 1.4f));
+                    path.MoveTo(0, -Height / 1.4f);
+                    path.LineTo(-Width / 1.4f, 0);
+                    path.LineTo(0, Height / 1.4f);
+                    path.LineTo(Width / 1.4f, 0);
+                    path.LineTo(0, -Height / 1.4f);
                     inset = Height / 1.4f;
                     break;
             }

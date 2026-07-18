@@ -1,12 +1,11 @@
 //#define CATEGORY_OPTIMIZATION
+using FastReport.Data;
+using FastReport.Export;
+using SkiaSharp;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Drawing;
-using FastReport.Data;
-using FastReport.Export;
-using System.Linq;
 
 #if FRCORE || FROPENSOURCE || COMMUNITY
 #pragma warning disable CS1574 // missing cref members in XML comments
@@ -495,21 +494,21 @@ namespace FastReport.Utils
             }
         }
 
-        internal void Update(Type obj, Bitmap image, int imageIndex, string text)
+        internal void Update(Type obj, SKBitmap image, int imageIndex, string text)
         {
             fObject = obj;
             UpdateDesign(image, imageIndex);
             Text = text;
         }
 
-        internal void Update(Type obj, Bitmap image, int imageIndex, string text, int flags, bool multiInsert)
+        internal void Update(Type obj, SKBitmap image, int imageIndex, string text, int flags, bool multiInsert)
         {
             fObject = obj;
             UpdateDesign(flags, multiInsert, image, imageIndex);
             Text = text;
         }
 
-        internal void Update(Type obj, Bitmap image, int imageIndex, int buttonIndex, string text, int flags,
+        internal void Update(Type obj, SKBitmap image, int imageIndex, int buttonIndex, string text, int flags,
             bool multiInsert)
         {
             fObject = obj;
@@ -525,7 +524,7 @@ namespace FastReport.Utils
             enabled = true;
         }
 
-        internal ObjectInfo(string name, Type obj, Bitmap image, int imageIndex, string text,
+        internal ObjectInfo(string name, Type obj, SKBitmap image, int imageIndex, string text,
           int flags, bool multiInsert) : this()
         {
             this.name = name;
@@ -645,7 +644,7 @@ namespace FastReport.Utils
             }
         }
 
-        private static ObjectInfo InternalAdd(Type obj, string category, Bitmap image, int imageIndex, string text)
+        private static ObjectInfo InternalAdd(Type obj, string category, SKBitmap image, int imageIndex, string text)
         {
             ObjectInfo item = FObjects.FindOrCreate(category);
             item.Update(obj, image, imageIndex, text);
@@ -654,7 +653,7 @@ namespace FastReport.Utils
             return item;
         }
 
-        private static ObjectInfo InternalAdd(Type obj, string category, Bitmap image, int imageIndex, string text,
+        private static ObjectInfo InternalAdd(Type obj, string category, SKBitmap image, int imageIndex, string text,
             int flags, bool multiInsert)
         {
             ObjectInfo item = FObjects.FindOrCreate(category);
@@ -664,7 +663,7 @@ namespace FastReport.Utils
             return item;
         }
 
-        private static ObjectInfo InternalAdd(Type obj, string category, Bitmap image, int imageIndex, int buttonIndex,
+        private static ObjectInfo InternalAdd(Type obj, string category, SKBitmap image, int imageIndex, int buttonIndex,
             string text, int flags, bool multiInsert)
         {
             ObjectInfo item = FObjects.FindOrCreate(category);
@@ -746,7 +745,7 @@ namespace FastReport.Utils
         /// <para>When register an object inside a category, you must specify the full category name in the
         /// <b>category</b> parameter of the <b>Add</b> method. </para>
         /// </remarks>
-        public static void AddCategory(string name, Bitmap image, string text)
+        public static void AddCategory(string name, SKBitmap image, string text)
         {
             InternalAdd(null, name, image, -1, text);
         }
@@ -773,7 +772,7 @@ namespace FastReport.Utils
         /// Obsolete. Use <see cref="ExportsOptions"/> api instead.
         /// </summary>
         [Obsolete]
-        public static void AddExport(Type obj, string category, string text, Bitmap image = null)
+        public static void AddExport(Type obj, string category, string text, SKBitmap image = null)
         {
             if (!obj.IsSubclassOf(typeof(ExportBase)))
                 throw new Exception("The 'obj' parameter must be of ExportBase type.");
@@ -786,12 +785,12 @@ namespace FastReport.Utils
             return PrivateAddExport(obj, "", text, null, imageIndex);
         }
 
-        internal static void InternalAddExport(Type obj, string category, string text, Bitmap image = null)
+        internal static void InternalAddExport(Type obj, string category, string text, SKBitmap image = null)
         {
             PrivateAddExport(obj, "ExportGroups," + category + ",", text, image);
         }
 
-        private static ObjectInfo PrivateAddExport(Type obj, string category, string text, Bitmap image = null, int imageIndex = -1)
+        private static ObjectInfo PrivateAddExport(Type obj, string category, string text, SKBitmap image = null, int imageIndex = -1)
         {
             var item = Exports.FindOrCreate(category);
             item.Update(obj, image, imageIndex, text);
@@ -893,7 +892,7 @@ namespace FastReport.Utils
         ///   anotherReportObjectBmp, "Another Report Object");
         /// </code>
         /// </example>
-        public static void Add(Type obj, string category, Bitmap image, string text, int flags = 0, bool multiInsert = false)
+        public static void Add(Type obj, string category, SKBitmap image, string text, int flags = 0, bool multiInsert = false)
         {
             AddAssembly(obj.Assembly);
 

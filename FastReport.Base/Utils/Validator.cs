@@ -1,9 +1,7 @@
-using System;
+using SkiaSharp;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace FastReport.Utils
 {
@@ -59,18 +57,19 @@ namespace FastReport.Utils
     /// </summary>
     public static class Validator
     {
-        internal static void NormalizeBounds(ref RectangleF bounds)
+        internal static void NormalizeBounds(ref SKRect bounds)
         {
-            if (bounds.Width < 0)
-            {
-                bounds.X = bounds.Right;
-                bounds.Width = -bounds.Width;
-            }
-            if (bounds.Height < 0)
-            {
-                bounds.Y = bounds.Bottom;
-                bounds.Height = -bounds.Height;
-            }
+            float left = bounds.Left;
+            float top = bounds.Top;
+            float right = bounds.Right;
+            float bottom = bounds.Bottom;
+
+            if (right < left)
+                (left, right) = (right, left);
+            if (bottom < top)
+                (top, bottom) = (bottom, top);
+
+            bounds = new SKRect(left, top, right, bottom);
         }
 
         internal static void GetIntersectingObjects(List<ReportComponentBase> list, BandBase band)
@@ -100,7 +99,7 @@ namespace FastReport.Utils
             }
         }
 
-        internal static bool RectContainInOtherRect(RectangleF parent, RectangleF child)
+        internal static bool RectContainInOtherRect(SKRect parent, SKRect child)
         {
             NormalizeBounds(ref parent);
             NormalizeBounds(ref child);

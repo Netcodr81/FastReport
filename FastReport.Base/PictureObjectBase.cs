@@ -1,11 +1,12 @@
-﻿using System;
+﻿using FastReport.Utils;
+using SkiaSharp;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Design;
 using System.IO;
-using System.Windows.Forms;
-using FastReport.Utils;
+using RectangleF = SkiaSharp.SKRect;
+using PointF = SkiaSharp.SKPoint;
+using SizeF = SkiaSharp.SKPoint;
 
 namespace FastReport
 {
@@ -68,6 +69,50 @@ namespace FastReport
 
 
 
+    public enum PictureBoxSizeMode
+    {
+        Normal,
+        StretchImage,
+        AutoSize,
+        CenterImage,
+        Zoom
+    }
+
+    public struct Padding : IEquatable<Padding>
+    {
+        public int Left { get; set; }
+        public int Top { get; set; }
+        public int Right { get; set; }
+        public int Bottom { get; set; }
+
+        public int Horizontal => Left + Right;
+        public int Vertical => Top + Bottom;
+
+        public Padding()
+        {
+            Left = Top = Right = Bottom = 0;
+        }
+
+        public Padding(int all)
+        {
+            Left = Top = Right = Bottom = all;
+        }
+
+        public Padding(int left, int top, int right, int bottom)
+        {
+            Left = left;
+            Top = top;
+            Right = right;
+            Bottom = bottom;
+        }
+
+        public bool Equals(Padding other) => Left == other.Left && Top == other.Top && Right == other.Right && Bottom == other.Bottom;
+        public override bool Equals(object obj) => obj is Padding other && Equals(other);
+        public override int GetHashCode() => HashCode.Combine(Left, Top, Right, Bottom);
+        public static bool operator ==(Padding left, Padding right) => left.Equals(right);
+        public static bool operator !=(Padding left, Padding right) => !left.Equals(right);
+    }
+
     /// <summary>
     /// the base class for all picture objects
     /// </summary>
@@ -113,7 +158,6 @@ namespace FastReport
         /// Gets or sets the data column name to get the image from.
         /// </summary>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.DataColumnEditor, FastReport", typeof(UITypeEditor))]
         public string DataColumn
         {
             get { return dataColumn; }
@@ -171,7 +215,6 @@ namespace FastReport
         /// The path will be savetd to the <see cref="ImageLocation"/> property.
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string ImageSourceExpression
         {
             get { return imageSourceExpression; }
@@ -430,7 +473,7 @@ namespace FastReport
             base.Draw(e);
             DrawImage(e);
             DrawMarkers(e);
-            Border.Draw(e, new RectangleF(AbsLeft, AbsTop, Width, Height));
+            Border.Draw(e, new SKRect(AbsLeft, AbsTop, AbsLeft + Width, AbsTop + Height));
             DrawDesign(e);
         }
 
@@ -460,39 +503,30 @@ namespace FastReport
             {
                 case PictureBoxSizeMode.Normal:
                 case PictureBoxSizeMode.AutoSize:
-                    rect.Width = imageWidth * scaleX;
-                    rect.Height = imageHeight * scaleY;
+                    rect.Right = rect.Left + imageWidth * scaleX;
+                    rect.Bottom = rect.Top + imageHeight * scaleY;
                     if (Angle == 90 || Angle == 180)
-                        rect.X -= rect.Width - drawRect.Width;
+                        rect.Left -= rect.Width - drawRect.Width;
                     if (Angle == 180)
-                        rect.Y -= rect.Height - drawRect.Height;
+                        rect.Top -= rect.Height - drawRect.Height;
                     break;
 
                 case PictureBoxSizeMode.CenterImage:
                     rect.Offset((Width - imageWidth) * scaleX / 2, (Height - imageHeight) * scaleY / 2);
-                    rect.Width = imageWidth * scaleX;
-                    rect.Height = imageHeight * scaleY;
+                    rect.Right = rect.Left + imageWidth * scaleX;
+                    rect.Bottom = rect.Top + imageHeight * scaleY;
                     break;
 
                 case PictureBoxSizeMode.StretchImage:
                     break;
 
                 case PictureBoxSizeMode.Zoom:
-                    /*float kx = drawRect.Width / imageWidth;
-                    float ky = drawRect.Height / imageHeight;
-                    if (kx < ky)
-                      rect.Height = imageHeight * kx;
-                    else
-                      rect.Width = imageWidth * ky;
-                    rect.Offset(
-                      (Width * e.ScaleX - rect.Width) / 2,
-                      (Height * e.ScaleY - rect.Height) / 2);*/
                     break;
             }
 
-            float gridCompensationX = offsetX + rect.X;
+            float gridCompensationX = offsetX + rect.Left;
             gridCompensationX = (int)gridCompensationX - gridCompensationX;
-            float gridCompensationY = offsetY + rect.Y;
+            float gridCompensationY = offsetY + rect.Top;
             gridCompensationY = (int)gridCompensationY - gridCompensationY;
             if (gridCompensationX < 0)
                 gridCompensationX = 1 + gridCompensationX;
@@ -510,24 +544,24 @@ namespace FastReport
             {
                 case PictureBoxSizeMode.Normal:
                     {
-                        upperLeft = MovePointOnAngle(drawRect.Location, drawRect.Size, Angle);
+                        upperLeft = MovePointOnAngle(new PointF(drawRect.Left, drawRect.Top), new SizeF(drawRect.Width, drawRect.Height), Angle);
                         PointF ur = rotateVector(upperRight, angle);
                         PointF ll = rotateVector(lowerLeft, angle);
-                        upperRight = PointF.Add(upperLeft, new SizeF(ur));
-                        lowerLeft = PointF.Add(upperLeft, new SizeF(ll));
+                        upperRight = new PointF(upperLeft.X + ur.X, upperLeft.Y + ur.Y);
+                        lowerLeft = new PointF(upperLeft.X + ll.X, upperLeft.Y + ll.Y);
                     }
                     break;
 
                 case PictureBoxSizeMode.StretchImage:
                     {
-                        upperLeft = MovePointOnAngle(drawRect.Location, drawRect.Size, Angle);
+                        upperLeft = MovePointOnAngle(new PointF(drawRect.Left, drawRect.Top), new SizeF(drawRect.Width, drawRect.Height), Angle);
 
                         upperRight = MovePointOnAngle(
-                            drawRect.Location,
-                            drawRect.Size, Angle + 90);
+                            new PointF(drawRect.Left, drawRect.Top),
+                            new SizeF(drawRect.Width, drawRect.Height), Angle + 90);
                         lowerLeft = MovePointOnAngle(
-                            drawRect.Location,
-                            drawRect.Size, Angle + 270);
+                            new PointF(drawRect.Left, drawRect.Top),
+                            new SizeF(drawRect.Width, drawRect.Height), Angle + 270);
                     }
                     break;
 
@@ -574,9 +608,9 @@ namespace FastReport
                             if (p[i].Y * scaleToMin > drawRect.Height / 2)
                                 scaleToMin = drawRect.Height / 2 / p[i].Y;
                         }
-                        upperLeft = PointF.Add(center, new SizeF(p[0].X * scaleToMin, p[0].Y * scaleToMin));
-                        upperRight = PointF.Add(center, new SizeF(p[1].X * scaleToMin, p[1].Y * scaleToMin));
-                        lowerLeft = PointF.Add(center, new SizeF(p[3].X * scaleToMin, p[3].Y * scaleToMin));
+                        upperLeft = new PointF(center.X + p[0].X * scaleToMin, center.Y + p[0].Y * scaleToMin);
+                        upperRight = new PointF(center.X + p[1].X * scaleToMin, center.Y + p[1].Y * scaleToMin);
+                        lowerLeft = new PointF(center.X + p[3].X * scaleToMin, center.Y + p[3].Y * scaleToMin);
                     }
                     break;
             }
@@ -631,12 +665,12 @@ namespace FastReport
             float top = Math.Min(Math.Min(upperLeft.Y, Math.Min(upperRight.Y, lowerLeft.Y)), lowerRight.Y);
             float botom = Math.Max(Math.Max(upperLeft.Y, Math.Max(upperRight.Y, lowerLeft.Y)), lowerRight.Y);
             float height = botom - top;
-            float offsetY = drawRect.Y - top;
+            float offsetY = drawRect.Top - top;
 
             float left = Math.Min(Math.Min(upperLeft.X, Math.Min(upperRight.X, lowerLeft.X)), lowerRight.X);
             float right = Math.Max(Math.Max(upperLeft.X, Math.Max(upperRight.X, lowerLeft.X)), lowerRight.X);
             float width = right - left;
-            float offsetX = drawRect.X - left;
+            float offsetX = drawRect.Left - left;
 
             switch (ImageAlign)
             {
@@ -700,26 +734,26 @@ namespace FastReport
             float x, y;
             if (fangle < 90)
             {
-                x = fangle / 90f * size.Width;
+                x = fangle / 90f * size.X;
                 y = 0;
             }
             else if (fangle < 180)
             {
-                x = size.Width;
-                y = (fangle - 90f) / 90f * size.Height;
+                x = size.X;
+                y = (fangle - 90f) / 90f * size.Y;
             }
             else if (fangle < 270)
             {
-                x = size.Width - (fangle - 180f) / 90f * size.Width;
-                y = size.Height;
+                x = size.X - (fangle - 180f) / 90f * size.X;
+                y = size.Y;
             }
             else
             {
                 x = 0;
-                y = size.Height - (fangle - 270f) / 90f * size.Height;
+                y = size.Y - (fangle - 270f) / 90f * size.Y;
             }
 
-            return PointF.Add(p, new SizeF(x, y));
+            return new PointF(p.X + x, p.Y + y);
         }
 
         /// <inheritdoc/>
@@ -809,8 +843,8 @@ namespace FastReport
             PointF upperLeft;
             PointF upperRight;
             PointF lowerLeft;
-            System.Drawing.Drawing2D.Matrix matrix = e.Graphics.Transform;
-            GetImageAngleTransform(drawRect, imageWidth, imageHeight, e.ScaleX, e.ScaleY, matrix.OffsetX, matrix.OffsetY, out upperLeft, out upperRight, out lowerLeft);
+            SKMatrix matrix = e.Graphics.Transform;
+            GetImageAngleTransform(drawRect, imageWidth, imageHeight, e.ScaleX, e.ScaleY, matrix.TransX, matrix.TransY, out upperLeft, out upperRight, out lowerLeft);
             DrawImageInternal2(e.Graphics, upperLeft, upperRight, lowerLeft);
         }
         #endregion Internal Methods
@@ -824,7 +858,7 @@ namespace FastReport
         /// <param name="upperLeft">Upper left point.</param>
         /// <param name="upperRight">Upper right point.</param>
         /// <param name="lowerLeft">Lower left point.</param>
-        protected abstract void DrawImageInternal2(IGraphics graphics, PointF upperLeft, PointF upperRight, PointF lowerLeft);
+        protected abstract void DrawImageInternal2(IGraphics graphics, SKPoint upperLeft, SKPoint upperRight, SKPoint lowerLeft);
 
         /// <summary>
         /// Reset index of image

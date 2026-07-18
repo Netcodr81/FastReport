@@ -1,8 +1,5 @@
-using System;
-using System.Collections;
-using System.Drawing;
-using System.ComponentModel;
 using FastReport.Utils;
+using System.ComponentModel;
 
 namespace FastReport
 {

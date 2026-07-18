@@ -1,7 +1,6 @@
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Linq;
 using FastReport.Utils;
+using SkiaSharp;
+using GraphicsPath = SkiaSharp.SKPath;
 
 namespace FastReport
 {
@@ -24,10 +23,10 @@ namespace FastReport
         /// <param name="scaleX">scale by width</param>
         /// <param name="scaleY">scale by height</param>
         /// <returns>Always returns a non-empty path</returns>
-        protected GraphicsPath getPolygonPath(Pen pen, float scaleX, float scaleY)
+        protected GraphicsPath getPolygonPath(SKPaint pen, float scaleX, float scaleY)
         {
             GraphicsPath gp = base.GetPath(pen, AbsLeft, AbsTop, AbsRight, AbsBottom, scaleX, scaleY);
-            gp.CloseAllFigures();
+            gp.Close();
             return gp;
         }
 
@@ -42,20 +41,61 @@ namespace FastReport
             float dx = (Width - Border.Width) * e.ScaleX - 1;
             float dy = (Height - Border.Width) * e.ScaleY - 1;
 
-            Pen pen;
-            if (polygonSelectionMode == PolygonSelectionMode.MoveAndScale)
+            float strokeWidth = polygonSelectionMode == PolygonSelectionMode.MoveAndScale
+                ? Border.Width * e.ScaleX
+                : 1f;
+
+            using SKPaint pen = new SKPaint
             {
-                pen = e.Cache.GetPen(Border.Color, Border.Width * e.ScaleX, Border.DashStyle);
+                Color = Border.Color,
+                StrokeWidth = strokeWidth,
+                Style = SKPaintStyle.Stroke,
+                IsAntialias = true
+            };
+
+            if (DashPattern?.Count > 0)
+            {
+                float[] intervals = new float[DashPattern.Count];
+                for (int i = 0; i < DashPattern.Count; i++)
+                    intervals[i] = (DashPattern[i] <= 0 ? 1 : DashPattern[i]) * strokeWidth;
+                pen.PathEffect = SKPathEffect.CreateDash(intervals, 0);
             }
-            else pen = e.Cache.GetPen(Border.Color, 1, DashStyle.Solid);
-
-            Brush brush = null;
-            if (Fill is SolidFill)
-                brush = e.Cache.GetBrush((Fill as SolidFill).Color);
             else
-                brush = Fill.CreateBrush(new RectangleF(x, y, dx, dy), e.ScaleX, e.ScaleY);
+            {
+                float w = strokeWidth;
+                switch (Border.DashStyle)
+                {
+                    case DashStyle.Dash:
+                        pen.PathEffect = SKPathEffect.CreateDash(new[] { 3 * w, 1 * w }, 0);
+                        break;
+                    case DashStyle.Dot:
+                        pen.PathEffect = SKPathEffect.CreateDash(new[] { 1 * w, 1 * w }, 0);
+                        break;
+                    case DashStyle.DashDot:
+                        pen.PathEffect = SKPathEffect.CreateDash(new[] { 3 * w, 1 * w, 1 * w, 1 * w }, 0);
+                        break;
+                    case DashStyle.DashDotDot:
+                        pen.PathEffect = SKPathEffect.CreateDash(new[] { 3 * w, 1 * w, 1 * w, 1 * w, 1 * w, 1 * w }, 0);
+                        break;
+                }
+            }
 
-            DrawUtils.SetPenDashPatternOrStyle(DashPattern, pen, Border);
+            SKColor fillColor;
+            if (Fill is SolidFill solidFill)
+                fillColor = solidFill.Color;
+            else
+            {
+                FastReport.Brush fb = Fill.CreateBrush(new SKRect(x, y, x + dx, y + dy), e.ScaleX, e.ScaleY);
+                fillColor = (fb as SolidBrush)?.Color ?? SKColors.Transparent;
+                fb.Dispose();
+            }
+
+            using SKPaint brush = new SKPaint
+            {
+                Color = fillColor,
+                Style = SKPaintStyle.Fill,
+                IsAntialias = true
+            };
 
             using (GraphicsPath path = getPolygonPath(pen, e.ScaleX, e.ScaleY))
             {

@@ -1,13 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.ComponentModel;
-using System.Drawing.Drawing2D;
-using System.IO;
-using System.Drawing.Imaging;
 using FastReport.Utils;
-using System.Windows.Forms;
-using System.Drawing.Design;
+using SkiaSharp;
+using System;
+using System.ComponentModel;
+using System.IO;
+using GraphicsPath = SkiaSharp.SKPath;
+using Image = SkiaSharp.SKBitmap;
+using RectangleF = SkiaSharp.SKRect;
+using PointF = SkiaSharp.SKPoint;
 
 namespace FastReport
 {
@@ -44,17 +43,17 @@ namespace FastReport
     public partial class PictureObject : PictureObjectBase
     {
         #region Fields
-        private Image image;
+        private SKBitmap image;
 
         private int imageIndex;
 
-        private Color transparentColor;
+        private SKColor transparentColor;
         private float transparency;
         private bool tile;
-        private Bitmap transparentImage;
+        private SKBitmap transparentImage;
         private byte[] imageData;
         private bool shouldDisposeImage;
-        private Bitmap grayscaleBitmap;
+        private SKBitmap grayscaleBitmap;
         private int grayscaleHash;
         private ImageFormat imageFormat;
         #endregion
@@ -73,8 +72,7 @@ namespace FastReport
         /// </code>
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ImageEditor, FastReport", typeof(UITypeEditor))]
-        public virtual Image Image
+        public virtual SKBitmap Image
         {
             get { return image; }
             set
@@ -154,8 +152,7 @@ namespace FastReport
         /// Gets or sets the color of the image that will be treated as transparent.
         /// </summary>
         [Category("Appearance")]
-        [Editor("FastReport.TypeEditors.ColorEditor, FastReport", typeof(UITypeEditor))]
-        public Color TransparentColor
+        public SKColor TransparentColor
         {
             get { return transparentColor; }
             set
@@ -218,7 +215,7 @@ namespace FastReport
         /// Gets or sets a bitmap transparent image
         /// </summary>
         [Browsable(false)]
-        public Bitmap TransparentImage
+        public SKBitmap TransparentImage
         {
             get { return transparentImage; }
             set { transparentImage = value; }
@@ -250,43 +247,6 @@ namespace FastReport
         #region Private Methods
         private ImageFormat CheckImageFormat()
         {
-            if (Image == null || Image.RawFormat == null)
-                return null;
-            ImageFormat format = null;
-            if (ImageFormat.Jpeg.Equals(image.RawFormat))
-            {
-                format = ImageFormat.Jpeg;
-            }
-            else if (ImageFormat.Gif.Equals(image.RawFormat))
-            {
-                format = ImageFormat.Gif;
-            }
-            else if (ImageFormat.Png.Equals(image.RawFormat))
-            {
-                format = ImageFormat.Png;
-            }
-            else if (ImageFormat.Emf.Equals(image.RawFormat))
-            {
-                format = ImageFormat.Emf;
-            }
-            else if (ImageFormat.Icon.Equals(image.RawFormat))
-            {
-                format = ImageFormat.Icon;
-            }
-            else if (ImageFormat.Tiff.Equals(image.RawFormat))
-            {
-                format = ImageFormat.Tiff;
-            }
-            else if (ImageFormat.Bmp.Equals(image.RawFormat) || ImageFormat.MemoryBmp.Equals(image.RawFormat))
-            {
-                format = ImageFormat.Bmp;
-            }
-            else if (ImageFormat.Wmf.Equals(image.RawFormat))
-            {
-                format = ImageFormat.Wmf;
-            }
-            if (format != null)
-                return format;
             return ImageFormat.Bmp;
         }
 
@@ -295,51 +255,43 @@ namespace FastReport
             if (transparentImage != null)
                 transparentImage.Dispose();
             transparentImage = null;
-            if (Image is Bitmap)
-            {
-                if (TransparentColor != Color.Transparent)
-                {
-                    transparentImage = new Bitmap(Image);
-                    transparentImage.MakeTransparent(TransparentColor);
-                }
-                else if (Transparency != 0)
-                {
-                    transparentImage = ImageHelper.GetTransparentBitmap(Image, Transparency);
-                }
-            }
+
+            if (Image == null)
+                return;
+
+            if (TransparentColor != SKColors.Transparent)
+                transparentImage = CreateTransparentColorBitmap(Image, TransparentColor);
+            else if (Transparency != 0)
+                transparentImage = ImageHelper.GetTransparentBitmap(Image, Transparency);
         }
 
-#if MONO
+        private static SKBitmap CreateTransparentColorBitmap(SKBitmap source, SKColor transparentColor)
+        {
+            if (source == null)
+                return null;
+
+            SKBitmap result = ImageHelper.CloneBitmap(source);
+            for (int y = 0; y < result.Height; y++)
+            {
+                for (int x = 0; x < result.Width; x++)
+                {
+                    SKColor pixel = result.GetPixel(x, y);
+                    if (pixel.Red == transparentColor.Red && pixel.Green == transparentColor.Green && pixel.Blue == transparentColor.Blue)
+                        result.SetPixel(x, y, pixel.WithAlpha(0));
+                }
+            }
+            return result;
+        }
+
         private GraphicsPath GetRoundRectPath(RectangleF rectangleF, float radius)
         {
-            GraphicsPath gp = new GraphicsPath();
             if (radius < 1)
                 radius = 1;
-            gp.AddLine(rectangleF.X + radius, rectangleF.Y, rectangleF.Width + rectangleF.X - radius, rectangleF.Y);
-            gp.AddArc(rectangleF.Width + rectangleF.X - radius - 1, rectangleF.Y, radius + 1, radius + 1, 270, 90);
-            gp.AddLine(rectangleF.Width + rectangleF.X, rectangleF.Y + radius, rectangleF.Width + rectangleF.X, rectangleF.Height + rectangleF.Y - radius);
-            gp.AddArc(rectangleF.Width + rectangleF.X - radius - 1, rectangleF.Height + rectangleF.Y - radius - 1, radius + 1, radius + 1, 0, 90);
-            gp.AddLine(rectangleF.Width + rectangleF.X - radius, rectangleF.Height + rectangleF.Y, rectangleF.X + radius, rectangleF.Height + rectangleF.Y);
-            gp.AddArc(rectangleF.X, rectangleF.Height + rectangleF.Y - radius - 1, radius + 1, radius + 1, 90, 90);
-            gp.AddLine(rectangleF.X, rectangleF.Height + rectangleF.Y - radius, rectangleF.X, rectangleF.Y + radius);
-            gp.AddArc(rectangleF.X, rectangleF.Y, radius, radius, 180, 90);
-            gp.CloseFigure();
-            return gp;
-        }
-#else
-        private GraphicsPath GetRoundRectPath(RectangleF rectangleF, float radius)
-        {
+
             GraphicsPath gp = new GraphicsPath();
-            if (radius < 1)
-                radius = 1;
-            gp.AddArc(rectangleF.Width + rectangleF.X - radius - 1, rectangleF.Y, radius + 1, radius + 1, 270, 90);
-            gp.AddArc(rectangleF.Width + rectangleF.X - radius - 1, rectangleF.Height + rectangleF.Y - radius - 1, radius + 1, radius + 1, 0, 90);
-            gp.AddArc(rectangleF.X, rectangleF.Height + rectangleF.Y - radius - 1, radius + 1, radius + 1, 90, 90);
-            gp.AddArc(rectangleF.X, rectangleF.Y, radius, radius, 180, 90);
-            gp.CloseFigure();
+            gp.AddRoundRect(rectangleF, radius, radius);
             return gp;
         }
-#endif
         #endregion
 
         #region Protected Methods
@@ -364,7 +316,7 @@ namespace FastReport
                 TransparentColor = src.TransparentColor;
                 Transparency = src.Transparency;
                 Tile = src.Tile;
-                Image = src.Image == null ? null : src.Image.Clone() as Image;
+                Image = src.Image == null ? null : ImageHelper.CloneBitmap(src.Image);
                 if (src.Image == null && src.imageData != null)
                     imageData = src.imageData;
                 ShouldDisposeImage = true;
@@ -396,30 +348,27 @@ namespace FastReport
             RectangleF drawRect = new RectangleF(
               drawLeft,
               drawTop,
-              drawWidth,
-              drawHeight);
+              drawLeft + drawWidth,
+              drawTop + drawHeight);
 
             GraphicsPath path = new GraphicsPath();
             IGraphicsState state = g.Save();
             try
             {
-                //if (Config.IsRunningOnMono) // strange behavior of mono - we need to reset clip before we set new one
                 g.ResetClip();
 
                 EstablishImageForm(path, drawLeft, drawTop, drawWidth, drawHeight);
 
-                g.SetClip(path, CombineMode.Replace);
-                Report report = Report;
-                if (report != null && report.SmoothGraphics)
-                {
-                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    g.SmoothingMode = SmoothingMode.AntiAlias;
-                }
+                g.SetClip(path, SKClipOperation.Intersect);
 
                 if (!Tile)
-                    DrawImageInternal(e, drawRect);
+                {
+                    using SKImage skImage = SKImage.FromBitmap(transparentImage ?? Image);
+                    g.DrawImage(skImage, drawRect);
+                }
                 else
                 {
+                    using SKImage skImage = SKImage.FromBitmap(transparentImage ?? Image);
                     float y = drawRect.Top;
                     float width = Image.Width * e.ScaleX;
                     float height = Image.Height * e.ScaleY;
@@ -428,10 +377,7 @@ namespace FastReport
                         float x = drawRect.Left;
                         while (x < drawRect.Right)
                         {
-                            if (transparentImage != null)
-                                g.DrawImage(transparentImage, x, y, width, height);
-                            else
-                                g.DrawImage(Image, x, y, width, height);
+                            g.DrawImage(skImage, x, y, width, height);
                             x += width;
                         }
                         y += height;
@@ -442,11 +388,7 @@ namespace FastReport
             {
                 g.Restore(state);
                 g.ResetClip();
-#if !SKIA
-                path.Dispose(); 
-#else
-                path = null;
-#endif    
+                path.Dispose();
             }
 
             if (IsPrinting)
@@ -474,8 +416,6 @@ namespace FastReport
                 image = grayscaleBitmap;
             }
 
-            //graphics.DrawImage(image, new PointF[] { upperLeft, upperRight, lowerLeft });
-
             DrawImage3Points(graphics, image, upperLeft, upperRight, lowerLeft);
         }
 
@@ -483,20 +423,13 @@ namespace FastReport
         // The original gdi+ method does not work properly in mono on linux/macos.
         private void DrawImage3Points(IGraphics g, Image image, PointF p0, PointF p1, PointF p2)
         {
-            // Skip drawing image, when height or width of the image equal zero.
             if (image == null || image.Width == 0 || image.Height == 0)
                 return;
-            // Skip drawing image, when height or width of the parallelogram for drawing equal zero.
             if (p0 == p1 || p0 == p2)
                 return;
 
-            RectangleF rect = new RectangleF(0, 0, image.Width, image.Height);
-            float m11 = (p1.X - p0.X) / rect.Width;
-            float m12 = (p1.Y - p0.Y) / rect.Width;
-            float m21 = (p2.X - p0.X) / rect.Height;
-            float m22 = (p2.Y - p0.Y) / rect.Height;
-            g.MultiplyTransform(new System.Drawing.Drawing2D.Matrix(m11, m12, m21, m22, p0.X, p0.Y), MatrixOrder.Prepend);
-            g.DrawImage(image, rect);
+            using SKImage skImage = SKImage.FromBitmap(image);
+            g.DrawImage(skImage, new[] { p0, p1, p2 });
         }
 
         /// <summary>
@@ -507,7 +440,7 @@ namespace FastReport
         {
             imageData = data;
             // if autosize is on, load the image.
-            if (SizeMode == PictureBoxSizeMode.AutoSize)
+            if (SizeMode.ToString() == "AutoSize")
                 ForceLoadImage();
         }
 
@@ -649,40 +582,43 @@ namespace FastReport
             RectangleF drawRect = new RectangleF(
               drawLeft,
               drawTop,
-              drawWidth,
-              drawHeight);
+              drawLeft + drawWidth,
+              drawTop + drawHeight);
 
             switch (Shape)
             {
                 case ShapeKind.Rectangle:
-                    path.AddRectangle(drawRect);
+                    path.AddRect(drawRect);
                     break;
                 case ShapeKind.RoundRectangle:
                     float min = Math.Min(drawWidth, drawHeight) / 4;
-                    path.AddPath(GetRoundRectPath(drawRect, min), false);
+                    path.AddPath(GetRoundRectPath(drawRect, min));
                     break;
                 case ShapeKind.Ellipse:
-                    path.AddEllipse(drawLeft, drawTop, drawWidth, drawHeight);
+                    path.AddOval(drawRect);
                     break;
                 case ShapeKind.Triangle:
-                    PointF[] triPoints =
+                    SKPoint[] triPoints =
                     {
-                            new PointF(drawLeft + drawWidth, drawTop + drawHeight), new PointF(drawLeft, drawTop + drawHeight),
-                            new PointF(drawLeft + drawWidth / 2, drawTop), new PointF(drawLeft + drawWidth, drawTop + drawHeight)
-                     };
-                    path.AddPolygon(triPoints);
+                        new SKPoint(drawLeft + drawWidth, drawTop + drawHeight),
+                        new SKPoint(drawLeft, drawTop + drawHeight),
+                        new SKPoint(drawLeft + drawWidth / 2, drawTop)
+                    };
+                    path.AddPoly(triPoints, true);
                     break;
                 case ShapeKind.Diamond:
-                    PointF[] diaPoints =
+                    SKPoint[] diaPoints =
                     {
-                            new PointF(drawLeft + drawWidth / 2, drawTop), new PointF(drawLeft + drawWidth, drawTop + drawHeight / 2),
-                            new PointF(drawLeft + drawWidth / 2, drawTop + drawHeight), new PointF(drawLeft, drawTop + drawHeight / 2)
+                        new SKPoint(drawLeft + drawWidth / 2, drawTop),
+                        new SKPoint(drawLeft + drawWidth, drawTop + drawHeight / 2),
+                        new SKPoint(drawLeft + drawWidth / 2, drawTop + drawHeight),
+                        new SKPoint(drawLeft, drawTop + drawHeight / 2)
                     };
-                    path.AddPolygon(diaPoints);
+                    path.AddPoly(diaPoints, true);
                     break;
             }
         }
-#endregion
+        #endregion
 
         #region Report Engine
 
@@ -766,7 +702,7 @@ namespace FastReport
         /// </summary>
         public PictureObject()
         {
-            transparentColor = Color.Transparent;
+            transparentColor = SKColors.Transparent;
             SetFlags(Flags.HasSmartTag, true);
             ResetImageIndex();
         }

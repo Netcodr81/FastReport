@@ -1,12 +1,7 @@
 using System;
-using System.IO;
 using System.Collections;
-using System.Drawing;
-using System.ComponentModel;
-using System.Reflection;
-using System.Collections.Generic;
-using System.Text;
 using System.Globalization;
+using System.IO;
 
 namespace FastReport.Utils
 {

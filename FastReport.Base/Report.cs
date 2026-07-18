@@ -5,20 +5,15 @@ using FastReport.Dialog;
 using FastReport.Engine;
 using FastReport.Export;
 using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
-using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Text;
 using System.IO;
-using System.Linq;
-using System.Linq.Expressions;
 using System.Security;
 using System.Text;
-using System.Windows.Forms;
 
 #if FRCORE || FROPENSOURCE
 #pragma warning disable CS1574 // missing cref members in XML comments
@@ -249,7 +244,7 @@ namespace FastReport
         private FastReport.Preview.PreparedPages preparedPages;
         private ReportEngine engine;
         private bool aborted;
-        private Bitmap measureBitmap;
+        private SKBitmap measureBitmap;
         private IGraphics measureGraphics;
         private bool storeInResources;
 #pragma warning disable SYSLIB0003
@@ -485,7 +480,7 @@ namespace FastReport
                 if (scriptLanguage == Language.CSharp)
                     codeHelper = new CsCodeHelper(this);
                 else
-                    codeHelper = new VbCodeHelper(this);
+                    throw new NotSupportedException("Only C# script language is supported.");
                 if (needClear)
                 {
                     scriptText = codeHelper.EmptyScript();
@@ -893,7 +888,7 @@ namespace FastReport
         {
             get
             {
-                    return new string[] {
+                return new string[] {
                     "System.dll",
 
                     "System.Drawing.dll",
@@ -935,9 +930,9 @@ namespace FastReport
         {
             get
             {
-                foreach(var page in Pages)
+                foreach (var page in Pages)
                 {
-                    if(page is ReportPage reportPage && reportPage.LinkToPage.IsInherit)
+                    if (page is ReportPage reportPage && reportPage.LinkToPage.IsInherit)
                         return true;
                 }
 
@@ -956,7 +951,7 @@ namespace FastReport
                 if (measureGraphics == null)
                 {
 #if CROSSPLATFORM || MONO
-                    measureBitmap = new Bitmap(1, 1);
+                    measureBitmap = new SKBitmap(1, 1);
                     measureGraphics = new GdiGraphics(measureBitmap);
 #else
                     measureGraphics = GdiGraphics.FromGraphics(Graphics.FromHwnd(IntPtr.Zero));
@@ -1017,7 +1012,7 @@ namespace FastReport
             set => _codeProvider = value;
         }
 
-#endregion Properties
+        #endregion Properties
 
         #region Private Methods
 
@@ -1421,7 +1416,7 @@ namespace FastReport
         private bool TryCalc(string expression, Variant value, out object result)
         {
             result = null;
-            
+
             if (!IsRunning)
                 return true;
             if (String.IsNullOrEmpty(expression) || String.IsNullOrEmpty(expression.Trim()))
@@ -2560,7 +2555,7 @@ namespace FastReport
 
                 try
                 {
-                    Compile();   
+                    Compile();
                     return Engine.Run(true, append, resetDataState);
                 }
                 finally
@@ -2698,27 +2693,17 @@ namespace FastReport
         }
 
 
-        internal TextRenderingHint GetTextQuality()
+        internal SKFontHinting GetTextQuality()
         {
-            switch (this.TextQuality)
+            return TextQuality switch
             {
-                case TextQuality.Regular:
-                    return TextRenderingHint.AntiAliasGridFit;
-
-                case TextQuality.ClearType:
-                    return TextRenderingHint.ClearTypeGridFit;
-
-                case TextQuality.AntiAlias:
-                    return TextRenderingHint.AntiAlias;
-
-                case TextQuality.SingleBPP:
-                    return TextRenderingHint.SingleBitPerPixel;
-
-                case TextQuality.SingleBPPGridFit:
-                    return TextRenderingHint.SingleBitPerPixelGridFit;
-            }
-
-            return TextRenderingHint.SystemDefault;
+                TextQuality.Regular => SKFontHinting.Full,
+                TextQuality.ClearType => SKFontHinting.Full,
+                TextQuality.AntiAlias => SKFontHinting.Normal,
+                TextQuality.SingleBPP => SKFontHinting.None,
+                TextQuality.SingleBPPGridFit => SKFontHinting.Slight,
+                _ => SKFontHinting.Normal
+            };
         }
 
 

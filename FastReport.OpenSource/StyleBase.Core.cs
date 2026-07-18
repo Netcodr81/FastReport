@@ -1,17 +1,16 @@
 ﻿using FastReport.Utils;
-using System.Drawing;
+using SkiaSharp;
 
-namespace FastReport
+namespace FastReport;
+
+partial class StyleBase
 {
-    partial class StyleBase
+    #region Private Methods
+
+    private SKFont GetDefaultFontInternal()
     {
-        #region Private Methods
-
-        private Font GetDefaultFontInternal()
-        {
-            return DrawUtils.DefaultFont;
-        }
-
-        #endregion Private Methods
+        return DrawUtils.DefaultFont;
     }
+
+    #endregion Private Methods
 }

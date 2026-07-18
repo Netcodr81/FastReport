@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Drawing;
 
 namespace FastReport
 {
@@ -14,7 +13,7 @@ namespace FastReport
             Temporary = 0x1,
             Private = 0x2,
             Installed = 0x4,
-            
+
             NonInstalled = Temporary | Private,
             All = Temporary | Private | Installed
         }

@@ -1,9 +1,7 @@
-using System;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.ComponentModel;
 using FastReport.Utils;
-using System.Linq;
+using System;
+using System.ComponentModel;
+using SkiaSharp;
 
 namespace FastReport
 {
@@ -96,16 +94,16 @@ namespace FastReport
         #endregion
 
         #region Private Methods
-        private GraphicsPath GetRoundRectPath(float x, float y, float x1, float y1, float radius)
+        private SKPath GetRoundRectPath(float x, float y, float x1, float y1, float radius)
         {
-            GraphicsPath gp = new GraphicsPath();
+            SKPath gp = new SKPath();
             if (radius < 1)
                 radius = 1;
-            gp.AddArc(x1 - radius, y, radius, radius, 270, 90);
-            gp.AddArc(x1 - radius, y1 - radius, radius, radius, 0, 90);
-            gp.AddArc(x, y1 - radius, radius, radius, 90, 90);
-            gp.AddArc(x, y, radius, radius, 180, 90);
-            gp.CloseFigure();
+            gp.AddArc(new SKRect(x1 - radius, y, x1, y + radius), 270, 90);
+            gp.AddArc(new SKRect(x1 - radius, y1 - radius, x1, y1), 0, 90);
+            gp.AddArc(new SKRect(x, y1 - radius, x + radius, y1), 90, 90);
+            gp.AddArc(new SKRect(x, y, x + radius, y + radius), 180, 90);
+            gp.Close();
             return gp;
         }
         #endregion
@@ -136,22 +134,60 @@ namespace FastReport
             float x1 = x + dx;
             float y1 = y + dy;
 
-            Pen pen = e.Cache.GetPen(Border.Color, Border.Width * e.ScaleX, Border.DashStyle);
+            bool smooth = Report != null && Report.SmoothGraphics && Shape != ShapeKind.Rectangle;
+            float strokeWidth = Border.Width * e.ScaleX;
 
-            DrawUtils.SetPenDashPatternOrStyle(DashPattern, pen, Border);
-
-            Brush brush = null;
-            if (Fill is SolidFill)
-                brush = e.Cache.GetBrush((Fill as SolidFill).Color);
-            else
-                brush = Fill.CreateBrush(new RectangleF(x, y, dx, dy), e.ScaleX, e.ScaleY);
-
-            Report report = Report;
-            if (report != null && report.SmoothGraphics && Shape != ShapeKind.Rectangle)
+            using SKPaint pen = new SKPaint
             {
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
+                Color = Border.Color,
+                StrokeWidth = strokeWidth,
+                Style = SKPaintStyle.Stroke,
+                IsAntialias = smooth
+            };
+
+            if (DashPattern?.Count > 0)
+            {
+                float[] intervals = new float[DashPattern.Count];
+                for (int i = 0; i < DashPattern.Count; i++)
+                    intervals[i] = (DashPattern[i] <= 0 ? 1 : DashPattern[i]) * strokeWidth;
+                pen.PathEffect = SKPathEffect.CreateDash(intervals, 0);
             }
+            else
+            {
+                float w = strokeWidth;
+                switch (Border.DashStyle)
+                {
+                    case DashStyle.Dash:
+                        pen.PathEffect = SKPathEffect.CreateDash(new[] { 3 * w, 1 * w }, 0);
+                        break;
+                    case DashStyle.Dot:
+                        pen.PathEffect = SKPathEffect.CreateDash(new[] { 1 * w, 1 * w }, 0);
+                        break;
+                    case DashStyle.DashDot:
+                        pen.PathEffect = SKPathEffect.CreateDash(new[] { 3 * w, 1 * w, 1 * w, 1 * w }, 0);
+                        break;
+                    case DashStyle.DashDotDot:
+                        pen.PathEffect = SKPathEffect.CreateDash(new[] { 3 * w, 1 * w, 1 * w, 1 * w, 1 * w, 1 * w }, 0);
+                        break;
+                }
+            }
+
+            SKColor fillColor;
+            if (Fill is SolidFill solidFill)
+                fillColor = solidFill.Color;
+            else
+            {
+                FastReport.Brush fb = Fill.CreateBrush(new SKRect(x, y, x + dx, y + dy), e.ScaleX, e.ScaleY);
+                fillColor = (fb as SolidBrush)?.Color ?? SKColors.Transparent;
+                fb.Dispose();
+            }
+
+            using SKPaint brush = new SKPaint
+            {
+                Color = fillColor,
+                Style = SKPaintStyle.Fill,
+                IsAntialias = smooth
+            };
 
             switch (Shape)
             {
@@ -165,9 +201,8 @@ namespace FastReport
                         min = min / 4;
                     else
                         min = Math.Min(min, curve * e.ScaleX * 10);
-                    GraphicsPath gp = GetRoundRectPath(x, y, x1, y1, min);
-                    g.FillAndDrawPath(pen, brush, gp);
-                    gp.Dispose();
+                    using (SKPath gp = GetRoundRectPath(x, y, x1, y1, min))
+                        g.FillAndDrawPath(pen, brush, gp);
                     break;
 
                 case ShapeKind.Ellipse:
@@ -175,28 +210,20 @@ namespace FastReport
                     break;
 
                 case ShapeKind.Triangle:
-                    PointF[] triPoints = {
-            new PointF(x1, y1), new PointF(x, y1), new PointF(x + dx / 2, y), new PointF(x1, y1) };
+                    SKPoint[] triPoints = {
+            new SKPoint(x1, y1), new SKPoint(x, y1), new SKPoint(x + dx / 2, y), new SKPoint(x1, y1) };
                     g.FillAndDrawPolygon(pen, brush, triPoints);
                     break;
 
                 case ShapeKind.Diamond:
-                    PointF[] diaPoints = {
-            new PointF(x + dx / 2, y), new PointF(x1, y + dy / 2), new PointF(x + dx / 2, y1),
-            new PointF(x, y + dy / 2) };
+                    SKPoint[] diaPoints = {
+            new SKPoint(x + dx / 2, y), new SKPoint(x1, y + dy / 2), new SKPoint(x + dx / 2, y1),
+            new SKPoint(x, y + dy / 2) };
                     g.FillAndDrawPolygon(pen, brush, diaPoints);
                     break;
             }
 
             DrawDesign(e);
-
-            if (!(Fill is SolidFill))
-                brush.Dispose();
-            if (report != null && report.SmoothGraphics)
-            {
-                g.InterpolationMode = InterpolationMode.Default;
-                g.SmoothingMode = SmoothingMode.Default;
-            }
         }
 
         /// <inheritdoc/>

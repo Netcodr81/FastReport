@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.ComponentModel;
 using FastReport.Utils;
-using System.Drawing.Design;
+using SkiaSharp;
 
 namespace FastReport
 {
@@ -74,7 +72,7 @@ namespace FastReport
         private bool isChecked;
         private CheckedSymbol checkedSymbol;
         private UncheckedSymbol uncheckedSymbol;
-        private Color checkColor;
+        private SKColor checkColor;
         private string dataColumn;
         private string expression;
         private float checkWidthRatio;
@@ -120,8 +118,7 @@ namespace FastReport
         /// Gets or sets a color of the check symbol.
         /// </summary>
         [Category("Appearance")]
-        [Editor("FastReport.TypeEditors.ColorEditor, FastReport", typeof(UITypeEditor))]
-        public Color CheckColor
+        public SKColor CheckColor
         {
             get { return checkColor; }
             set { checkColor = value; }
@@ -134,7 +131,6 @@ namespace FastReport
         /// Value must be in the form "[Datasource.Column]".
         /// </remarks>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.DataColumnEditor, FastReport", typeof(UITypeEditor))]
         public string DataColumn
         {
             get { return dataColumn; }
@@ -145,7 +141,6 @@ namespace FastReport
         /// Gets or sets an expression that determines whether to show a check.
         /// </summary>
         [Category("Data")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string Expression
         {
             get { return expression; }
@@ -199,45 +194,57 @@ namespace FastReport
         #region Private Methods
         private bool ShouldSerializeCheckColor()
         {
-            return CheckColor != Color.Black;
+            return CheckColor != SKColors.Black;
         }
 
         private void DrawCheck(FRPaintEventArgs e)
         {
-            RectangleF drawRect = new RectangleF(AbsLeft * e.ScaleX, AbsTop * e.ScaleY,
-              Width * e.ScaleX, Height * e.ScaleY);
+            float left = AbsLeft * e.ScaleX;
+            float top = AbsTop * e.ScaleY;
+            float width = Width * e.ScaleX;
+            float height = Height * e.ScaleY;
+            SKRect drawRect = new SKRect(left, top, left + width, top + height);
 
             float ratio = Width / (Units.Millimeters * 5);
             drawRect.Inflate(-4 * ratio * e.ScaleX, -4 * ratio * e.ScaleY);
-            Pen pen = e.Cache.GetPen(CheckColor, 1.6f * ratio * CheckWidthRatio * e.ScaleX, DashStyle.Solid);
             IGraphics g = e.Graphics;
-            SmoothingMode saveSmoothing = g.SmoothingMode;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            using SKPaint strokePaint = new SKPaint
+            {
+                Color = CheckColor,
+                StrokeWidth = 1.6f * ratio * CheckWidthRatio * e.ScaleX,
+                Style = SKPaintStyle.Stroke,
+                IsAntialias = true
+            };
 
             if (Checked)
             {
                 switch (CheckedSymbol)
                 {
                     case CheckedSymbol.Check:
-                        g.DrawLines(pen, new PointF[] {
-              new PointF(drawRect.Left, drawRect.Top + drawRect.Height / 10 * 5),
-              new PointF(drawRect.Left + drawRect.Width / 10 * 4, drawRect.Bottom - drawRect.Height / 10),
-              new PointF(drawRect.Right, drawRect.Top + drawRect.Height / 10) });
+                        g.DrawLines(strokePaint, new SKPoint[]
+                        {
+                            new SKPoint(drawRect.Left, drawRect.Top + drawRect.Height / 10 * 5),
+                            new SKPoint(drawRect.Left + drawRect.Width / 10 * 4, drawRect.Bottom - drawRect.Height / 10),
+                            new SKPoint(drawRect.Right, drawRect.Top + drawRect.Height / 10)
+                        });
                         break;
 
                     case CheckedSymbol.Cross:
-                        g.DrawLine(pen, drawRect.Left, drawRect.Top, drawRect.Right, drawRect.Bottom);
-                        g.DrawLine(pen, drawRect.Left, drawRect.Bottom, drawRect.Right, drawRect.Top);
+                        g.DrawLine(strokePaint, drawRect.Left, drawRect.Top, drawRect.Right, drawRect.Bottom);
+                        g.DrawLine(strokePaint, drawRect.Left, drawRect.Bottom, drawRect.Right, drawRect.Top);
                         break;
 
                     case CheckedSymbol.Plus:
-                        g.DrawLine(pen, drawRect.Left, drawRect.Top + drawRect.Height / 2, drawRect.Right, drawRect.Top + drawRect.Height / 2);
-                        g.DrawLine(pen, drawRect.Left + drawRect.Width / 2, drawRect.Top, drawRect.Left + drawRect.Width / 2, drawRect.Bottom);
+                        g.DrawLine(strokePaint, drawRect.Left, drawRect.Top + drawRect.Height / 2, drawRect.Right, drawRect.Top + drawRect.Height / 2);
+                        g.DrawLine(strokePaint, drawRect.Left + drawRect.Width / 2, drawRect.Top, drawRect.Left + drawRect.Width / 2, drawRect.Bottom);
                         break;
 
                     case CheckedSymbol.Fill:
-                        Brush brush = e.Cache.GetBrush(CheckColor);
-                        g.FillRectangle(brush, drawRect);
+                        using (SKPaint fillPaint = new SKPaint { Color = CheckColor, Style = SKPaintStyle.Fill, IsAntialias = true })
+                        {
+                            g.FillRectangle(fillPaint, drawRect);
+                        }
                         break;
                 }
             }
@@ -246,25 +253,23 @@ namespace FastReport
                 switch (UncheckedSymbol)
                 {
                     case UncheckedSymbol.Cross:
-                        g.DrawLine(pen, drawRect.Left, drawRect.Top, drawRect.Right, drawRect.Bottom);
-                        g.DrawLine(pen, drawRect.Left, drawRect.Bottom, drawRect.Right, drawRect.Top);
+                        g.DrawLine(strokePaint, drawRect.Left, drawRect.Top, drawRect.Right, drawRect.Bottom);
+                        g.DrawLine(strokePaint, drawRect.Left, drawRect.Bottom, drawRect.Right, drawRect.Top);
                         break;
 
                     case UncheckedSymbol.Minus:
-                        g.DrawLine(pen, drawRect.Left, drawRect.Top + drawRect.Height / 2, drawRect.Right, drawRect.Top + drawRect.Height / 2);
+                        g.DrawLine(strokePaint, drawRect.Left, drawRect.Top + drawRect.Height / 2, drawRect.Right, drawRect.Top + drawRect.Height / 2);
                         break;
 
                     case UncheckedSymbol.Slash:
-                        g.DrawLine(pen, drawRect.Left, drawRect.Bottom, drawRect.Right, drawRect.Top);
+                        g.DrawLine(strokePaint, drawRect.Left, drawRect.Bottom, drawRect.Right, drawRect.Top);
                         break;
 
                     case UncheckedSymbol.BackSlash:
-                        g.DrawLine(pen, drawRect.Left, drawRect.Top, drawRect.Right, drawRect.Bottom);
+                        g.DrawLine(strokePaint, drawRect.Left, drawRect.Top, drawRect.Right, drawRect.Bottom);
                         break;
                 }
             }
-
-            g.SmoothingMode = saveSmoothing;
         }
         #endregion
 
@@ -292,7 +297,7 @@ namespace FastReport
             base.Draw(e);
             DrawCheck(e);
             DrawMarkers(e);
-            Border.Draw(e, new RectangleF(AbsLeft, AbsTop, Width, Height));
+            Border.Draw(e, new SKRect(AbsLeft, AbsTop, AbsLeft + Width, AbsTop + Height));
         }
 
         /// <inheritdoc/>
@@ -366,7 +371,7 @@ namespace FastReport
         /// </summary>
         public CheckBoxObject()
         {
-            checkColor = Color.Black;
+            checkColor = SKColors.Black;
             dataColumn = "";
             expression = "";
             isChecked = true;

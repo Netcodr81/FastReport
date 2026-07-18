@@ -1,10 +1,8 @@
-using System;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.ComponentModel;
 using FastReport.Utils;
-using System.Drawing.Design;
 using SkiaSharp;
+using System;
+using System.ComponentModel;
+using RectangleF = SkiaSharp.SKRect;
 
 namespace FastReport
 {
@@ -93,7 +91,7 @@ namespace FastReport
     public class BorderLine
     {
         #region Fields
-        private Color color;
+        private SKColor color;
         private LineStyle style;
         private float width;
         #endregion
@@ -102,8 +100,7 @@ namespace FastReport
         /// <summary>
         /// Gets or sets a color of the line.
         /// </summary>
-        [Editor("FastReport.TypeEditors.ColorEditor, FastReport", typeof(UITypeEditor))]
-        public Color Color
+        public SKColor Color
         {
             get { return color; }
             set { color = value; }
@@ -113,7 +110,6 @@ namespace FastReport
         /// Gets or sets a style of the line.
         /// </summary>
         [DefaultValue(LineStyle.Solid)]
-        [Editor("FastReport.TypeEditors.LineStyleEditor, FastReport", typeof(UITypeEditor))]
         public LineStyle Style
         {
             get { return style; }
@@ -144,12 +140,12 @@ namespace FastReport
         #region Private Methods
         private bool ShouldSerializeColor()
         {
-            return Color != Color.Black;
+            return Color != SKColors.Black;
         }
 
         internal bool ShouldSerialize()
         {
-            return Width != 1 || Style != LineStyle.Solid || Color != Color.Black;
+            return Width != 1 || Style != LineStyle.Solid || Color != SKColors.Black;
         }
         #endregion
 
@@ -192,7 +188,7 @@ namespace FastReport
 
             using (SKPaint paint = new SKPaint())
             {
-                paint.Color = new SKColor(Color.R, Color.G, Color.B, Color.A);
+                paint.Color = Color;
                 paint.StrokeWidth = penWidth;
                 paint.Style = SKPaintStyle.Stroke;
                 paint.StrokeCap = SKStrokeCap.Square;
@@ -280,7 +276,7 @@ namespace FastReport
         /// </summary>
         public BorderLine()
         {
-            color = Color.Black;
+            color = SKColors.Black;
             width = 1;
         }
         #endregion
@@ -297,13 +293,12 @@ namespace FastReport
     /// for each line, use <see cref="Color"/>, <see cref="Style"/>, <see cref="Width"/> properties of the <b>Border</b>.
     /// </remarks>
     [TypeConverter(typeof(FastReport.TypeConverters.FRExpandableObjectConverter))]
-    [Editor("FastReport.TypeEditors.BorderEditor, FastReport", typeof(UITypeEditor))]
     public class Border
     {
         #region Fields
         private bool shadow;
         private float shadowWidth;
-        private Color shadowColor;
+        private SKColor shadowColor;
         private BorderLines lines;
         private BorderLine leftLine;
         private BorderLine topLine;
@@ -320,8 +315,7 @@ namespace FastReport
         /// This property actually returns a color of the <see cref="LeftLine"/>. When you assign a value 
         /// to this property, the value will be set to each border line.
         /// </remarks>
-        [Editor("FastReport.TypeEditors.ColorEditor, FastReport", typeof(UITypeEditor))]
-        public Color Color
+        public SKColor Color
         {
             get { return leftLine.Color; }
             set
@@ -356,8 +350,7 @@ namespace FastReport
         /// <summary>
         /// Gets or sets a shadow color.
         /// </summary>
-        [Editor("FastReport.TypeEditors.ColorEditor, FastReport", typeof(UITypeEditor))]
-        public Color ShadowColor
+        public SKColor ShadowColor
         {
             get { return shadowColor; }
             set { shadowColor = value; }
@@ -371,7 +364,6 @@ namespace FastReport
         /// to this property, the value will be set to each border line.
         /// </remarks>
         [DefaultValue(LineStyle.Solid)]
-        [Editor("FastReport.TypeEditors.LineStyleEditor, FastReport", typeof(UITypeEditor))]
         public LineStyle Style
         {
             get { return leftLine.Style; }
@@ -388,7 +380,6 @@ namespace FastReport
         /// Gets or sets a visible lines of a border.
         /// </summary>
         [DefaultValue(BorderLines.None)]
-        [Editor("FastReport.TypeEditors.BorderLinesEditor, FastReport", typeof(UITypeEditor))]
         public BorderLines Lines
         {
             get { return lines; }
@@ -493,12 +484,12 @@ namespace FastReport
 
         private bool ShouldSerializeColor()
         {
-            return Color != Color.Black;
+            return Color != SKColors.Black;
         }
 
         private bool ShouldSerializeShadowColor()
         {
-            return ShadowColor != Color.Black;
+            return ShadowColor != SKColors.Black;
         }
         #endregion
 
@@ -575,7 +566,7 @@ namespace FastReport
             {
                 if (Lines != c.Lines)
                     writer.WriteValue(prefix + ".Lines", Lines);
-                if (Lines != BorderLines.None || Color != Color.Black)
+                if (Lines != BorderLines.None || Color != SKColors.Black)
                 {
                     if (LeftLine.Equals(RightLine) && LeftLine.Equals(TopLine) && LeftLine.Equals(BottomLine) &&
                       c.LeftLine.Equals(c.RightLine) && c.LeftLine.Equals(c.TopLine) && c.LeftLine.Equals(c.BottomLine))
@@ -603,39 +594,19 @@ namespace FastReport
         /// </remarks>
         public void Draw(FRPaintEventArgs e, SKRect rect)
         {
-            // Convert SKRect to RectangleF
-            // SKRect uses (left, top, right, bottom) format
-            // RectangleF uses (x, y, width, height) format
-            RectangleF rectangleF = new RectangleF(
-                rect.Left,
-                rect.Top,
-                rect.Width,
-                rect.Height);
-            Draw(e, rectangleF);
-        }
-
-        /// <summary>
-        /// Draw the border using draw event arguments and specified bounding rectangle.
-        /// </summary>
-        /// <param name="e">Draw event arguments.</param>
-        /// <param name="rect">Bounding rectangle.</param>
-        /// <remarks>
-        /// This method is for internal use only.
-        /// </remarks>
-        public void Draw(FRPaintEventArgs e, RectangleF rect)
-        {
             IGraphics g = e.Graphics;
-            rect.X *= e.ScaleX;
-            rect.Y *= e.ScaleY;
-            rect.Width *= e.ScaleX;
-            rect.Height *= e.ScaleY;
+            rect = new SKRect(
+                rect.Left * e.ScaleX,
+                rect.Top * e.ScaleY,
+                rect.Right * e.ScaleX,
+                rect.Bottom * e.ScaleY);
 
             if (Shadow)
             {
                 float d = ShadowWidth * e.ScaleX;
                 using (SKPaint shadowPaint = new SKPaint())
                 {
-                    shadowPaint.Color = new SKColor(ShadowColor.R, ShadowColor.G, ShadowColor.B, ShadowColor.A);
+                    shadowPaint.Color = ShadowColor;
                     shadowPaint.Style = SKPaintStyle.Fill;
                     g.FillRectangle(shadowPaint, rect.Left + d, rect.Bottom, rect.Width, d);
                     g.FillRectangle(shadowPaint, rect.Right, rect.Top + d, d, rect.Height);
@@ -651,7 +622,7 @@ namespace FastReport
                 {
                     using (SKPaint paint = new SKPaint())
                     {
-                        paint.Color = new SKColor(LeftLine.Color.R, LeftLine.Color.G, LeftLine.Color.B, LeftLine.Color.A);
+                        paint.Color = LeftLine.Color;
                         paint.StrokeWidth = LeftLine.Width * e.ScaleX;
                         paint.Style = SKPaintStyle.Stroke;
                         paint.IsAntialias = true;
@@ -687,7 +658,7 @@ namespace FastReport
             rightLine = new BorderLine();
             bottomLine = new BorderLine();
             shadowWidth = 4;
-            shadowColor = Color.Black;
+            shadowColor = SKColors.Black;
         }
 
         private Border(Border src)

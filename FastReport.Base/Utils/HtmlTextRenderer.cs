@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Text;
+using SkiaSharp;
 
 namespace FastReport.Utils
 {
@@ -29,9 +28,9 @@ namespace FastReport.Utils
             internal FontFamily font;
             internal float size;
             internal FontStyle style; // no keep
-            internal Color color; // no keep
-            internal Color underlineColor;
-            internal RectangleF rect;
+            internal SKColor color; // no keep
+            internal SKColor underlineColor;
+            internal SKRect rect;
             internal bool underlines;
             internal StringFormat format; // no keep
             internal HorzAlign horzAlign;
@@ -63,7 +62,7 @@ namespace FastReport.Utils
         private const char SOFT_ENTER = '\u2028';
         private List<RectangleFColor> backgrounds;
         private InlineImageCache cache;
-        private RectangleF displayRect;
+        private SKRect displayRect;
         private bool everUnderlines;
         private FontFamily font;
         private float fontLineHeight;
@@ -78,7 +77,7 @@ namespace FastReport.Utils
         private float size;
         private List<LineFColor> strikeouts;
         private string text;
-        private Color underlineColor;
+        private SKColor underlineColor;
         private List<LineFColor> underlines;
         private VertAlign vertAlign;
         private StyleDescriptor initalStyle;
@@ -100,7 +99,7 @@ namespace FastReport.Utils
         /// <summary>
         /// Gets a display rectangle.
         /// </summary>
-        public RectangleF DisplayRect { get { return displayRect; } }
+        public SKRect DisplayRect { get { return displayRect; } }
         
         /// <summary>
         /// Gets a scale factor.
@@ -247,7 +246,7 @@ namespace FastReport.Utils
             paragraphs = new List<HtmlTextRenderer.Paragraph>();
             rightToLeft = (context.format.FormatFlags & StringFormatFlags.DirectionRightToLeft) == StringFormatFlags.DirectionRightToLeft;
             // Dispose it
-            this.format = StringFormat.GenericTypographic.Clone() as StringFormat;
+            this.format = StringFormat.GenericTypographic.Clone();
             if (RightToLeft)
                 this.format.FormatFlags |= StringFormatFlags.DirectionRightToLeft;
             float firstTab;
@@ -256,7 +255,7 @@ namespace FastReport.Utils
             this.format.Alignment = StringAlignment.Near;
             this.format.LineAlignment = StringAlignment.Near;
             this.format.Trimming = StringTrimming.None;
-            this.format.HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None;
+            this.format.HotkeyPrefix = null;
             //FFormat.DigitSubstitutionMethod = StringDigitSubstitute.User;
             //FFormat.DigitSubstitutionLanguage = 0;
             this.format.FormatFlags |= StringFormatFlags.NoClip | StringFormatFlags.FitBlackBox | StringFormatFlags.LineLimit;
@@ -268,9 +267,10 @@ namespace FastReport.Utils
             //FDisplayRect.Width -= width_dotnet * scale;
 
             initalStyle = new StyleDescriptor(context.style, context.color, BaseLine.Normal, this.font, this.size * this.fontScale);
-            using (Font f = initalStyle.GetFont())
+            using (SKFont f = initalStyle.GetFont())
             {
-                fontLineHeight = f.GetHeight(graphics.Graphics);
+                SKFontMetrics metrics = f.Metrics;
+                fontLineHeight = metrics.Descent - metrics.Ascent + metrics.Leading;
             }
 
 
@@ -313,7 +313,7 @@ namespace FastReport.Utils
         /// <param name="isPrinting">Is printing to a printer.</param>
         /// <param name="isDifferentTabPositions">Is different tab positions used.</param>
         public HtmlTextRenderer(string text, IGraphics g, FontFamily font, float size,
-                    FontStyle style, Color color, Color underlineColor, RectangleF rect, bool underlines,
+                    FontStyle style, SKColor color, SKColor underlineColor, SKRect rect, bool underlines,
                     StringFormat format, HorzAlign horzAlign, VertAlign vertAlign,
                     ParagraphFormat paragraphFormat, bool forceJustify, float scale, float fontScale, InlineImageCache cache, bool isPrinting = false, bool isDifferentTabPositions = false)
         {
@@ -327,7 +327,7 @@ namespace FastReport.Utils
             displayRect = rect;
             rightToLeft = (format.FormatFlags & StringFormatFlags.DirectionRightToLeft) == StringFormatFlags.DirectionRightToLeft;
             // Dispose it
-            this.format = StringFormat.GenericTypographic.Clone() as StringFormat;
+            this.format = StringFormat.GenericTypographic.Clone();
             if (RightToLeft)
                 this.format.FormatFlags |= StringFormatFlags.DirectionRightToLeft;
             float firstTab;
@@ -336,7 +336,7 @@ namespace FastReport.Utils
             this.format.Alignment = StringAlignment.Near;
             this.format.LineAlignment = StringAlignment.Near;
             this.format.Trimming = StringTrimming.None;
-            this.format.HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None;
+            this.format.HotkeyPrefix = null;
             this.underlineColor = underlineColor;
             //FFormat.DigitSubstitutionMethod = StringDigitSubstitute.User;
             //FFormat.DigitSubstitutionLanguage = 0;
@@ -357,9 +357,10 @@ namespace FastReport.Utils
             //FDisplayRect.Width -= width_dotnet * scale;
 
             initalStyle = new StyleDescriptor(style, color, BaseLine.Normal, this.font, this.size * this.fontScale);
-            using (Font f = initalStyle.GetFont())
+            using (SKFont f = initalStyle.GetFont())
             {
-                fontLineHeight = f.GetHeight(g.Graphics);
+                SKFontMetrics metrics = f.Metrics;
+                fontLineHeight = metrics.Descent - metrics.Ascent + metrics.Leading;
             }
 
             this.forceJustify = forceJustify;
@@ -550,14 +551,14 @@ namespace FastReport.Utils
         {
             // set clipping
             IGraphicsState state = graphics.Save();
-            RectangleF dRect = displayRect;
+            SKRect dRect = displayRect;
             // round x and y to an integer to avoid clipping the characters of the first line
             dRect.Inflate(displayRect.Left % 1, displayRect.Top % 1);
-            graphics.SetClip(dRect, CombineMode.Intersect);
+            graphics.SetClip(dRect, SKClipOperation.Intersect);
 
             if (Angle != 0)
             {
-                PointF center = new PointF(displayRect.Left + displayRect.Width / 2, displayRect.Top + displayRect.Height / 2);
+                SKPoint center = new SKPoint(displayRect.Left + displayRect.Width / 2, displayRect.Top + displayRect.Height / 2);
 
                 // Translate the origin to the center of the rectangle
                 graphics.TranslateTransform(center.X, center.Y);
@@ -581,7 +582,7 @@ namespace FastReport.Utils
             //            FGraphics.FillRectangle(brush, rect.Left - rect.Width, rect.Top, rect.Width, rect.Height);
             //else
             foreach (RectangleFColor rect in backgrounds)
-                using (Brush brush = new SolidBrush(rect.Color))
+                using (SKPaint brush = new SKPaint { Color = rect.Color, Style = SKPaintStyle.Fill })
                     graphics.FillRectangle(brush, rect.Left, rect.Top, rect.Width, rect.Height);
 
             foreach (Paragraph p in paragraphs)
@@ -615,11 +616,11 @@ namespace FastReport.Utils
             //else
             //{
             foreach (LineFColor line in underlines)
-                using (Pen pen = new Pen(line.Color, line.Width))
+                using (SKPaint pen = new SKPaint { Color = line.Color, StrokeWidth = line.Width, Style = SKPaintStyle.Stroke })
                     graphics.DrawLine(pen, line.Left, line.Top, line.Right, line.Top);
 
             foreach (LineFColor line in strikeouts)
-                using (Pen pen = new Pen(line.Color, line.Width))
+                using (SKPaint pen = new SKPaint { Color = line.Color, StrokeWidth = line.Width, Style = SKPaintStyle.Stroke })
                     graphics.DrawLine(pen, line.Left, line.Top, line.Right, line.Top);
             //}
 
@@ -718,7 +719,7 @@ namespace FastReport.Utils
             if (dict.TryGetValue("color", out tStr))
             {
                 if (StartsWith(tStr, "#"))
-                    try { style.Color = Color.FromArgb((int)(0xFF000000 + uint.Parse(tStr.Substring(1), System.Globalization.NumberStyles.HexNumber))); } catch { }
+                    try { style.Color = ColorHelper.FromString(tStr) ?? style.Color; } catch { }
                 else if (StartsWith(tStr, "rgba"))
                 {
                     int i1 = tStr.IndexOf('(');
@@ -733,7 +734,7 @@ namespace FastReport.Utils
                             g = Single.Parse(strs[1], CultureInfo);
                             b = Single.Parse(strs[2], CultureInfo);
                             a = Single.Parse(strs[3], CultureInfo);
-                            style.Color = Color.FromArgb((int)(a * 0xFF), (int)r, (int)g, (int)b);
+                            style.Color = new SKColor((byte)r, (byte)g, (byte)b, (byte)(a * 0xFF));
                         }
                         catch { }
                     }
@@ -751,18 +752,18 @@ namespace FastReport.Utils
                             r = Single.Parse(strs[0], CultureInfo);
                             g = Single.Parse(strs[1], CultureInfo);
                             b = Single.Parse(strs[2], CultureInfo);
-                            style.Color = Color.FromArgb((int)r, (int)g, (int)b);
+                            style.Color = new SKColor((byte)r, (byte)g, (byte)b);
                         }
                         catch { }
                     }
                 }
-                else style.Color = Color.FromName(tStr);
+                else style.Color = ColorHelper.FromString(tStr) ?? style.Color;
             }
 
             if (dict.TryGetValue("background-color", out tStr))
             {
                 if (StartsWith(tStr, "#"))
-                    try { style.BackgroundColor = Color.FromArgb((int)(0xFF000000 + uint.Parse(tStr.Substring(1), System.Globalization.NumberStyles.HexNumber))); } catch { }
+                    try { style.BackgroundColor = ColorHelper.FromString(tStr) ?? style.BackgroundColor; } catch { }
                 else if (StartsWith(tStr, "rgba"))
                 {
                     int i1 = tStr.IndexOf('(');
@@ -777,7 +778,7 @@ namespace FastReport.Utils
                             g = Single.Parse(strs[1], CultureInfo);
                             b = Single.Parse(strs[2], CultureInfo);
                             a = Single.Parse(strs[3], CultureInfo);
-                            style.BackgroundColor = Color.FromArgb((int)(a * 0xFF), (int)r, (int)g, (int)b);
+                            style.BackgroundColor = new SKColor((byte)r, (byte)g, (byte)b, (byte)(a * 0xFF));
                         }
                         catch { }
                     }
@@ -795,12 +796,12 @@ namespace FastReport.Utils
                             r = Single.Parse(strs[0], CultureInfo);
                             g = Single.Parse(strs[1], CultureInfo);
                             b = Single.Parse(strs[2], CultureInfo);
-                            style.BackgroundColor = Color.FromArgb((int)r, (int)g, (int)b);
+                            style.BackgroundColor = new SKColor((byte)r, (byte)g, (byte)b);
                         }
                         catch { }
                     }
                 }
-                else style.BackgroundColor = Color.FromName(tStr);
+                else style.BackgroundColor = ColorHelper.FromString(tStr) ?? style.BackgroundColor;
             }
         }
 
@@ -1470,8 +1471,8 @@ namespace FastReport.Utils
             /// <summary>
             /// Gets the color.
             /// </summary>
-            public readonly Color Color;
-            
+            public readonly SKColor Color;
+
             /// <summary>
             /// Gets the left coordinate.
             /// </summary>
@@ -1493,7 +1494,7 @@ namespace FastReport.Utils
 
             #region Public Constructors
 
-            internal LineFColor(float left, float top, float right, float width, Color color)
+            internal LineFColor(float left, float top, float right, float width, SKColor color)
             {
                 this.Left = left;
                 this.Top = top;
@@ -1503,22 +1504,22 @@ namespace FastReport.Utils
             }
 
             internal LineFColor(float left, float top, float right, float width, byte R, byte G, byte B)
-                : this(left, top, right, width, Color.FromArgb(R, G, B))
+                : this(left, top, right, width, new SKColor(R, G, B))
             {
             }
 
             internal LineFColor(float left, float top, float right, float width, byte R, byte G, byte B, byte A)
-                : this(left, top, right, width, Color.FromArgb(A, R, G, B))
+                : this(left, top, right, width, new SKColor(R, G, B, A))
             {
             }
 
             internal LineFColor(float left, float top, float right, float width, int R, int G, int B)
-              : this(left, top, right, width, Color.FromArgb(R, G, B))
+              : this(left, top, right, width, new SKColor((byte)R, (byte)G, (byte)B))
             {
             }
 
             internal LineFColor(float left, float top, float right, float width, int R, int G, int B, int A)
-                : this(left, top, right, width, Color.FromArgb(A, R, G, B))
+                : this(left, top, right, width, new SKColor((byte)R, (byte)G, (byte)B, (byte)A))
             {
             }
 
@@ -1539,7 +1540,7 @@ namespace FastReport.Utils
             /// <summary>
             /// Gets the color.
             /// </summary>
-            public readonly Color Color;
+            public readonly SKColor Color;
             /// <summary>
             /// Gets the height.
             /// </summary>
@@ -1561,7 +1562,7 @@ namespace FastReport.Utils
 
             #region Public Constructors
 
-            internal RectangleFColor(float left, float top, float width, float height, Color color)
+            internal RectangleFColor(float left, float top, float width, float height, SKColor color)
             {
                 this.Left = left;
                 this.Top = top;
@@ -1571,22 +1572,22 @@ namespace FastReport.Utils
             }
 
             internal RectangleFColor(float left, float top, float width, float height, byte R, byte G, byte B)
-                : this(left, top, width, height, Color.FromArgb(R, G, B))
+                : this(left, top, width, height, new SKColor(R, G, B))
             {
             }
 
             internal RectangleFColor(float left, float top, float width, float height, byte R, byte G, byte B, byte A)
-                : this(left, top, width, height, Color.FromArgb(A, R, G, B))
+                : this(left, top, width, height, new SKColor(R, G, B, A))
             {
             }
 
             internal RectangleFColor(float left, float top, float width, float height, int R, int G, int B)
-              : this(left, top, width, height, Color.FromArgb(R, G, B))
+              : this(left, top, width, height, new SKColor((byte)R, (byte)G, (byte)B))
             {
             }
 
             internal RectangleFColor(float left, float top, float width, float height, int R, int G, int B, int A)
-                : this(left, top, width, height, Color.FromArgb(A, R, G, B))
+                : this(left, top, width, height, new SKColor((byte)R, (byte)G, (byte)B, (byte)A))
             {
             }
 
@@ -1890,7 +1891,7 @@ namespace FastReport.Utils
                 {
                     foreach (Word word in Words)
                         foreach (Run run in word.Runs)
-                            if (run.Style.BackgroundColor.A > 0)
+                            if (run.Style.BackgroundColor.Alpha > 0)
                                 list.Add(new RectangleFColor(
                                     run.Left - run.Width, top, run.Width, height, run.Style.BackgroundColor
                                     ));
@@ -1899,7 +1900,7 @@ namespace FastReport.Utils
                 {
                     foreach (Word word in Words)
                         foreach (Run run in word.Runs)
-                            if (run.Style.BackgroundColor.A > 0)
+                            if (run.Style.BackgroundColor.Alpha > 0)
                                 list.Add(new RectangleFColor(
                                     run.Left, top, run.Width, height, run.Style.BackgroundColor
                                     ));
@@ -1921,11 +1922,12 @@ namespace FastReport.Utils
                         }
                 if (styles.Count == 0 || BaseLine <= 0.01)
                 {
-                    using (Font ff = renderer.initalStyle.GetFont())
+                    using (SKFont ff = renderer.initalStyle.GetFont())
                     {
-                        float lineSpace = ff.FontFamily.GetLineSpacing(renderer.initalStyle.FontStyle);
-                        float ascent = ff.FontFamily.GetCellAscent(renderer.initalStyle.FontStyle);
-                        baseLine = height * ascent / lineSpace;
+                        SKFontMetrics metrics = ff.Metrics;
+                        float lineSpace = metrics.Descent - metrics.Ascent + metrics.Leading;
+                        float ascent = -metrics.Ascent;
+                        baseLine = lineSpace == 0 ? 0 : height * ascent / lineSpace;
                         float FDescent = height - baseLine;
                         underline = FDescent / 2;
                         size = ff.Size;
@@ -2324,7 +2326,7 @@ namespace FastReport.Utils
         {
             #region Private Fields
 
-            private Image image;
+            private SKBitmap image;
             private string src;
 
             #endregion Private Fields
@@ -2334,7 +2336,7 @@ namespace FastReport.Utils
             /// <summary>
             /// Gets the image.
             /// </summary>
-            public Image Image { get { return image; } }
+            public SKBitmap Image { get { return image; } }
 
             #endregion Public Properties
 
@@ -2346,7 +2348,8 @@ namespace FastReport.Utils
                 this.src = src;
                 //disable for exports because img tag not support strikeouts and underlines
                 base.style.FontStyle &= ~(FontStyle.Strikeout | FontStyle.Underline);
-                image = InlineImageCache.Load(Renderer.cache, src);
+                byte[] imageBytes = Renderer.cache?.Get(src)?.Stream;
+                image = imageBytes != null && imageBytes.Length > 0 ? ImageHelper.Load(imageBytes) : new SKBitmap(1, 1);
                 Width = image.Width * Renderer.Scale;
                 Height = image.Height * Renderer.Scale;
                 if (img_height > 0)
@@ -2368,12 +2371,11 @@ namespace FastReport.Utils
                     Height *= img_width / image.Width;
                 }
                 baseLine = Height;
-                using (Font ff = style.GetFont())
+                using (SKFont ff = style.GetFont())
                 {
-                    float height = ff.GetHeight(Renderer.graphics.Graphics);
-                    float lineSpace = ff.FontFamily.GetLineSpacing(style.FontStyle);
-                    float descent = ff.FontFamily.GetCellDescent(style.FontStyle);
-                    base.descent = height * descent / lineSpace;
+                    SKFontMetrics metrics = ff.Metrics;
+                    float height = metrics.Descent - metrics.Ascent + metrics.Leading;
+                    base.descent = metrics.Descent;
                 }
             }
 
@@ -2386,9 +2388,9 @@ namespace FastReport.Utils
                 if (image != null)
                 {
                     if (renderer.rightToLeft)
-                        renderer.graphics.DrawImage(image, new RectangleF(Left - Width, Top, Width, Height));
+                        renderer.graphics.DrawImage(SKImage.FromBitmap(image), new SKRect(Left - Width, Top, Left, Top + Height));
                     else
-                        renderer.graphics.DrawImage(image, new RectangleF(Left, Top, Width, Height));
+                        renderer.graphics.DrawImage(SKImage.FromBitmap(image), new SKRect(Left, Top, Left + Width, Top + Height));
                 }
             }
 
@@ -2408,12 +2410,12 @@ namespace FastReport.Utils
             /// <param name="width">The bitmap width.</param>
             /// <param name="height">The bitmap height.</param>
             /// <returns>The Bitmap object.</returns>
-            public Bitmap GetBitmap(out float width, out float height)
+            public SKBitmap GetBitmap(out float width, out float height)
             {
                 width = 1;
                 height = 1;
                 if (image == null)
-                    return new Bitmap(1, 1);
+                    return new SKBitmap(1, 1);
 
                 width = image.Width;
                 height = image.Height;
@@ -2448,9 +2450,9 @@ namespace FastReport.Utils
                 if (width < 1) width = 1;
                 if (height < 1) height = 1;
 
-                Bitmap bmp = new Bitmap((int)width, (int)height);
-                using (Graphics g = Graphics.FromImage(bmp))
-                    g.DrawImage(image, new PointF(x, y));
+                SKBitmap bmp = new SKBitmap((int)width, (int)height);
+                using SKCanvas canvas = new SKCanvas(bmp);
+                canvas.DrawBitmap(image, x, y);
                 width /= scaleX;
                 height /= scaleY;
                 return bmp;
@@ -2484,13 +2486,13 @@ namespace FastReport.Utils
 
             internal RunText(HtmlTextRenderer renderer, Word word, StyleDescriptor style, List<CharWithIndex> text, float left, int charIndex) : base(renderer, word, style, left, charIndex)
             {
-                using (Font ff = style.GetFont())
+                using (SKFont ff = style.GetFont())
                 {
                     chars = new List<CharWithIndex>(text);
 
                     this.text = GetString(text);
 
-                    if (ff.FontFamily.Name == "Wingdings" || ff.FontFamily.Name == "Webdings")
+                    if (ff.Typeface?.FamilyName == "Wingdings" || ff.Typeface?.FamilyName == "Webdings")
                     {
                         this.text = WingdingsToUnicodeConverter.Convert(this.text);
                     }
@@ -2500,19 +2502,17 @@ namespace FastReport.Utils
                         base.charIndex = text[0].Index;
                         if (word.Type == WordType.WhiteSpace)
                         {
-                            //using (Font f = new Font("Consolas", 10))
                             width = CalcSpaceWidth(this.text, ff);
                         }
                         else
                         {
-                            width = Renderer.graphics.MeasureString(this.text, ff, int.MaxValue, base.renderer.format).Width;
+                            width = Renderer.graphics.MeasureString(this.text, ff).Width;
                         }
                     }
-                    height = ff.GetHeight(Renderer.graphics.Graphics);
-                    float lineSpace = ff.FontFamily.GetLineSpacing(style.FontStyle);
-                    float ascent = ff.FontFamily.GetCellAscent(style.FontStyle);
-                    baseLine = height * ascent / lineSpace;
-                    descent = height - baseLine;
+                    SKFontMetrics metrics = ff.Metrics;
+                    height = metrics.Descent - metrics.Ascent + metrics.Leading;
+                    baseLine = -metrics.Ascent;
+                    descent = metrics.Descent;
                     if (style.BaseLine == HtmlTextRenderer.BaseLine.Subscript)
                         descent += height * 0.45f;
                 }
@@ -2522,18 +2522,18 @@ namespace FastReport.Utils
 
             #region Public Methods
 
-            internal float CalcSpaceWidth(string text, Font ff)
+            internal float CalcSpaceWidth(string text, SKFont ff)
             {
-                return Renderer.graphics.MeasureString("1" + text + "2", ff, int.MaxValue, renderer.format).Width
-                    - Renderer.graphics.MeasureString("12", ff, int.MaxValue, renderer.format).Width;
+                return Renderer.graphics.MeasureString("1" + text + "2", ff).Width
+                    - Renderer.graphics.MeasureString("12", ff).Width;
             }
 
             internal override void Draw()
             {
-                using (Font font = style.GetFont())
-                using (Brush brush = GetBrush())
+                using (SKFont font = style.GetFont())
+                using (SKPaint brush = new SKPaint { Color = Style.Color, IsAntialias = true, Style = SKPaintStyle.Fill })
                 {
-                    renderer.graphics.DrawString(text, font, brush, Left, Top, renderer.format);
+                    renderer.graphics.DrawString(text, font, brush, Left, Top, null);
                 }
             }
 
@@ -3130,10 +3130,10 @@ namespace FastReport.Utils
         {
             #region Private Fields
 
-            private static readonly Color DefaultColor = Color.Transparent;
-            private Color backgroundColor;
+            private static readonly SKColor DefaultColor = SKColors.Transparent;
+            private SKColor backgroundColor;
             private BaseLine baseLine;
-            private Color color;
+            private SKColor color;
             private FontFamily font;
             private FontStyle fontStyle;
             private float size;
@@ -3145,7 +3145,7 @@ namespace FastReport.Utils
             /// <summary>
             /// Gets the background color.
             /// </summary>
-            public Color BackgroundColor
+            public SKColor BackgroundColor
             {
                 get { return backgroundColor; }
                 internal set { backgroundColor = value; }
@@ -3163,7 +3163,7 @@ namespace FastReport.Utils
             /// <summary>
             /// Gets the text color.
             /// </summary>
-            public Color Color
+            public SKColor Color
             {
                 get { return color; }
                 internal set { color = value; }
@@ -3200,7 +3200,7 @@ namespace FastReport.Utils
 
             #region Public Constructors
 
-            internal StyleDescriptor(FontStyle fontStyle, Color color, BaseLine baseLine, FontFamily font, float size)
+            internal StyleDescriptor(FontStyle fontStyle, SKColor color, BaseLine baseLine, FontFamily font, float size)
             {
                 this.fontStyle = fontStyle;
                 this.color = color;
@@ -3252,16 +3252,15 @@ namespace FastReport.Utils
             /// Gets the actual font for this run.
             /// </summary>
             /// <returns>The Font object.</returns>
-            public Font GetFont()
+            public SKFont GetFont()
             {
                 float fontSize = size;
                 if (baseLine != BaseLine.Normal)
                     fontSize *= 0.6f;
 
                 FontStyle fontStyle = FontStyle;
-
                 fontStyle = fontStyle & ~FontStyle.Underline & ~FontStyle.Strikeout;
-                return new Font(font, fontSize, fontStyle);
+                return DrawUtils.CreateFont(font?.Name, fontSize, fontStyle);
             }
 
             /// <inheritdoc/>
@@ -3309,8 +3308,8 @@ namespace FastReport.Utils
                     if ((fontStyle & FontStyle.Strikeout) == FontStyle.Strikeout) sb.Append("<strike>");
 
                     sb.Append("<span style=\"");
-                    if (backgroundColor.A > 0) sb.Append(String.Format(CultureInfo, "background-color:rgba({0},{1},{2},{3});", backgroundColor.R, backgroundColor.G, backgroundColor.B, ((float)backgroundColor.A) / 255f));
-                    if (color.A > 0) sb.Append(String.Format(CultureInfo, "color:rgba({0},{1},{2},{3});", color.R, color.G, color.B, ((float)color.A) / 255f));
+                    if (backgroundColor.Alpha > 0) sb.Append(String.Format(CultureInfo, "background-color:rgba({0},{1},{2},{3});", backgroundColor.Red, backgroundColor.Green, backgroundColor.Blue, ((float)backgroundColor.Alpha) / 255f));
+                    if (color.Alpha > 0) sb.Append(String.Format(CultureInfo, "color:rgba({0},{1},{2},{3});", color.Red, color.Green, color.Blue, ((float)color.Alpha) / 255f));
                     if (font != null) { sb.Append("font-family:"); sb.Append("\'"+font.Name+"\'"); sb.Append(";"); }
                     if (fontsize > 0) { sb.Append("font-size:"); sb.Append(fontsize.ToString(CultureInfo)); sb.Append("pt;"); }
 

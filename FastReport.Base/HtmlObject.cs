@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Text;
 using System.ComponentModel;
 using FastReport.Utils;
 using FastReport.Code;
+using SkiaSharp;
 
 namespace FastReport
 {
@@ -95,26 +94,25 @@ namespace FastReport
             if (!String.IsNullOrEmpty(text))
             {
                 IGraphics g = e.Graphics;
-                RectangleF textRect = new RectangleF(
+                SKRect textRect = new SKRect(
                   (AbsLeft + Padding.Left) * e.ScaleX,
                   (AbsTop + Padding.Top) * e.ScaleY,
-                  (Width - Padding.Horizontal) * e.ScaleX,
-                  (Height - Padding.Vertical) * e.ScaleY);
+                  (AbsLeft + Width - Padding.Right) * e.ScaleX,
+                  (AbsTop + Height - Padding.Bottom) * e.ScaleY);
 
-                StringFormat format = GetStringFormat(e.Cache, 0, e.ScaleX);
+                SKFont font = DrawUtils.DefaultTextObjectFont;
 
-                Font font = DrawUtils.DefaultTextObjectFont;
-
-                Brush textBrush = e.Cache.GetBrush(Color.Black);
-
-                Report report = Report;
-                if (report != null)
-                    g.TextRenderingHint = report.GetTextQuality();
+                using SKPaint textBrush = new SKPaint
+                {
+                    Color = SKColors.Black,
+                    Style = SKPaintStyle.Fill,
+                    IsAntialias = true
+                };
 
                 if (textRect.Width > 0 && textRect.Height > 0)
                 {
                     // use simple rendering
-                    g.DrawString(text, font, textBrush, textRect, format);
+                    g.DrawString(text, font, textBrush, textRect, null);
                 }
             }
         }
@@ -126,7 +124,7 @@ namespace FastReport
             base.Draw(e);
             DrawText(e);
             DrawMarkers(e);
-            Border.Draw(e, new RectangleF(AbsLeft, AbsTop, Width, Height));
+            Border.Draw(e, new SKRect(AbsLeft, AbsTop, AbsLeft + Width, AbsTop + Height));
             DrawDesign(e);
         }
 

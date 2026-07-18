@@ -12,7 +12,7 @@ namespace FastReport.Utils
     }
 
     [Flags]
-    internal enum FontStyle
+    public enum FontStyle
     {
         Regular = 0,
         Bold = 1,
@@ -34,6 +34,40 @@ namespace FastReport.Utils
 
     public sealed class StringFormat : IDisposable
     {
+        public static StringFormat GenericTypographic { get; } = new StringFormat();
+        public StringAlignment Alignment { get; set; }
+        public StringAlignment LineAlignment { get; set; }
+        public StringTrimming Trimming { get; set; }
+        public StringFormatFlags FormatFlags { get; set; }
+        public object HotkeyPrefix { get; set; }
+        private float firstTabOffset;
+        private float[] tabStops = Array.Empty<float>();
+
+        public float[] GetTabStops(out float firstTabStop)
+        {
+            firstTabStop = firstTabOffset;
+            return (float[])tabStops.Clone();
+        }
+
+        public void SetTabStops(float firstTabOffset, float[] tabStops)
+        {
+            this.firstTabOffset = firstTabOffset;
+            this.tabStops = tabStops == null ? Array.Empty<float>() : (float[])tabStops.Clone();
+        }
+
+        public StringFormat Clone()
+        {
+            StringFormat format = new StringFormat();
+            format.Alignment = Alignment;
+            format.LineAlignment = LineAlignment;
+            format.Trimming = Trimming;
+            format.FormatFlags = FormatFlags;
+            format.HotkeyPrefix = HotkeyPrefix;
+            format.firstTabOffset = firstTabOffset;
+            format.tabStops = (float[])tabStops.Clone();
+            return format;
+        }
+
         public void Dispose()
         {
         }

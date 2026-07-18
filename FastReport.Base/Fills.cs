@@ -1,15 +1,35 @@
-using System;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.ComponentModel;
 using FastReport.Utils;
-using System.Drawing.Design;
-using System.IO;
-using System.Drawing.Imaging;
 using SkiaSharp;
+using System;
+using System.ComponentModel;
+using System.IO;
+using UITypeEditor = System.Drawing.Design.UITypeEditor;
+using Color = SkiaSharp.SKColor;
+using RectangleF = SkiaSharp.SKRect;
+using Image = SkiaSharp.SKBitmap;
+using Bitmap = SkiaSharp.SKBitmap;
 
 namespace FastReport
 {
+    public enum HatchStyle
+    {
+        Horizontal,
+        Vertical,
+        ForwardDiagonal,
+        BackwardDiagonal,
+        Cross,
+        DiagonalCross
+    }
+
+    public enum WrapMode
+    {
+        Tile,
+        TileFlipX,
+        TileFlipY,
+        TileFlipXY,
+        Clamp
+    }
+
     /// <summary>
     /// Base class for all fills.
     /// </summary>
@@ -46,7 +66,7 @@ namespace FastReport
         /// </summary>
         /// <param name="rect">Drawing rectangle.</param>
         /// <returns>Brush object.</returns>
-        public abstract Brush CreateBrush(RectangleF rect);
+        public abstract Brush CreateBrush(SKRect rect);
 
         /// <summary>
         /// Creates the GDI+ Brush object with scaling.
@@ -55,7 +75,7 @@ namespace FastReport
         /// <param name="scaleX">X scaling coefficient.</param>
         /// <param name="scaleY">Y scaling coefficient.</param>
         /// <returns>Brush object.</returns>
-        public virtual Brush CreateBrush(RectangleF rect, float scaleX, float scaleY)
+        public virtual Brush CreateBrush(SKRect rect, float scaleX, float scaleY)
         {
             return CreateBrush(rect);
         }
@@ -112,11 +132,11 @@ namespace FastReport
         /// </summary>
         /// <param name="e">Draw event arguments.</param>
         /// <param name="rect">Drawing rectangle.</param>
-        public virtual void Draw(FRPaintEventArgs e, RectangleF rect)
+        public virtual void Draw(FRPaintEventArgs e, SKRect rect)
         {
-            rect = new RectangleF(rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Width * e.ScaleX, rect.Height * e.ScaleY);
+            rect = new SKRect(rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Right * e.ScaleX, rect.Bottom * e.ScaleY);
             using (Brush brush = CreateBrush(rect, e.ScaleX, e.ScaleY))
-            using (SKPaint paint = new SKPaint { Color = brush is SolidBrush sb ? new SKColor(sb.Color.R, sb.Color.G, sb.Color.B, sb.Color.A) : SKColors.Black })
+            using (SKPaint paint = new SKPaint { Color = brush is SolidBrush sb ? sb.Color : SKColors.Black })
             {
                 e.Graphics.FillRectangle(paint, rect.Left, rect.Top, rect.Width, rect.Height);
             }
@@ -133,7 +153,6 @@ namespace FastReport
         /// <summary>
         /// Gets or sets the fill color.
         /// </summary>
-        [Editor("FastReport.TypeEditors.ColorEditor, FastReport", typeof(UITypeEditor))]
         public SKColor Color
         {
             get { return color; }
@@ -168,7 +187,7 @@ namespace FastReport
         /// <inheritdoc/>
         public override Brush CreateBrush(RectangleF rect)
         {
-            return new SolidBrush(System.Drawing.Color.FromArgb(Color.Alpha, Color.Red, Color.Green, Color.Blue));
+            return new SolidBrush(Color);
         }
 
         /// <inheritdoc/>
@@ -186,7 +205,7 @@ namespace FastReport
         {
             if (Color == SKColors.Transparent)
                 return;
-            using (SKPaint paint = new SKPaint { Color = Color })
+            using (SKPaint paint = new SKPaint { Color = Color, Style = SKPaintStyle.Fill, IsAntialias = true })
             {
                 e.Graphics.FillRectangle(paint, rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Width * e.ScaleX, rect.Height * e.ScaleY);
             }
@@ -243,7 +262,7 @@ namespace FastReport
         /// <inheritdoc/>
         public override bool IsTransparent
         {
-            get { return startColor.A == 0 && endColor.A == 0; }
+            get { return startColor.Alpha == 0 && endColor.Alpha == 0; }
         }
 
         /// <summary>
@@ -318,12 +337,29 @@ namespace FastReport
         /// <inheritdoc/>
         public override Brush CreateBrush(RectangleF rect)
         {
-            // workaround the gradient bug
-            rect.Inflate(1, 1);
+            return new SolidBrush(StartColor);
+        }
 
-            LinearGradientBrush result = new LinearGradientBrush(rect, StartColor, EndColor, Angle);
-            result.SetSigmaBellShape(Focus, Contrast);
-            return result;
+        /// <inheritdoc/>
+        public override void Draw(FRPaintEventArgs e, RectangleF rect)
+        {
+            rect = new RectangleF(rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Right * e.ScaleX, rect.Bottom * e.ScaleY);
+
+            float radians = Angle * (float)Math.PI / 180f;
+            SKPoint center = new SKPoint(rect.MidX, rect.MidY);
+            float radius = Math.Max(rect.Width, rect.Height);
+            SKPoint direction = new SKPoint((float)Math.Cos(radians), (float)Math.Sin(radians));
+            SKPoint start = new SKPoint(center.X - direction.X * radius, center.Y - direction.Y * radius);
+            SKPoint end = new SKPoint(center.X + direction.X * radius, center.Y + direction.Y * radius);
+
+            using SKPaint paint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                IsAntialias = true,
+                Shader = SKShader.CreateLinearGradient(start, end, new[] { StartColor, EndColor }, SKShaderTileMode.Clamp)
+            };
+
+            e.Graphics.FillRectangle(paint, rect);
         }
 
         /// <inheritdoc/>
@@ -347,7 +383,7 @@ namespace FastReport
         /// <summary>
         /// Initializes the <see cref="LinearGradientFill"/> class with default settings.
         /// </summary>
-        public LinearGradientFill() : this(Color.Black, Color.White, 0, 100, 100)
+        public LinearGradientFill() : this(SKColors.Black, SKColors.White, 0, 100, 100)
         {
         }
 
@@ -448,7 +484,7 @@ namespace FastReport
         /// <inheritdoc/>
         public override bool IsTransparent
         {
-            get { return centerColor.A == 0 && edgeColor.A == 0; }
+            get { return centerColor.Alpha == 0 && edgeColor.Alpha == 0; }
         }
 
         /// <inheritdoc/>
@@ -473,21 +509,30 @@ namespace FastReport
         /// <inheritdoc/>
         public override Brush CreateBrush(RectangleF rect)
         {
-            GraphicsPath path = new GraphicsPath();
-            if (Style == PathGradientStyle.Rectangular)
-                path.AddRectangle(rect);
-            else
+            return new SolidBrush(CenterColor);
+        }
+
+        /// <inheritdoc/>
+        public override void Draw(FRPaintEventArgs e, RectangleF rect)
+        {
+            rect = new RectangleF(rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Right * e.ScaleX, rect.Bottom * e.ScaleY);
+
+            float radius = Style == PathGradientStyle.Rectangular
+                ? Math.Max(rect.Width, rect.Height)
+                : (float)Math.Sqrt(rect.Width * rect.Width + rect.Height * rect.Height) / 2f;
+
+            using SKPaint paint = new SKPaint
             {
-                float radius = (float)Math.Sqrt(rect.Width * rect.Width + rect.Height * rect.Height) / 2 + 1;
-                PointF center = new PointF(rect.Left + rect.Width / 2 - 1, rect.Top + rect.Height / 2 - 1);
-                RectangleF r = new RectangleF(center.X - radius, center.Y - radius, radius * 2, radius * 2);
-                path.AddEllipse(r);
-            }
-            PathGradientBrush result = new PathGradientBrush(path);
-            path.Dispose();
-            result.CenterColor = CenterColor;
-            result.SurroundColors = new Color[] { EdgeColor };
-            return result;
+                Style = SKPaintStyle.Fill,
+                IsAntialias = true,
+                Shader = SKShader.CreateRadialGradient(
+                    new SKPoint(rect.MidX, rect.MidY),
+                    radius,
+                    new[] { CenterColor, EdgeColor },
+                    SKShaderTileMode.Clamp)
+            };
+
+            e.Graphics.FillRectangle(paint, rect);
         }
 
         /// <inheritdoc/>
@@ -507,7 +552,7 @@ namespace FastReport
         /// <summary>
         /// Initializes the <see cref="PathGradientFill"/> class with default settings.
         /// </summary>
-        public PathGradientFill() : this(Color.Black, Color.White, PathGradientStyle.Elliptic)
+        public PathGradientFill() : this(SKColors.Black, SKColors.White, PathGradientStyle.Elliptic)
         {
         }
 
@@ -566,7 +611,7 @@ namespace FastReport
         /// <inheritdoc/>
         public override bool IsTransparent
         {
-            get { return foreColor.A == 0 && backColor.A == 0; }
+            get { return foreColor.Alpha == 0 && backColor.Alpha == 0; }
         }
 
         /// <inheritdoc/>
@@ -591,7 +636,58 @@ namespace FastReport
         /// <inheritdoc/>
         public override Brush CreateBrush(RectangleF rect)
         {
-            return new HatchBrush(Style, ForeColor, BackColor);
+            return new SolidBrush(ForeColor);
+        }
+
+        /// <inheritdoc/>
+        public override void Draw(FRPaintEventArgs e, RectangleF rect)
+        {
+            rect = new RectangleF(rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Right * e.ScaleX, rect.Bottom * e.ScaleY);
+
+            using (SKPaint backPaint = new SKPaint { Color = BackColor, Style = SKPaintStyle.Fill, IsAntialias = true })
+            {
+                e.Graphics.FillRectangle(backPaint, rect);
+            }
+
+            using SKBitmap patternBitmap = new SKBitmap(8, 8);
+            using (SKCanvas patternCanvas = new SKCanvas(patternBitmap))
+            using (SKPaint linePaint = new SKPaint { Color = ForeColor, StrokeWidth = 1, IsAntialias = true })
+            {
+                patternCanvas.Clear(SKColors.Transparent);
+                switch (Style)
+                {
+                    case HatchStyle.Horizontal:
+                        patternCanvas.DrawLine(0, 4, 8, 4, linePaint);
+                        break;
+                    case HatchStyle.Vertical:
+                        patternCanvas.DrawLine(4, 0, 4, 8, linePaint);
+                        break;
+                    case HatchStyle.ForwardDiagonal:
+                        patternCanvas.DrawLine(0, 8, 8, 0, linePaint);
+                        break;
+                    case HatchStyle.Cross:
+                        patternCanvas.DrawLine(0, 4, 8, 4, linePaint);
+                        patternCanvas.DrawLine(4, 0, 4, 8, linePaint);
+                        break;
+                    case HatchStyle.DiagonalCross:
+                        patternCanvas.DrawLine(0, 8, 8, 0, linePaint);
+                        patternCanvas.DrawLine(0, 0, 8, 8, linePaint);
+                        break;
+                    case HatchStyle.BackwardDiagonal:
+                    default:
+                        patternCanvas.DrawLine(0, 0, 8, 8, linePaint);
+                        break;
+                }
+            }
+
+            using SKPaint hatchPaint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                IsAntialias = true,
+                Shader = SKShader.CreateBitmap(patternBitmap, SKShaderTileMode.Repeat, SKShaderTileMode.Repeat)
+            };
+
+            e.Graphics.FillRectangle(hatchPaint, rect);
         }
 
         /// <inheritdoc/>
@@ -611,7 +707,7 @@ namespace FastReport
         /// <summary>
         /// Initializes the <see cref="HatchFill"/> class with default settings.
         /// </summary>
-        public HatchFill() : this(Color.Black, Color.White, HatchStyle.BackwardDiagonal)
+        public HatchFill() : this(SKColors.Black, SKColors.White, HatchStyle.BackwardDiagonal)
         {
         }
 
@@ -675,7 +771,7 @@ namespace FastReport
         /// <inheritdoc/>
         public override bool IsTransparent
         {
-            get { return color.A == 0; }
+            get { return color.Alpha == 0; }
         }
 
         /// <inheritdoc/>
@@ -700,23 +796,35 @@ namespace FastReport
         /// <inheritdoc/>
         public override void Draw(FRPaintEventArgs e, RectangleF rect)
         {
-            rect = new RectangleF(rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Width * e.ScaleX, rect.Height * e.ScaleY);
+            rect = new RectangleF(rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Right * e.ScaleX, rect.Bottom * e.ScaleY);
 
-            // draw fill
-            using (SKPaint paint = new SKPaint { Color = new SKColor(Color.R, Color.G, Color.B, Color.A) })
+            using (SKPaint paint = new SKPaint { Color = Color, Style = SKPaintStyle.Fill, IsAntialias = true })
             {
                 e.Graphics.FillRectangle(paint, rect.Left, rect.Top, rect.Width, rect.Height);
             }
 
-            // draw hatch
             if (Hatch)
             {
-                // For now, skip hatch brush as it requires more complex SkiaSharp shader implementation
-                // TODO: Implement hatch pattern using SKShader
+                using SKBitmap patternBitmap = new SKBitmap(8, 8);
+                using (SKCanvas patternCanvas = new SKCanvas(patternBitmap))
+                using (SKPaint linePaint = new SKPaint { Color = SKColors.White.WithAlpha((byte)(Color.Alpha / 2)), StrokeWidth = 1, IsAntialias = true })
+                {
+                    patternCanvas.Clear(SKColors.Transparent);
+                    patternCanvas.DrawLine(0, 0, 8, 8, linePaint);
+                    patternCanvas.DrawLine(0, 4, 4, 8, linePaint);
+                    patternCanvas.DrawLine(4, 0, 8, 4, linePaint);
+                }
+
+                using SKPaint hatchPaint = new SKPaint
+                {
+                    Style = SKPaintStyle.Fill,
+                    IsAntialias = true,
+                    Shader = SKShader.CreateBitmap(patternBitmap, SKShaderTileMode.Repeat, SKShaderTileMode.Repeat)
+                };
+                e.Graphics.FillRectangle(hatchPaint, rect);
             }
 
-            // draw blend
-            using (SKPaint paint = new SKPaint { Color = new SKColor(255, 255, 255, (byte)(Blend * 255)) })
+            using (SKPaint paint = new SKPaint { Color = new SKColor(255, 255, 255, (byte)(Blend * 255)), Style = SKPaintStyle.Fill, IsAntialias = true })
             {
                 e.Graphics.FillRectangle(paint, rect.Left, rect.Top, rect.Width, rect.Height / 2);
             }
@@ -745,7 +853,7 @@ namespace FastReport
         /// <summary>
         /// Initializes the <see cref="GlassFill"/> class with default settings.
         /// </summary>
-        public GlassFill() : this(Color.White, 0.2f, true)
+        public GlassFill() : this(SKColors.White, 0.2f, true)
         {
         }
 
@@ -914,12 +1022,22 @@ namespace FastReport
         {
             if (imageData == null || width <= 0 || height <= 0)
                 return;
-            else
+
+            using Image source = ImageHelper.Load(imageData);
+            if (source == null)
+                return;
+
+            SKImageInfo info = new SKImageInfo(width, height, source.ColorType, source.AlphaType, source.ColorSpace);
+            Bitmap resized = new Bitmap(info);
+            bool scaled = source.ScalePixels(resized, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
+            if (!scaled)
             {
-                image = ImageHelper.Load(imageData);
-                image = new Bitmap(image, width, height);
+                resized.Dispose();
+                return;
             }
 
+            image?.Dispose();
+            image = resized;
         }
         private void ResetImageIndex()
         {
@@ -969,7 +1087,7 @@ namespace FastReport
         {
             using (MemoryStream ms = new MemoryStream())
             {
-                image.Save(ms, image.RawFormat);
+                ImageHelper.Save(image, ms, ImageFormat.Png);
                 SetImageData(ms.ToArray());
             }
         }
@@ -1012,9 +1130,7 @@ namespace FastReport
         {
             if (image == null)
                 ForceLoadImage();
-            TextureBrush brush = new TextureBrush(image, WrapMode);
-            brush.TranslateTransform(rect.Left + ImageOffsetX, rect.Top + ImageOffsetY);
-            return brush;
+            return new SolidBrush(SKColors.Black);
         }
 
         /// <inheritdoc/>
@@ -1022,10 +1138,7 @@ namespace FastReport
         {
             if (image == null)
                 ForceLoadImage();
-            TextureBrush brush = new TextureBrush(image, WrapMode);
-            brush.TranslateTransform(rect.Left + ImageOffsetX * scaleX, rect.Top + ImageOffsetY * scaleY);
-            brush.ScaleTransform(scaleX, scaleY);
-            return brush;
+            return new SolidBrush(SKColors.Black);
         }
 
         /// <inheritdoc/>
@@ -1128,8 +1241,12 @@ namespace FastReport
                 ForceLoadImage();
             if (image == null)
                 return;
-            else
-                base.Draw(e, rect);
+
+            rect = new RectangleF(rect.Left * e.ScaleX, rect.Top * e.ScaleY, rect.Right * e.ScaleX, rect.Bottom * e.ScaleY);
+            SKShaderTileMode tileMode = WrapMode == WrapMode.Clamp ? SKShaderTileMode.Clamp : SKShaderTileMode.Repeat;
+            using SKShader shader = SKShader.CreateBitmap(image, tileMode, tileMode, SKMatrix.CreateTranslation(rect.Left + ImageOffsetX * e.ScaleX, rect.Top + ImageOffsetY * e.ScaleY));
+            using SKPaint paint = new SKPaint { Style = SKPaintStyle.Fill, IsAntialias = true, Shader = shader };
+            e.Graphics.FillRectangle(paint, rect);
         }
 
         #endregion //Public Methods

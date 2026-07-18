@@ -2,8 +2,6 @@
 #if !SKIA && !FRCORE && (!MONO || WPF)
 using System;
 using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Text;
 using System.IO;
 
 namespace FastReport
@@ -54,7 +52,7 @@ namespace FastReport
 
             // Checking if a font named FontName is installed in the system
             // Array.Exists checks if an element in the array exists that satisfies the condition
-           bool isInstalled = Array.Exists(fontFamilies, family => family.Name.Equals(fontName, StringComparison.OrdinalIgnoreCase));
+            bool isInstalled = Array.Exists(fontFamilies, family => family.Name.Equals(fontName, StringComparison.OrdinalIgnoreCase));
 
             return isInstalled;
         }

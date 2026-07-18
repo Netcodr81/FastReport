@@ -1,6 +1,4 @@
 ﻿using FastReport.Utils;
-using System;
-using System.Drawing.Printing;
 
 namespace FastReport
 {

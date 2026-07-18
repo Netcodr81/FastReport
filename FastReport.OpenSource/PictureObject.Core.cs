@@ -1,7 +1,4 @@
-﻿using FastReport.Utils;
-using System.Drawing;
-
-namespace FastReport
+﻿namespace FastReport
 {
     partial class PictureObject
     {

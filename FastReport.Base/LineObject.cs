@@ -1,11 +1,10 @@
+using FastReport.Utils;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using FastReport.Utils;
-using System.Linq;
+using SkiaSharp;
+using RectangleF = SkiaSharp.SKRect;
+using GraphicsPath = SkiaSharp.SKPath;
 
 namespace FastReport
 {
@@ -100,20 +99,21 @@ namespace FastReport
                 return;
             }
 
-            Report report = Report;
-            if (report != null && report.SmoothGraphics)
+            using SKPaint paint = new SKPaint
             {
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-            }
+                Color = Border.Color,
+                StrokeWidth = Border.Width * e.ScaleX,
+                Style = SKPaintStyle.Stroke,
+                IsAntialias = true,
+                StrokeCap = SKStrokeCap.Butt,
+                StrokeJoin = SKStrokeJoin.Miter
+            };
 
-            Pen pen = e.Cache.GetPen(Border.Color, Border.Width * e.ScaleX, Border.DashStyle);
-
-            DrawUtils.SetPenDashPatternOrStyle(DashPattern, pen, Border);
+            ApplyDashStyle(paint, DashPattern, Border.DashStyle);
 
             float width = Width;
             float height = Height;
-            
+
             if (!Diagonal)
             {
                 if (Math.Abs(Width) > Math.Abs(Height))
@@ -129,7 +129,7 @@ namespace FastReport
 
             if (StartCap.Style == CapStyle.None && EndCap.Style == CapStyle.None)
             {
-                g.DrawLine(pen, x1, y1, x2, y2);
+                g.DrawLine(paint, x1, y1, x2, y2);
             }
             else
             {
@@ -155,18 +155,26 @@ namespace FastReport
                     EndCap.GetCustomCapPath(out endCapPath, out inset);
                     len -= inset * scale;
                 }
-                g.DrawLine(pen, 0, y, 0, len);
+                g.DrawLine(paint, 0, y, 0, len);
                 g.Restore(state);
 
-                pen = e.Cache.GetPen(Border.Color, 1, Border.DashStyle);
+                using SKPaint capPaint = new SKPaint
+                {
+                    Color = Border.Color,
+                    StrokeWidth = 1,
+                    Style = SKPaintStyle.Stroke,
+                    IsAntialias = true
+                };
+
                 if (StartCap.Style != CapStyle.None)
                 {
                     state = g.Save();
                     g.TranslateTransform(x1, y1);
                     g.RotateTransform(180 - angle);
                     g.ScaleTransform(scale, scale);
-                    g.DrawPath(pen, startCapPath);
+                    g.DrawPath(capPaint, startCapPath);
                     g.Restore(state);
+                    startCapPath.Dispose();
                 }
                 if (EndCap.Style != CapStyle.None)
                 {
@@ -174,15 +182,10 @@ namespace FastReport
                     g.TranslateTransform(x2, y2);
                     g.RotateTransform(-angle);
                     g.ScaleTransform(scale, scale);
-                    g.DrawPath(pen, endCapPath);
+                    g.DrawPath(capPaint, endCapPath);
                     g.Restore(state);
+                    endCapPath.Dispose();
                 }
-            }
-
-            if (report != null && report.SmoothGraphics && Diagonal)
-            {
-                g.InterpolationMode = InterpolationMode.Default;
-                g.SmoothingMode = SmoothingMode.Default;
             }
         }
 
@@ -195,13 +198,18 @@ namespace FastReport
 
         internal override RectangleF GetExtendedSize()
         {
-            var bounds = CreatePath().GetBounds();
-            if (Parent is ComponentBase parent)
+            using (GraphicsPath path = CreatePath())
             {
-                bounds.X -= parent.AbsLeft;
-                bounds.Y -= parent.AbsTop;
+                var bounds = path.Bounds;
+                if (Parent is ComponentBase parent)
+                {
+                    bounds.Left -= parent.AbsLeft;
+                    bounds.Top -= parent.AbsTop;
+                    bounds.Right -= parent.AbsLeft;
+                    bounds.Bottom -= parent.AbsTop;
+                }
+                return bounds;
             }
-            return bounds;
         }
 
         internal GraphicsPath CreatePath()
@@ -211,36 +219,63 @@ namespace FastReport
             GraphicsPath fullPath = new GraphicsPath();
             if (StartCap.Style != CapStyle.None)
             {
-                GraphicsPath path;
-                StartCap.GetCustomCapPath(out path, out float t);
-                using (System.Drawing.Drawing2D.Matrix transform = new())
-                {
-                    transform.Translate(AbsLeft, AbsTop);
-                    transform.Rotate(180 - angle);
-                    transform.Scale(scale, scale);
-                    path.Transform(transform);
-                    fullPath.AddPath(path, true);
-                }
-
+                StartCap.GetCustomCapPath(out GraphicsPath path, out float _);
+                path.Transform(SKMatrix.CreateScale(scale, scale));
+                path.Transform(SKMatrix.CreateRotationDegrees(180 - angle));
+                path.Transform(SKMatrix.CreateTranslation(AbsLeft, AbsTop));
+                fullPath.AddPath(path);
                 path.Dispose();
             }
-            fullPath.AddLine(AbsLeft, AbsTop, AbsRight, AbsBottom);
+
+            fullPath.MoveTo(AbsLeft, AbsTop);
+            fullPath.LineTo(AbsRight, AbsBottom);
+
             if (EndCap.Style != CapStyle.None)
             {
-                GraphicsPath path;
-                EndCap.GetCustomCapPath(out path, out float _);
-                using (System.Drawing.Drawing2D.Matrix transform = new())
-                {
-                    transform.Translate(AbsRight, AbsBottom);
-                    transform.Rotate(-angle);
-                    transform.Scale(scale, scale);
-                    path.Transform(transform);
-                    fullPath.AddPath(path, true);
-                }
+                EndCap.GetCustomCapPath(out GraphicsPath path, out float _);
+                path.Transform(SKMatrix.CreateScale(scale, scale));
+                path.Transform(SKMatrix.CreateRotationDegrees(-angle));
+                path.Transform(SKMatrix.CreateTranslation(AbsRight, AbsBottom));
+                fullPath.AddPath(path);
                 path.Dispose();
             }
 
             return fullPath;
+        }
+
+        private static void ApplyDashStyle(SKPaint paint, FloatCollection dashPattern, DashStyle dashStyle)
+        {
+            if (dashPattern?.Count > 0)
+            {
+                float[] intervals = new float[dashPattern.Count];
+                for (int i = 0; i < dashPattern.Count; i++)
+                {
+                    float value = dashPattern[i] <= 0 ? 1 : dashPattern[i];
+                    intervals[i] = value * paint.StrokeWidth;
+                }
+                paint.PathEffect = SKPathEffect.CreateDash(intervals, 0);
+                return;
+            }
+
+            float w = paint.StrokeWidth;
+            switch (dashStyle)
+            {
+                case DashStyle.Dash:
+                    paint.PathEffect = SKPathEffect.CreateDash(new[] { 3 * w, 1 * w }, 0);
+                    break;
+                case DashStyle.Dot:
+                    paint.PathEffect = SKPathEffect.CreateDash(new[] { 1 * w, 1 * w }, 0);
+                    break;
+                case DashStyle.DashDot:
+                    paint.PathEffect = SKPathEffect.CreateDash(new[] { 3 * w, 1 * w, 1 * w, 1 * w }, 0);
+                    break;
+                case DashStyle.DashDotDot:
+                    paint.PathEffect = SKPathEffect.CreateDash(new[] { 3 * w, 1 * w, 1 * w, 1 * w, 1 * w, 1 * w }, 0);
+                    break;
+                default:
+                    paint.PathEffect = null;
+                    break;
+            }
         }
 
         /// <inheritdoc/>

@@ -1,11 +1,8 @@
 using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Design;
-using System.Drawing.Drawing2D;
-using System.Windows.Forms;
 
 namespace FastReport
 {
@@ -134,7 +131,6 @@ namespace FastReport
         /// </para>
         /// </remarks>
         [Category("Navigation")]
-        [Editor("FastReport.TypeEditors.ExpressionEditor, FastReport", typeof(UITypeEditor))]
         public string OutlineExpression
         {
             get { return outlineExpression; }
@@ -441,9 +437,9 @@ namespace FastReport
             updatingLayout = true;
             try
             {
-                RectangleF remainingBounds = new RectangleF(0, 0, Width, Height);
-                remainingBounds.Width += dx;
-                remainingBounds.Height += dy;
+                SKRect remainingBounds = new SKRect(0, 0, Width, Height);
+                remainingBounds.Right += dx;
+                remainingBounds.Bottom += dy;
                 foreach (ReportComponentBase c in Objects)
                 {
                     if ((c.Anchor & AnchorStyles.Right) != 0)
@@ -471,31 +467,31 @@ namespace FastReport
                     switch (c.Dock)
                     {
                         case DockStyle.Left:
-                            c.Bounds = new RectangleF(remainingBounds.Left, remainingBounds.Top, c.Width, remainingBounds.Height);
-                            remainingBounds.X += c.Width;
-                            remainingBounds.Width -= c.Width;
+                            c.Bounds = new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Left + c.Width, remainingBounds.Bottom);
+                            remainingBounds.Left += c.Width;
+                            remainingBounds.Right -= c.Width;
                             break;
 
                         case DockStyle.Top:
-                            c.Bounds = new RectangleF(remainingBounds.Left, remainingBounds.Top, remainingBounds.Width, c.Height);
-                            remainingBounds.Y += c.Height;
-                            remainingBounds.Height -= c.Height;
+                            c.Bounds = new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Right, remainingBounds.Top + c.Height);
+                            remainingBounds.Top += c.Height;
+                            remainingBounds.Bottom -= c.Height;
                             break;
 
                         case DockStyle.Right:
-                            c.Bounds = new RectangleF(remainingBounds.Right - c.Width, remainingBounds.Top, c.Width, remainingBounds.Height);
-                            remainingBounds.Width -= c.Width;
+                            c.Bounds = new SKRect(remainingBounds.Right - c.Width, remainingBounds.Top, remainingBounds.Right, remainingBounds.Bottom);
+                            remainingBounds.Right -= c.Width;
                             break;
 
                         case DockStyle.Bottom:
-                            c.Bounds = new RectangleF(remainingBounds.Left, remainingBounds.Bottom - c.Height, remainingBounds.Width, c.Height);
-                            remainingBounds.Height -= c.Height;
+                            c.Bounds = new SKRect(remainingBounds.Left, remainingBounds.Bottom - c.Height, remainingBounds.Right, remainingBounds.Bottom);
+                            remainingBounds.Bottom -= c.Height;
                             break;
 
                         case DockStyle.Fill:
                             c.Bounds = remainingBounds;
-                            remainingBounds.Width = 0;
-                            remainingBounds.Height = 0;
+                            remainingBounds.Right = remainingBounds.Left;
+                            remainingBounds.Bottom = remainingBounds.Top;
                             break;
                     }
                 }

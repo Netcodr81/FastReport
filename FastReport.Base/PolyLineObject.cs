@@ -1,12 +1,10 @@
 using FastReport.Utils;
+using SkiaSharp;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 
 namespace FastReport
@@ -28,7 +26,7 @@ namespace FastReport
 
         #region Private Fields
 
-        private PointF center;
+        private SKPoint center;
         private PolyPointCollection pointsCollection;
         private FloatCollection dashPattern;
 
@@ -76,14 +74,14 @@ namespace FastReport
         /// <summary>
         /// Return points array of line
         /// </summary>
-        internal PointF[] PointsArray
+        internal SKPoint[] PointsArray
         {
             get
             {
-                List<PointF> result = new List<PointF>();
+                List<SKPoint> result = new List<SKPoint>();
                 foreach (PolyPoint point in pointsCollection)
                 {
-                    result.Add(new PointF(point.X, point.Y));
+                    result.Add(new SKPoint(point.X, point.Y));
                 }
                 return result.ToArray();
             }
@@ -116,7 +114,7 @@ namespace FastReport
             FlagSimpleBorder = true;
             FlagUseFill = false;
             pointsCollection = new PolyPointCollection();
-            center = PointF.Empty;
+            center = SKPoint.Empty;
             dashPattern = new FloatCollection();
             InitDesign();
         }
@@ -211,30 +209,32 @@ namespace FastReport
         /// <param name="scaleX">scale by width</param>
         /// <param name="scaleY">scale by height</param>
         /// <returns>Always returns a non-empty path</returns>
-        public GraphicsPath GetPath(Pen pen, float left, float top, float right, float bottom, float scaleX, float scaleY)
+        public SKPath GetPath(SKPaint pen, float left, float top, float right, float bottom, float scaleX, float scaleY)
         {
             if (pointsCollection.Count == 0)
             {
-                GraphicsPath result = new GraphicsPath();
-                result.AddLine(left * scaleX, top * scaleX, (right + 1) * scaleX, (bottom + 1) * scaleX);
+                SKPath result = new SKPath();
+                result.MoveTo(left * scaleX, top * scaleY);
+                result.LineTo((right + 1) * scaleX, (bottom + 1) * scaleY);
                 return result;
             }
             else if (pointsCollection.Count == 1)
             {
-                GraphicsPath result = new GraphicsPath();
+                SKPath result = new SKPath();
                 left = left + CenterX + pointsCollection[0].X;
                 top = top + CenterY + pointsCollection[0].Y;
-                result.AddLine(left * scaleX, top * scaleX, (left + 1) * scaleX, (top + 1) * scaleX);
+                result.MoveTo(left * scaleX, top * scaleY);
+                result.LineTo((left + 1) * scaleX, (top + 1) * scaleY);
                 return result;
             }
 
-            List<PointF> aPoints = new List<PointF>();
+            List<SKPoint> aPoints = new List<SKPoint>();
             List<byte> pointTypes = new List<byte>();
 
             PolyPoint prev = null;
             PolyPoint point = pointsCollection[0];
 
-            aPoints.Add(new PointF((point.X + left + center.X) * scaleX, (point.Y + top + center.Y) * scaleY));
+            aPoints.Add(new SKPoint((point.X + left + center.X) * scaleX, (point.Y + top + center.Y) * scaleY));
             pointTypes.Add(0);
 
             int count = pointsCollection.Count;
@@ -253,38 +253,70 @@ namespace FastReport
                 {
                     if (prev.RightCurve != null)
                     {
-                        aPoints.Add(new PointF((prev.X + left + center.X + prev.RightCurve.X) * scaleX, (prev.Y + top + center.Y + prev.RightCurve.Y) * scaleY));
+                        aPoints.Add(new SKPoint((prev.X + left + center.X + prev.RightCurve.X) * scaleX, (prev.Y + top + center.Y + prev.RightCurve.Y) * scaleY));
                         pointTypes.Add(3);
                     }
                     else
                     {
                         PolyPoint pseudo = GetPseudoPoint(prev, point);
-                        aPoints.Add(new PointF((pseudo.X + left + center.X) * scaleX, (pseudo.Y + top + center.Y) * scaleY));
+                        aPoints.Add(new SKPoint((pseudo.X + left + center.X) * scaleX, (pseudo.Y + top + center.Y) * scaleY));
                         pointTypes.Add(3);
                     }
 
                     if (point.LeftCurve != null)
                     {
-                        aPoints.Add(new PointF((point.X + left + center.X + point.LeftCurve.X) * scaleX, (point.Y + top + center.Y + point.LeftCurve.Y) * scaleY));
+                        aPoints.Add(new SKPoint((point.X + left + center.X + point.LeftCurve.X) * scaleX, (point.Y + top + center.Y + point.LeftCurve.Y) * scaleY));
                         pointTypes.Add(3);
                     }
                     else
                     {
                         PolyPoint pseudo = GetPseudoPoint(point, prev);
-                        aPoints.Add(new PointF((pseudo.X + left + center.X) * scaleX, (pseudo.Y + top + center.Y) * scaleY));
+                        aPoints.Add(new SKPoint((pseudo.X + left + center.X) * scaleX, (pseudo.Y + top + center.Y) * scaleY));
                         pointTypes.Add(3);
                     }
 
-                    aPoints.Add(new PointF((point.X + left + center.X) * scaleX, (point.Y + top + center.Y) * scaleY));
+                    aPoints.Add(new SKPoint((point.X + left + center.X) * scaleX, (point.Y + top + center.Y) * scaleY));
                     pointTypes.Add(3);
                 }
                 else
                 {
-                    aPoints.Add(new PointF((point.X + left + center.X) * scaleX, (point.Y + top + center.Y) * scaleY));
+                    aPoints.Add(new SKPoint((point.X + left + center.X) * scaleX, (point.Y + top + center.Y) * scaleY));
                     pointTypes.Add(1);
                 }
             }
-            return new GraphicsPath(aPoints.ToArray(), pointTypes.ToArray());
+            SKPath path = new SKPath();
+            int idx = 0;
+            while (idx < aPoints.Count)
+            {
+                if (pointTypes[idx] == 0)
+                {
+                    path.MoveTo(aPoints[idx]);
+                    idx++;
+                }
+                else if (pointTypes[idx] == 1)
+                {
+                    path.LineTo(aPoints[idx]);
+                    idx++;
+                }
+                else if (pointTypes[idx] == 3)
+                {
+                    if (idx + 2 < aPoints.Count)
+                    {
+                        path.CubicTo(aPoints[idx], aPoints[idx + 1], aPoints[idx + 2]);
+                        idx += 3;
+                    }
+                    else
+                    {
+                        path.LineTo(aPoints[idx]);
+                        idx++;
+                    }
+                }
+                else
+                {
+                    idx++;
+                }
+            }
+            return path;
         }
 
         /// <summary>
@@ -511,14 +543,14 @@ namespace FastReport
         /// Constructs a new polyline using the points specified.
         /// </summary>
         /// <param name="newPoints">Array of points.</param>
-        public void SetPolyLine(PointF[] newPoints)
+        public void SetPolyLine(SKPoint[] newPoints)
         {
             pointsCollection.Clear();
             if (newPoints != null)
             {
                 CenterX = 0;
                 CenterY = 0;
-                foreach (PointF point in newPoints)
+                foreach (SKPoint point in newPoints)
                 {
                     pointsCollection.Add(new PolyPoint(point.X, point.Y));
                 }
@@ -536,21 +568,7 @@ namespace FastReport
 
         internal void DoDrawPoly(FRPaintEventArgs e)
         {
-            IGraphics g = e.Graphics;
-            Report report = Report;
-            if (report != null && report.SmoothGraphics)
-            {
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-            }
-
             drawPoly(e);
-
-            if (report != null && report.SmoothGraphics)
-            {
-                g.InterpolationMode = InterpolationMode.Default;
-                g.SmoothingMode = SmoothingMode.Default;
-            }
         }
 
         #endregion Internal Methods
@@ -592,15 +610,47 @@ namespace FastReport
         /// <param name="e">Event arguments</param>
         protected virtual void drawPoly(FRPaintEventArgs e)
         {
-            Pen pen;
-            if (polygonSelectionMode == PolygonSelectionMode.MoveAndScale)
-                pen = e.Cache.GetPen(Border.Color, Border.Width * e.ScaleX, Border.DashStyle);
-            else pen = e.Cache.GetPen(Border.Color, 1, DashStyle.Solid);
+            float strokeWidth = polygonSelectionMode == PolygonSelectionMode.MoveAndScale
+                ? Border.Width * e.ScaleX
+                : 1f;
 
-            DrawUtils.SetPenDashPatternOrStyle(DashPattern, pen, Border);
+            using SKPaint paint = new SKPaint
+            {
+                Color = Border.Color,
+                StrokeWidth = strokeWidth,
+                Style = SKPaintStyle.Stroke,
+                IsAntialias = true
+            };
 
-            using (GraphicsPath path = GetPath(pen, AbsLeft, AbsTop, AbsRight, AbsBottom, e.ScaleX, e.ScaleY))
-                e.Graphics.DrawPath(pen, path);
+            if (DashPattern?.Count > 0)
+            {
+                float[] intervals = new float[DashPattern.Count];
+                for (int i = 0; i < DashPattern.Count; i++)
+                    intervals[i] = (DashPattern[i] <= 0 ? 1 : DashPattern[i]) * strokeWidth;
+                paint.PathEffect = SKPathEffect.CreateDash(intervals, 0);
+            }
+            else
+            {
+                float w = strokeWidth;
+                switch (Border.DashStyle)
+                {
+                    case DashStyle.Dash:
+                        paint.PathEffect = SKPathEffect.CreateDash(new[] { 3 * w, 1 * w }, 0);
+                        break;
+                    case DashStyle.Dot:
+                        paint.PathEffect = SKPathEffect.CreateDash(new[] { 1 * w, 1 * w }, 0);
+                        break;
+                    case DashStyle.DashDot:
+                        paint.PathEffect = SKPathEffect.CreateDash(new[] { 3 * w, 1 * w, 1 * w, 1 * w }, 0);
+                        break;
+                    case DashStyle.DashDotDot:
+                        paint.PathEffect = SKPathEffect.CreateDash(new[] { 3 * w, 1 * w, 1 * w, 1 * w, 1 * w, 1 * w }, 0);
+                        break;
+                }
+            }
+
+            using SKPath path = GetPath(null, AbsLeft, AbsTop, AbsRight, AbsBottom, e.ScaleX, e.ScaleY);
+            e.Graphics.DrawPath(paint, path);
         }
 
         /// <summary>

@@ -1,10 +1,8 @@
-using System;
-using System.Drawing;
-using System.ComponentModel;
 using FastReport.Utils;
+using System;
+using System.ComponentModel;
+using System.Drawing;
 using System.Reflection;
-using System.Drawing.Design;
-
 namespace FastReport
 {
     /// <summary>
@@ -95,7 +93,6 @@ namespace FastReport
         /// Gets or sets the report description.
         /// </summary>
 
-        [Editor("System.ComponentModel.Design.MultilineStringEditor, System.Design, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a", typeof(UITypeEditor))]
         public string Description
         {
             get { return description; }
@@ -167,7 +164,6 @@ namespace FastReport
         /// <summary>
         /// Gets or sets the Tag string object for this report file.
         /// </summary>
-        [Editor("System.ComponentModel.Design.MultilineStringEditor, System.Design, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a", typeof(UITypeEditor))]
         public string Tag
         {
             get { return tag; }
