@@ -96,7 +96,11 @@ namespace FastReport.Export.PdfSimple
             int[] rawPicture = new int[rawSize];
             SKColor[] pixels = image.Pixels;
             for (int i = 0; i < rawSize; i++)
-                rawPicture[i] = unchecked((int)pixels[i]);
+            {
+                SKColor pixel = pixels[i];
+                uint argb = ((uint)pixel.Alpha << 24) | ((uint)pixel.Red << 16) | ((uint)pixel.Green << 8) | pixel.Blue;
+                rawPicture[i] = unchecked((int)argb);
+            }
             return rawPicture;
         }
 

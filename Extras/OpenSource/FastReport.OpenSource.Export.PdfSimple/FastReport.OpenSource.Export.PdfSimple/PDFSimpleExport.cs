@@ -3,7 +3,6 @@ using FastReport.Export.PdfSimple.PdfObjects;
 using FastReport.Utils;
 using SkiaSharp;
 using System.Collections.Generic;
-using System.Drawing;
 
 namespace FastReport.Export.PdfSimple
 {
@@ -193,7 +192,7 @@ namespace FastReport.Export.PdfSimple
             if (pageGraphics != null)
             {
                 page.Watermark.DrawImage(new FRPaintEventArgs(pageGraphics, scaleFactor, scaleFactor, Report.GraphicCache),
-                    new RectangleF(-page.LeftMargin * Units.Millimeters, -page.TopMargin * Units.Millimeters, ExportUtils.GetPageWidth(page) * Units.Millimeters, ExportUtils.GetPageHeight(page) * Units.Millimeters),
+                    new SKRect(-page.LeftMargin * Units.Millimeters, -page.TopMargin * Units.Millimeters, (ExportUtils.GetPageWidth(page) - page.LeftMargin) * Units.Millimeters, (ExportUtils.GetPageHeight(page) - page.TopMargin) * Units.Millimeters),
                     page.Report, false);
             }
         }
@@ -206,7 +205,7 @@ namespace FastReport.Export.PdfSimple
                     return;
                 
                 page.Watermark.DrawText(new FRPaintEventArgs(pageGraphics, scaleFactor, scaleFactor, Report.GraphicCache),
-                    new RectangleF(-page.LeftMargin * Units.Millimeters, -page.TopMargin * Units.Millimeters, ExportUtils.GetPageWidth(page) * Units.Millimeters, ExportUtils.GetPageHeight(page) * Units.Millimeters),
+                    new SKRect(-page.LeftMargin * Units.Millimeters, -page.TopMargin * Units.Millimeters, (ExportUtils.GetPageWidth(page) - page.LeftMargin) * Units.Millimeters, (ExportUtils.GetPageHeight(page) - page.TopMargin) * Units.Millimeters),
                     page.Report, false);
             }
         }

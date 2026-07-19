@@ -71,12 +71,10 @@ namespace FastReport.Tests.OpenSource.Export.PdfSimple
                 pdf = Encoding.UTF8.GetString(ms.ToArray());
             }
 
-#pragma warning disable xUnit2009 // Do not use boolean check to check for substrings
-            Assert.True(pdf.Contains("/Title (" + StringToPdfUnicode(export.Title) + ")"));
-            Assert.True(pdf.Contains("/Subject (" + StringToPdfUnicode(export.Subject) + ")"));
-            Assert.True(pdf.Contains("/Keywords (" + StringToPdfUnicode(export.Keywords) + ")"));
-            Assert.True(pdf.Contains("/Author (" + StringToPdfUnicode(export.Author) + ")"));
-#pragma warning restore xUnit2009 // Do not use boolean check to check for substrings
+Assert.Contains("/Title <" + StringToPdfUnicodeHex(export.Title) + ">", pdf);
+Assert.Contains("/Subject <" + StringToPdfUnicodeHex(export.Subject) + ">", pdf);
+Assert.Contains("/Keywords <" + StringToPdfUnicodeHex(export.Keywords) + ">", pdf);
+Assert.Contains("/Author <" + StringToPdfUnicodeHex(export.Author) + ">", pdf);
         }
 
         [Fact]
@@ -129,42 +127,18 @@ namespace FastReport.Tests.OpenSource.Export.PdfSimple
         }
 
 
-        private string StringToPdfUnicode(string s)
+        private string StringToPdfUnicodeHex(string s)
         {
             StringBuilder sb = new StringBuilder();
 
-            Append(sb, (char)254);
-            Append(sb, (char)255);
+            sb.Append("FEFF");
             foreach (char c in s)
             {
-                Append(sb, (char)(c >> 8));
-                Append(sb, (char)(c & 0xFF));
+                sb.Append(((byte)(c >> 8)).ToString("X2"));
+                sb.Append(((byte)(c & 0xFF)).ToString("X2"));
             }
-            return sb.ToString();
-        }
 
-        private void Append(StringBuilder sb, char c)
-        {
-            if (c < 127)
-            {
-                switch (c)
-                {
-                    case '\n': sb.Append("\\n"); break;
-                    case '\r': sb.Append("\\r"); break;
-                    case '\t': sb.Append("\\t"); break;
-                    case '\b': sb.Append("\\b"); break;
-                    case '\f': sb.Append("\\f"); break;
-                    case '(': sb.Append("\\("); break;
-                    case ')': sb.Append("\\)"); break;
-                    case '\\': sb.Append("\\\\"); break;
-                    default: sb.Append(c); break;
-                }
-            }
-            else
-            {
-                sb.Append("\\");
-                sb.Append((int)c);
-            }
+            return sb.ToString();
         }
     }
 }
