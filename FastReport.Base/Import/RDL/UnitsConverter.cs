@@ -65,14 +65,13 @@ namespace FastReport.Import.RDL
         }
 
         /// <summary>
-        /// Converts the RDL Color to System.Drawing.Color for border usage.
+        /// Converts the RDL Color to SKColor for border usage.
         /// </summary>
         /// <param name="colorName">The RDL Color value.</param>
-        /// <returns>The System.Drawing.Color value.</returns>
-        public static System.Drawing.Color ConvertColorForBorder(string colorName)
+        /// <returns>The SKColor value.</returns>
+        public static SKColor ConvertColorForBorder(string colorName)
         {
-            SKColor skColor = ConvertColor(colorName);
-            return System.Drawing.Color.FromArgb(skColor.Alpha, skColor.Red, skColor.Green, skColor.Blue);
+            return ConvertColor(colorName);
         }
 
         /// <summary>
@@ -160,17 +159,17 @@ namespace FastReport.Import.RDL
         }
 
         /// <summary>
-        /// Converts the RDL FontStyle to FontStyle.
+        /// Converts the RDL FontStyle to SKFontStyleSlant.
         /// </summary>
         /// <param name="fontStyle">The RDL FontStyle value.</param>
-        /// <returns>The FontStyle value.</returns>
-        public static FontStyle ConvertFontStyle(string fontStyle)
+        /// <returns>The SKFontStyleSlant value.</returns>
+        public static SKFontStyleSlant ConvertFontStyle(string fontStyle)
         {
             if (fontStyle == "Italic")
             {
-                return FontStyle.Italic;
+                return SKFontStyleSlant.Italic;
             }
-            return FontStyle.Regular;
+            return SKFontStyleSlant.Upright;
         }
 
         /// <summary>
@@ -257,57 +256,57 @@ namespace FastReport.Import.RDL
         /// <param name="textAlign">The RDL TextAlign value.</param>
         /// <param name="vertAlign">The RDL VerticalAlign value.</param>
         /// <returns>The ContentAlignment value.</returns>
-        public static ContentAlignment ConvertTextAndVerticalAlign(string textAlign, string vertAlign)
+        public static System.Windows.Forms.ContentAlignment ConvertTextAndVerticalAlign(string textAlign, string vertAlign)
         {
             if (textAlign == "General" || textAlign == "Center")
             {
                 if (vertAlign == "Top")
                 {
-                    return ContentAlignment.TopCenter;
+                    return System.Windows.Forms.ContentAlignment.TopCenter;
                 }
                 else if (vertAlign == "Middle")
                 {
-                    return ContentAlignment.MiddleCenter;
+                    return System.Windows.Forms.ContentAlignment.MiddleCenter;
                 }
                 else if (vertAlign == "Bottom")
                 {
-                    return ContentAlignment.BottomCenter;
+                    return System.Windows.Forms.ContentAlignment.BottomCenter;
                 }
-                return ContentAlignment.TopCenter;
+                return System.Windows.Forms.ContentAlignment.TopCenter;
             }
             else if (textAlign == "Left")
             {
                 if (vertAlign == "Top")
                 {
-                    return ContentAlignment.TopLeft;
+                    return System.Windows.Forms.ContentAlignment.TopLeft;
                 }
                 else if (vertAlign == "Middle")
                 {
-                    return ContentAlignment.MiddleLeft;
+                    return System.Windows.Forms.ContentAlignment.MiddleLeft;
                 }
                 else if (vertAlign == "Bottom")
                 {
-                    return ContentAlignment.BottomLeft;
+                    return System.Windows.Forms.ContentAlignment.BottomLeft;
                 }
-                return ContentAlignment.TopLeft;
+                return System.Windows.Forms.ContentAlignment.TopLeft;
             }
             else if (textAlign == "Right")
             {
                 if (vertAlign == "Top")
                 {
-                    return ContentAlignment.TopRight;
+                    return System.Windows.Forms.ContentAlignment.TopRight;
                 }
                 else if (vertAlign == "Middle")
                 {
-                    return ContentAlignment.MiddleRight;
+                    return System.Windows.Forms.ContentAlignment.MiddleRight;
                 }
                 else if (vertAlign == "Bottom")
                 {
-                    return ContentAlignment.BottomRight;
+                    return System.Windows.Forms.ContentAlignment.BottomRight;
                 }
-                return ContentAlignment.TopRight;
+                return System.Windows.Forms.ContentAlignment.TopRight;
             }
-            return ContentAlignment.TopLeft;
+            return System.Windows.Forms.ContentAlignment.TopLeft;
         }
 
         /// <summary>

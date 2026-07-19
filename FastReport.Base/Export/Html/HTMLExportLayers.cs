@@ -130,8 +130,7 @@ namespace FastReport.Export.Html
                 if (obj is TextObject)
                 {
                     TextObject textObject = obj as TextObject;
-                    // TextObject.Font is System.Drawing.Font, check underline via Style
-                    bool hasUnderline = (textObject.Font.Style & System.Drawing.FontStyle.Underline) != 0;
+                    bool hasUnderline = textObject.Underlines;
                     hrefStyle = String.Format("style=\"color:{0}{1}\"",
                         ExportUtils.HTMLColor(textObject.TextColor),
                         !hasUnderline ? ";text-decoration:none" : String.Empty
@@ -222,12 +221,26 @@ namespace FastReport.Export.Html
             return result;
         }
 
+        private static FastReport.Utils.StringFormat ToUtilsStringFormat(FastReport.StringFormat format)
+        {
+            if (format == null)
+                return null;
+
+            return new FastReport.Utils.StringFormat
+            {
+                Alignment = format.Alignment,
+                LineAlignment = format.LineAlignment,
+                Trimming = format.Trimming,
+                FormatFlags = format.FormatFlags
+            };
+        }
+
         private void LayerText(FastString Page, TextObject obj)
         {
             float top = 0;
 
-            // obj.Font is System.Drawing.Font from TextObject
-            if (obj.Font.FontFamily.Name == "Wingdings" || obj.Font.FontFamily.Name == "Webdings")
+            string fontFamily = obj.Font?.Typeface?.FamilyName ?? SKTypeface.Default.FamilyName;
+            if (fontFamily == "Wingdings" || fontFamily == "Webdings")
             {
                 obj.Text = WingdingsToUnicodeConverter.Convert(obj.Text);
             }
@@ -259,55 +272,49 @@ namespace FastReport.Export.Html
                     if (obj.VertAlign != VertAlign.Top)
                     {
                         IGraphics g = htmlMeasureGraphics;
-                        // obj.Font is System.Drawing.Font
-                        using (System.Drawing.Font f = new System.Drawing.Font(obj.Font.FontFamily, obj.Font.Size * DrawUtils.ScreenDpiFX, obj.Font.Style))
+                        SKTypeface typeface = obj.Font?.Typeface ?? SKTypeface.Default;
+                        using SKFont f = new SKFont(SKTypeface.FromFamilyName(typeface.FamilyName, new SKFontStyle(typeface.FontWeight, typeface.FontWidth, typeface.FontSlant)) ?? SKTypeface.Default, obj.Font.Size * DrawUtils.ScreenDpiFX);
+                        SKRect textRect = new SKRect(obj.AbsLeft + obj.Padding.Left, obj.AbsTop + obj.Padding.Top,
+                            obj.AbsLeft + obj.Width - obj.Padding.Right,
+                            obj.AbsTop + obj.Height - obj.Padding.Bottom);
+                        FastReport.StringFormat format = obj.GetStringFormat(Report.GraphicCache, 0);
+                        Brush textBrush = Report.GraphicCache.GetBrush(obj.TextColor);
+                        AdvancedTextRenderer renderer = new AdvancedTextRenderer(obj.Text, g, f, textBrush, null,
+                            textRect, ToUtilsStringFormat(format), obj.HorzAlign, obj.VertAlign, obj.LineHeight, obj.Angle, obj.FontWidthRatio,
+                            obj.ForceJustify, obj.Wysiwyg, obj.HasHtmlTags, false, Zoom, Zoom, obj.InlineImageCache);
+                        if (renderer.Paragraphs.Count > 0)
                         {
-                            System.Drawing.RectangleF textRect = new System.Drawing.RectangleF(obj.AbsLeft + obj.Padding.Left, obj.AbsTop + obj.Padding.Top,
-                                obj.Width - obj.Padding.Left - obj.Padding.Right,
-                                obj.Height - obj.Padding.Top - obj.Padding.Bottom);
-                            System.Drawing.StringFormat format = obj.GetStringFormat(Report.GraphicCache, 0);
-                            System.Drawing.Brush textBrush = Report.GraphicCache.GetBrush(obj.TextColor);
-                            AdvancedTextRenderer renderer = new AdvancedTextRenderer(obj.Text, g, f, textBrush, null,
-                                textRect, format, obj.HorzAlign, obj.VertAlign, obj.LineHeight, obj.Angle, obj.FontWidthRatio,
-                                obj.ForceJustify, obj.Wysiwyg, obj.HasHtmlTags, false, Zoom, Zoom, obj.InlineImageCache);
-                            if (renderer.Paragraphs.Count > 0)
+                            if (renderer.Paragraphs[0].Lines.Count > 0)
                             {
-                                if (renderer.Paragraphs[0].Lines.Count > 0)
+                                float height = renderer.Paragraphs[0].Lines[0].CalcHeight();
+                                if (height > obj.Height)
+                                    top = -(height - obj.Height) / 2;
+                                else
                                 {
-                                    float height = renderer.Paragraphs[0].Lines[0].CalcHeight();
-                                    if (height > obj.Height)
-                                        top = -(height - obj.Height) / 2;
-                                    else
+                                    top = renderer.Paragraphs[0].Lines[0].Top - obj.AbsTop;
+                                    float lineHeight = height;
+                                    height = renderer.CalcHeight();
+                                    if (height == 0)
+                                        height = lineHeight;
+
+                                    if (obj.VertAlign == VertAlign.Center)
                                     {
-                                        top = renderer.Paragraphs[0].Lines[0].Top - obj.AbsTop;
-                                        float lineHeight = height;
-                                        height = renderer.CalcHeight();
-                                        //  if height == 0 then text can't be printed with paddings, so we use the line height, which calculates the height of the text
-                                        if (height == 0)
-                                            height = lineHeight;
+                                        top = (obj.Height - height - obj.Padding.Bottom + obj.Padding.Top) / 2;
 
-                                        if (obj.VertAlign == VertAlign.Center)
+                                        if (top < 0)
                                         {
-                                            top = (obj.Height - height - obj.Padding.Bottom + obj.Padding.Top) / 2;
-
-                                            if (top < 0)
-                                            {
-                                                if (obj.Height > height)
-                                                    top = (obj.Height - height - obj.Padding.Bottom + obj.Padding.Top) / 2;
-                                                else
-                                                    top = (height - obj.Height - obj.Padding.Bottom + obj.Padding.Top) / 2;
-                                            }
+                                            if (obj.Height > height)
+                                                top = (obj.Height - height - obj.Padding.Bottom + obj.Padding.Top) / 2;
+                                            else
+                                                top = (height - obj.Height - obj.Padding.Bottom + obj.Padding.Top) / 2;
                                         }
-                                        else if (obj.VertAlign == VertAlign.Bottom)
-                                        {
-                                            // (float)(Math.Round(obj.Font.Size * 96 / 72) / 2
-                                            // necessary to compensate for paragraph offset error in GetSpanText method below.
-                                            // top margin should be positive when VertAlign == VertAlign.Bottom.
-                                            top = Math.Max(obj.Height - height - obj.Padding.Bottom - (float)(Math.Round(obj.Font.Size * 96 / 72) / 4), 0);
+                                    }
+                                    else if (obj.VertAlign == VertAlign.Bottom)
+                                    {
+                                        top = Math.Max(obj.Height - height - obj.Padding.Bottom - (float)(Math.Round(obj.Font.Size * 96 / 72) / 4), 0);
 
-                                            if (top < 31)
-                                                top = obj.Height - height - obj.Padding.Bottom;
-                                        }
+                                        if (top < 31)
+                                            top = obj.Height - height - obj.Padding.Bottom;
                                     }
                                 }
                             }
@@ -417,10 +424,12 @@ namespace FastReport.Export.Html
                                     try
                                     {
                                         float w, h;
-                                        using (System.Drawing.Bitmap bmp = runImage.GetBitmap(out w, out h))
+                                        using (SKBitmap bmp = runImage.GetBitmap(out w, out h))
+                                        using (SKImage skImage = SKImage.FromBitmap(bmp))
+                                        using (SKData pngData = skImage.Encode(SKEncodedImageFormat.Png, 100))
                                         {
-
-                                            bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                                            if (pngData != null)
+                                                pngData.SaveTo(ms);
                                         }
                                         ms.Flush();
                                         sb.Append("<img src=\"data:image/png;base64,").Append(Convert.ToBase64String(ms.ToArray()))
@@ -468,14 +477,13 @@ namespace FastReport.Export.Html
                 if (pictures)
                 {
                     MemoryStream PictureStream = new MemoryStream();
-                    // Using System.Drawing for image format conversion during HTML export rendering
-                    System.Drawing.Imaging.ImageFormat FPictureFormat = System.Drawing.Imaging.ImageFormat.Bmp;
+                    SKEncodedImageFormat pictureFormat = SKEncodedImageFormat.Bmp;
                     if (imageFormat == ImageFormat.Png)
-                        FPictureFormat = System.Drawing.Imaging.ImageFormat.Png;
+                        pictureFormat = SKEncodedImageFormat.Png;
                     else if (imageFormat == ImageFormat.Jpeg)
-                        FPictureFormat = System.Drawing.Imaging.ImageFormat.Jpeg;
+                        pictureFormat = SKEncodedImageFormat.Jpeg;
                     else if (imageFormat == ImageFormat.Gif)
-                        FPictureFormat = System.Drawing.Imaging.ImageFormat.Gif;
+                        pictureFormat = SKEncodedImageFormat.Gif;
 
                     Width = obj.Width == 0 ? obj.Border.LeftLine.Width : obj.Width;
                     Height = obj.Height == 0 ? obj.Border.TopLine.Width : obj.Height;
@@ -487,56 +495,51 @@ namespace FastReport.Export.Html
                         Height = 1 / Zoom;
 
                     int zoom = highQualitySVG ? 3 : 1;
+                    int srcWidth = (int)(Math.Abs(Math.Round(Width * Zoom * zoom)));
+                    int srcHeight = (int)(Math.Abs(Math.Round(Height * Zoom * zoom)));
 
-                    using (System.Drawing.Image image =
-                        new System.Drawing.Bitmap(
-                            (int)(Math.Abs(Math.Round(Width * Zoom * zoom))),
-                            (int)(Math.Abs(Math.Round(Height * Zoom * zoom)))
-                            ))
+                    using SKBitmap image = new SKBitmap(srcWidth, srcHeight, true);
+                    using (SKCanvas canvas = new SKCanvas(image))
                     {
-                        using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(image))
-                        {
-                            var needClear = obj is TextObjectBase
+                        var needClear = obj is TextObjectBase
 #if MSCHART
-                                            || obj is MSChart.MSChartObject
+                                        || obj is MSChart.MSChartObject
 #endif
-                                            || obj is Gauge.GaugeObject;
+                                        || obj is Gauge.GaugeObject;
 
-                            if (needClear)
-                            {
-                                g.Clear(imageFormat == ImageFormat.Bmp ? System.Drawing.Color.White : System.Drawing.Color.Transparent);
-                                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
-                            }
+                        if (needClear)
+                            canvas.Clear(imageFormat == ImageFormat.Bmp ? SKColors.White : SKColors.Transparent);
 
-                            float Left = Width > 0 ? obj.AbsLeft : obj.AbsLeft + Width;
-                            float Top = Height > 0 ? obj.AbsTop : obj.AbsTop + Height;
+                        float Left = Width > 0 ? obj.AbsLeft : obj.AbsLeft + Width;
+                        float Top = Height > 0 ? obj.AbsTop : obj.AbsTop + Height;
 
-                            float dx = 0;
-                            float dy = 0;
-                            g.TranslateTransform((-Left - dx) * Zoom * zoom, (-Top - dy) * Zoom * zoom);
+                        float dx = 0;
+                        float dy = 0;
+                        canvas.Translate((-Left - dx) * Zoom * zoom, (-Top - dy) * Zoom * zoom);
 
-                            BorderLines oldLines = obj.Border.Lines;
-                            obj.Border.Lines = BorderLines.None;
-                            obj.Draw(new FRPaintEventArgs(g, Zoom * zoom, Zoom * zoom, Report.GraphicCache));
-                            obj.Border.Lines = oldLines;
-                        }
-
-                        using (System.Drawing.Bitmap b = new System.Drawing.Bitmap(
-                        (int)(Math.Abs(Math.Round(Width * Zoom))),
-                        (int)(Math.Abs(Math.Round(Height * Zoom)))
-                        ))
+                        BorderLines oldLines = obj.Border.Lines;
+                        obj.Border.Lines = BorderLines.None;
+                        using (IGraphics g = new GdiGraphics(canvas, false))
                         {
-                            using (System.Drawing.Graphics gr = System.Drawing.Graphics.FromImage(b))
-                            {
-                                gr.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                                gr.DrawImage(image, 0, 0, (int)Math.Abs(Width) * Zoom, (int)Math.Abs(Height) * Zoom);
-                            }
-
-                            if (FPictureFormat == System.Drawing.Imaging.ImageFormat.Jpeg)
-                                ExportUtils.SaveJpeg(b, PictureStream, 95);
-                            else
-                                b.Save(PictureStream, FPictureFormat);
+                            obj.Draw(new FRPaintEventArgs(g, Zoom * zoom, Zoom * zoom, Report.GraphicCache));
                         }
+                        obj.Border.Lines = oldLines;
+                    }
+
+                    int dstWidth = (int)(Math.Abs(Math.Round(Width * Zoom)));
+                    int dstHeight = (int)(Math.Abs(Math.Round(Height * Zoom)));
+                    using SKBitmap b = image.Resize(new SKImageInfo(dstWidth, dstHeight), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear)) ?? image.Copy();
+
+                    if (pictureFormat == SKEncodedImageFormat.Jpeg)
+                    {
+                        using SKImage jpegImage = SKImage.FromBitmap(b);
+                        ExportUtils.SaveJpeg(jpegImage, PictureStream, 95);
+                    }
+                    else
+                    {
+                        using SKImage outputImage = SKImage.FromBitmap(b);
+                        using SKData data = outputImage.Encode(pictureFormat, 100);
+                        data?.SaveTo(PictureStream);
                     }
                     PictureStream.Position = 0;
 
@@ -639,9 +642,8 @@ namespace FastReport.Export.Html
                     shadow.Top = obj.AbsTop + obj.Height + obj.Border.BottomLine.Width;
                     shadow.Width = obj.Width + obj.Border.RightLine.Width;
                     shadow.Height = obj.Border.ShadowWidth + obj.Border.BottomLine.Width;
-                    // Convert System.Drawing.Color to SKColor
                     var shadowColor = obj.Border.ShadowColor;
-                    shadow.FillColor = new SKColor(shadowColor.R, shadowColor.G, shadowColor.B, shadowColor.A);
+                    shadow.FillColor = shadowColor;
                     shadow.Border.Lines = BorderLines.None;
                     LayerBack(Page, shadow, null);
 
@@ -737,20 +739,23 @@ namespace FastReport.Export.Html
                 pictureWatermark.Width = (ExportUtils.GetPageWidth(page) - page.LeftMargin - page.RightMargin) * Units.Millimeters;
                 pictureWatermark.Height = (ExportUtils.GetPageHeight(page) - page.TopMargin - page.BottomMargin) * Units.Millimeters;
 
-                pictureWatermark.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Normal;
-                pictureWatermark.Image = new System.Drawing.Bitmap((int)pictureWatermark.Width, (int)pictureWatermark.Height);
+                pictureWatermark.SizeMode = PictureBoxSizeMode.Normal;
+                pictureWatermark.Image = new SKBitmap((int)pictureWatermark.Width, (int)pictureWatermark.Height, true);
 
-                using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(pictureWatermark.Image))
+                using (SKCanvas canvas = new SKCanvas(pictureWatermark.Image))
                 {
-                    g.Clear(System.Drawing.Color.Transparent);
-                    if (drawText)
-                        page.Watermark.DrawText(new FRPaintEventArgs(g, 1f, 1f, Report.GraphicCache),
-                            new System.Drawing.RectangleF(0, 0, pictureWatermark.Width, pictureWatermark.Height), Report, true);
-                    else
+                    canvas.Clear(SKColors.Transparent);
+                    using (IGraphics g = new GdiGraphics(canvas, false))
                     {
-                        page.Watermark.DrawImage(new FRPaintEventArgs(g, 1f, 1f, Report.GraphicCache),
-                            new System.Drawing.RectangleF(0, 0, pictureWatermark.Width, pictureWatermark.Height), Report, true);
-                        pictureWatermark.Transparency = page.Watermark.ImageTransparency;
+                        if (drawText)
+                            page.Watermark.DrawText(new FRPaintEventArgs(g, 1f, 1f, Report.GraphicCache),
+                                new SKRect(0, 0, pictureWatermark.Width, pictureWatermark.Height), Report, true);
+                        else
+                        {
+                            page.Watermark.DrawImage(new FRPaintEventArgs(g, 1f, 1f, Report.GraphicCache),
+                                new SKRect(0, 0, pictureWatermark.Width, pictureWatermark.Height), Report, true);
+                            pictureWatermark.Transparency = page.Watermark.ImageTransparency;
+                        }
                     }
                     LayerBack(Page, pictureWatermark, null);
                     LayerPicture(Page, pictureWatermark, null);

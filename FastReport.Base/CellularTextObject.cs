@@ -1,5 +1,6 @@
 using FastReport.Table;
 using FastReport.Utils;
+using SkiaSharp;
 using System.ComponentModel;
 
 namespace FastReport
@@ -92,7 +93,8 @@ namespace FastReport
             // calculate cellWidth, cellHeight automatically
             if (cellWidth == 0 || cellHeight == 0)
             {
-                float fontHeight = Font.GetHeight() * 96f / DrawUtils.ScreenDpi;
+                SKFontMetrics metrics = Font.Metrics;
+                float fontHeight = (metrics.Descent - metrics.Ascent + metrics.Leading) * 96f / DrawUtils.ScreenDpi;
                 cellWidth = GetCellWidthInternal(fontHeight);
                 cellHeight = cellWidth;
             }

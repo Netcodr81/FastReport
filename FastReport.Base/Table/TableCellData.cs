@@ -491,27 +491,27 @@ namespace FastReport.Table
                     switch ((int)c.Dock)
                     {
                         case 3:
-                            c.Bounds = ToRectangleF(new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Left + c.Width, remainingBounds.Bottom));
+                            c.Bounds = ToBounds(new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Left + c.Width, remainingBounds.Bottom));
                             remainingBounds = new SKRect(remainingBounds.Left + c.Width, remainingBounds.Top, remainingBounds.Right, remainingBounds.Bottom);
                             break;
 
                         case 1:
-                            c.Bounds = ToRectangleF(new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Right, remainingBounds.Top + c.Height));
+                            c.Bounds = ToBounds(new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Right, remainingBounds.Top + c.Height));
                             remainingBounds = new SKRect(remainingBounds.Left, remainingBounds.Top + c.Height, remainingBounds.Right, remainingBounds.Bottom);
                             break;
 
                         case 4:
-                            c.Bounds = ToRectangleF(new SKRect(remainingBounds.Right - c.Width, remainingBounds.Top, remainingBounds.Right, remainingBounds.Bottom));
+                            c.Bounds = ToBounds(new SKRect(remainingBounds.Right - c.Width, remainingBounds.Top, remainingBounds.Right, remainingBounds.Bottom));
                             remainingBounds = new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Right - c.Width, remainingBounds.Bottom);
                             break;
 
                         case 2:
-                            c.Bounds = ToRectangleF(new SKRect(remainingBounds.Left, remainingBounds.Bottom - c.Height, remainingBounds.Right, remainingBounds.Bottom));
+                            c.Bounds = ToBounds(new SKRect(remainingBounds.Left, remainingBounds.Bottom - c.Height, remainingBounds.Right, remainingBounds.Bottom));
                             remainingBounds = new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Right, remainingBounds.Bottom - c.Height);
                             break;
 
                         case 5:
-                            c.Bounds = ToRectangleF(remainingBounds);
+                            c.Bounds = ToBounds(remainingBounds);
                             remainingBounds = new SKRect(remainingBounds.Left, remainingBounds.Top, remainingBounds.Left, remainingBounds.Top);
                             break;
                     }
@@ -523,9 +523,9 @@ namespace FastReport.Table
             }
         }
 
-        private static System.Drawing.RectangleF ToRectangleF(SKRect rect)
+        private static SKRect ToBounds(SKRect rect)
         {
-            return new System.Drawing.RectangleF(rect.Left, rect.Top, rect.Width, rect.Height);
+            return rect;
         }
 
         #endregion // Public Methods

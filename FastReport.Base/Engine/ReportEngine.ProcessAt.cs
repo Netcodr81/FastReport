@@ -1,4 +1,5 @@
 using FastReport.Utils;
+using SkiaSharp;
 using System.Collections.Generic;
 
 namespace FastReport.Engine
@@ -91,15 +92,13 @@ namespace FastReport.Engine
             try
             {
                 textObject.GetData();
-                string fill_clr = textObject.FillColor.IsNamedColor ? textObject.FillColor.Name :
-                    "#" + textObject.FillColor.Name;
-                string txt_clr = textObject.TextColor.IsNamedColor ? textObject.TextColor.Name :
-                    "#" + textObject.TextColor.Name;
+                string fill_clr = $"#{textObject.FillColor.Red:X2}{textObject.FillColor.Green:X2}{textObject.FillColor.Blue:X2}";
+                string txt_clr = $"#{textObject.TextColor.Red:X2}{textObject.TextColor.Green:X2}{textObject.TextColor.Blue:X2}";
 
                 xmlItem.SetProp("x", textObject.Text);
                 xmlItem.SetProp("Fill.Color", fill_clr);
                 xmlItem.SetProp("TextFill.Color", txt_clr);
-                xmlItem.SetProp("Font.Name", textObject.Font.Name);
+                xmlItem.SetProp("Font.Name", textObject.Font.Typeface?.FamilyName ?? SKTypeface.Default.FamilyName);
             }
             finally
             {

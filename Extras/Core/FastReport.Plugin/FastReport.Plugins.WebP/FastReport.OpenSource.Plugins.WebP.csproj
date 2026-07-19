@@ -16,5 +16,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\FastReport.OpenSource\FastReport.OpenSource.csproj" />
+    <PackageReference Include="SkiaSharp" Version="4.150.1" />
   </ItemGroup>
 </Project>

@@ -37,8 +37,8 @@ namespace FastReport.Gauge.Linear
         /// <param name="parent">The parent gauge object.</param>
         public LinearScale(GaugeObject parent) : base(parent)
         {
-            MajorTicks = new ScaleTicks(10, 2, System.Drawing.Color.Black);
-            MinorTicks = new ScaleTicks(6, 1, System.Drawing.Color.Black);
+            MajorTicks = new ScaleTicks(10, 2, SKColors.Black);
+            MinorTicks = new ScaleTicks(6, 1, SKColors.Black);
             majorTicksNum = 6;
         }
 
@@ -46,22 +46,12 @@ namespace FastReport.Gauge.Linear
 
         #region Private Methods
 
-        private static SKColor ToSKColor(System.Drawing.Color color)
-        {
-            return new SKColor(color.R, color.G, color.B, color.A);
-        }
-
         private SKFont CreateFont(float scaleX)
         {
             float size = Parent.IsPrinting ? Font.Size : Font.Size * scaleX * 96f / DrawUtils.ScreenDpi;
-            SKFontStyleWeight weight = (Font.Style & SKFontStyle.Bold) != 0
-                ? SKFontStyleWeight.Bold
-                : SKFontStyleWeight.Normal;
-            SKFontStyleSlant slant = (Font.Style & SKFontStyle.Italic) != 0
-                ? SKFontStyleSlant.Italic
-                : SKFontStyleSlant.Upright;
-            SKTypeface typeface = SKTypeface.FromFamilyName(Font.FontFamily.Name, new SKFontStyle(weight, SKFontStyleWidth.Normal, slant));
-            return new SKFont(typeface, size);
+            SKTypeface typeface = Font?.Typeface ?? SKTypeface.Default;
+            SKFontStyle style = new SKFontStyle(typeface.FontWeight, typeface.FontWidth, typeface.FontSlant);
+            return new SKFont(SKTypeface.FromFamilyName(typeface.FamilyName, style) ?? SKTypeface.Default, size);
         }
 
         private SKPaint CreateTextPaint()
@@ -80,7 +70,7 @@ namespace FastReport.Gauge.Linear
             using SKPaint pen = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = ToSKColor(MajorTicks.Color),
+                Color = MajorTicks.Color,
                 StrokeWidth = MajorTicks.Width * e.ScaleX,
                 IsAntialias = true
             };
@@ -114,7 +104,7 @@ namespace FastReport.Gauge.Linear
             using SKPaint pen = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = ToSKColor(MinorTicks.Color),
+                Color = MinorTicks.Color,
                 StrokeWidth = MinorTicks.Width * e.ScaleX,
                 IsAntialias = true
             };
@@ -139,7 +129,7 @@ namespace FastReport.Gauge.Linear
             using SKPaint pen = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = ToSKColor(MajorTicks.Color),
+                Color = MajorTicks.Color,
                 StrokeWidth = MajorTicks.Width * e.ScaleX,
                 IsAntialias = true
             };
@@ -173,7 +163,7 @@ namespace FastReport.Gauge.Linear
             using SKPaint pen = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = ToSKColor(MinorTicks.Color),
+                Color = MinorTicks.Color,
                 StrokeWidth = MinorTicks.Width * e.ScaleX,
                 IsAntialias = true
             };

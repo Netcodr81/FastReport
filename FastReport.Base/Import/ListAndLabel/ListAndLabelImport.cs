@@ -172,25 +172,14 @@ namespace FastReport.Import.ListAndLabel
             comp.Height = UnitsConverter.LLUnitsToPixels(GetValueLL("Position/Height", startIndex));
         }
 
-        private System.Drawing.Color ConvertSKColorToColor(SKColor skColor)
+        private static SKColor ConvertSKColorToColor(SKColor skColor)
         {
-            return System.Drawing.Color.FromArgb(skColor.Alpha, skColor.Red, skColor.Green, skColor.Blue);
+            return skColor;
         }
 
-        private System.Drawing.Font ConvertSKFontToFont(SKFont skFont)
+        private static SKFont ConvertSKFontToFont(SKFont skFont)
         {
-            System.Drawing.FontStyle style = System.Drawing.FontStyle.Regular;
-
-            if (skFont.Typeface != null)
-            {
-                if (skFont.Typeface.IsBold)
-                    style |= System.Drawing.FontStyle.Bold;
-                if (skFont.Typeface.IsItalic)
-                    style |= System.Drawing.FontStyle.Italic;
-            }
-
-            string familyName = skFont.Typeface?.FamilyName ?? "Arial";
-            return new System.Drawing.Font(familyName, skFont.Size, style);
+            return skFont;
         }
 
         private SKFont LoadFont(int startIndex)
@@ -346,19 +335,19 @@ namespace FastReport.Import.ListAndLabel
             LoadComponent(startIndex, pictureObj);
             if (UnitsConverter.ConvertBool(GetValueLL("OriginalSize", startIndex)))
             {
-                pictureObj.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Normal;
+                pictureObj.SizeMode = PictureBoxSizeMode.Normal;
             }
             if (Convert.ToInt32(GetValueLL("Alignment", startIndex)) == 0)
             {
-                pictureObj.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage;
+                pictureObj.SizeMode = PictureBoxSizeMode.CenterImage;
             }
             if (UnitsConverter.ConvertBool(GetValueLL("bIsotropic", startIndex)))
             {
-                pictureObj.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
+                pictureObj.SizeMode = PictureBoxSizeMode.AutoSize;
             }
             else
             {
-                pictureObj.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
+                pictureObj.SizeMode = PictureBoxSizeMode.StretchImage;
             }
             string filename = GetValueLL("Filename", startIndex);
             if (filename.Equals("<embedded>"))

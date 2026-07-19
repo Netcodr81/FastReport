@@ -97,7 +97,7 @@ namespace FastReport
         /// <summary>
         /// Gets or sets the watermark image.
         /// </summary>
-        public SKImage Image
+        public SKBitmap Image
         {
             get { return pictureObject.Image; }
             set { pictureObject.Image = value; }
@@ -206,7 +206,7 @@ namespace FastReport
 
         private bool ShouldSerializeTextFill()
         {
-            return !(TextFill is SolidFill) || (TextFill as SolidFill).Color != Color.LightGray;
+            return !(TextFill is SolidFill) || (TextFill as SolidFill).Color != SKColors.LightGray;
         }
 
         private bool ShouldSerializeImage()
@@ -320,7 +320,7 @@ namespace FastReport
         public void Assign(Watermark source)
         {
             Enabled = source.Enabled;
-            Image = source.Image == null ? null : source.Image.Clone() as Image;
+            Image = source.Image == null ? null : source.Image.Copy();
             ImageSize = source.ImageSize;
             ImageTransparency = source.ImageTransparency;
             Text = source.Text;
@@ -355,8 +355,9 @@ namespace FastReport
             textObject.HorzAlign = HorzAlign.Center;
             textObject.VertAlign = VertAlign.Center;
             ImageSize = WatermarkImageSize.Zoom;
-            Font = new Font(DrawUtils.DefaultReportFont.Name, 60);
-            TextFill = new SolidFill(Color.FromArgb(40, Color.Gray));
+            string familyName = DrawUtils.DefaultReportFont.Typeface?.FamilyName ?? SKTypeface.Default.FamilyName;
+            Font = new SKFont(SKTypeface.FromFamilyName(familyName) ?? SKTypeface.Default, 60);
+            TextFill = new SolidFill(SKColors.Gray.WithAlpha(40));
             TextRotation = WatermarkTextRotation.ForwardDiagonal;
             ShowTextOnTop = true;
         }

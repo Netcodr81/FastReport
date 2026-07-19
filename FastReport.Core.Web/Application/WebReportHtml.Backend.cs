@@ -368,7 +368,7 @@ namespace FastReport.Web
                                 else
                                 if (c.Name == objectName &&
                                   //#if FRCORE
-                                  c.AbsBounds.Contains(point))
+                                  c.AbsBounds.Contains(new SkiaSharp.SKPoint(point.X, point.Y)))
                                 //#else
                                 //                                  c.PointInObject(point))
                                 //#endif

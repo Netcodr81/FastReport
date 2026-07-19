@@ -88,8 +88,8 @@ namespace FastReport.Gauge.Radial
         /// <param name="parent">The parent gauge object.</param>
         public RadialScale(RadialGauge parent) : base(parent)
         {
-            MajorTicks = new ScaleTicks(5, 2, System.Drawing.Color.Black, 11);
-            MinorTicks = new ScaleTicks(2, 1, System.Drawing.Color.Black, 4);
+            MajorTicks = new ScaleTicks(5, 2, SKColors.Black, 11);
+            MinorTicks = new ScaleTicks(2, 1, SKColors.Black, 4);
             majorStep = 27; //degree, 135/5
             minorStep = 5.4f; // degree, 27/5
             drawRight = true;
@@ -141,22 +141,12 @@ namespace FastReport.Gauge.Radial
                 return false;
             else return true;
         }
-        private static SKColor ToSKColor(System.Drawing.Color color)
-        {
-            return new SKColor(color.R, color.G, color.B, color.A);
-        }
-
         private SKFont CreateFont(FRPaintEventArgs e)
         {
             float size = Parent.IsPrinting ? Font.Size : Font.Size * e.ScaleX * 96f / DrawUtils.ScreenDpi;
-            SKFontStyleWeight weight = (Font.Style & System.Drawing.FontStyle.Bold) != 0
-                ? SKFontStyleWeight.Bold
-                : SKFontStyleWeight.Normal;
-            SKFontStyleSlant slant = (Font.Style & System.Drawing.FontStyle.Italic) != 0
-                ? SKFontStyleSlant.Italic
-                : SKFontStyleSlant.Upright;
-            SKTypeface typeface = SKTypeface.FromFamilyName(Font.FontFamily.Name, new SKFontStyle(weight, SKFontStyleWidth.Normal, slant));
-            return new SKFont(typeface, size);
+            SKTypeface typeface = Font?.Typeface ?? SKTypeface.Default;
+            SKFontStyle style = new SKFontStyle(typeface.FontWeight, typeface.FontWidth, typeface.FontSlant);
+            return new SKFont(SKTypeface.FromFamilyName(typeface.FamilyName, style) ?? SKTypeface.Default, size);
         }
 
         private static SKPoint[] RotateVector(SKPoint[] vector, double angle, SKPoint center)
@@ -234,7 +224,7 @@ namespace FastReport.Gauge.Radial
             using SKPaint pen = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = ToSKColor(MajorTicks.Color),
+                Color = MajorTicks.Color,
                 StrokeWidth = MajorTicks.Width * e.ScaleX,
                 IsAntialias = true
             };
@@ -555,7 +545,7 @@ namespace FastReport.Gauge.Radial
             using SKPaint pen = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = ToSKColor(MinorTicks.Color),
+                Color = MinorTicks.Color,
                 StrokeWidth = MinorTicks.Width * e.ScaleX,
                 IsAntialias = true
             };

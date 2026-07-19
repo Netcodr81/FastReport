@@ -968,7 +968,7 @@ namespace FastReport
         /// </remarks>
         public virtual void RestoreState()
         {
-            Bounds = new System.Drawing.RectangleF(savedBounds.Left, savedBounds.Top, savedBounds.Width, savedBounds.Height);
+            Bounds = new SKRect(savedBounds.Left, savedBounds.Top, savedBounds.Right, savedBounds.Bottom);
             Visible = savedVisible;
             Bookmark = savedBookmark;
             Hyperlink.RestoreState();

@@ -1229,7 +1229,7 @@ namespace FastReport
             context.size = font.Size;
             context.style = ToUtilsFontStyle(font);
             context.color = TextColor; // no keep
-            context.underlineColor = ToSKColor(textOutline.Color);
+            context.underlineColor = textOutline.Color;
             context.rect = textRect;
             context.underlines = Underlines;
             context.format = format; // no keep
@@ -1283,7 +1283,7 @@ namespace FastReport
 
                 Pen outlinePen = null;
                 if (textOutline.Enabled)
-                    outlinePen = e.Cache.GetPen(ToSKColor(textOutline.Color), textOutline.Width * e.ScaleX, textOutline.Style);
+                    outlinePen = e.Cache.GetPen(textOutline.Color, textOutline.Width * e.ScaleX, textOutline.Style);
 
                 if (textRect.Width > 0 && textRect.Height > 0)
                 {

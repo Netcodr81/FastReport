@@ -1,6 +1,5 @@
 ﻿using FastReport.Utils;
 using SkiaSharp;
-using System.Drawing;
 using System.IO;
 
 namespace FastReport.Plugins
@@ -19,16 +18,12 @@ namespace FastReport.Plugins
             return fileName.EndsWith(".webp", System.StringComparison.OrdinalIgnoreCase);
         }
 
-        public bool TryLoad(byte[] imageData, out Image result)
+        public bool TryLoad(byte[] imageData, out SKBitmap result)
         {
             try
             {
-                using (var img = SKBitmap.Decode(imageData))
-                {
-                    byte[] png = ConvertToPng(img);
-                    result = Image.FromStream(new MemoryStream(png));
-                    return true;
-                }
+                result = SKBitmap.Decode(imageData);
+                return result != null;
             }
             catch
             {
@@ -39,25 +34,7 @@ namespace FastReport.Plugins
 
         }
 
-        private static byte[] ConvertToPng(SKBitmap img)
-        {
-            byte[] png;
-            var filters = SKPngEncoderFilterFlags.NoFilters;
-            int compress = 0;
-            var options = new SKPngEncoderOptions(filters, compress);
-
-            using (var pixmap = img.PeekPixels())
-            {
-                using (var data = pixmap.Encode(options))
-                {
-                    png = data.ToArray();
-                }
-            }
-
-            return png;
-        }
-
-        public bool TryLoad(string fileName, out Image result)
+        public bool TryLoad(string fileName, out SKBitmap result)
         {
             try
             {

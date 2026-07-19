@@ -76,7 +76,7 @@ namespace FastReport.Utils
     internal sealed class Pen
     {
         public float[] DashPattern { get; set; }
-        public System.Drawing.Drawing2D.DashStyle DashStyle { get; set; }
+        public DashStyle DashStyle { get; set; }
     }
 
     /// <summary>

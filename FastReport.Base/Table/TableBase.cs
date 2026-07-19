@@ -767,7 +767,7 @@ namespace FastReport.Table
                             {
                                 cell.Fill = new TextureFill(ImageHelper.ToByteArray(cellImage, cellImage.GetImageFormat()))
                                 {
-                                    WrapMode = System.Drawing.Drawing2D.WrapMode.Clamp,
+                                    WrapMode = WrapMode.Clamp,
                                     PreserveAspectRatio = false,
                                 };
                             }
@@ -1204,12 +1204,12 @@ namespace FastReport.Table
             // to the left and top from this point and collect every cell which OriginalCell is equal to
             // the aggregateCell value. We have to stop when we meet the same row or column.
 
-            int columnIndex = PrintingCell.Address.X;
-            int rowIndex = PrintingCell.Address.Y;
+            int columnIndex = (int)PrintingCell.Address.X;
+            int rowIndex = (int)PrintingCell.Address.Y;
             TableColumn startColumn = ResultTable.Columns[columnIndex];
             TableRow startRow = ResultTable.Rows[rowIndex];
-            TableColumn aggregateColumn = Columns[aggregateCell.Address.X];
-            TableRow aggregateRow = Rows[aggregateCell.Address.Y];
+            TableColumn aggregateColumn = Columns[(int)aggregateCell.Address.X];
+            TableRow aggregateRow = Rows[(int)aggregateCell.Address.Y];
 
             // check if result is in the same row/column as aggregate cell
             bool sameRow = startRow.OriginalComponent == aggregateRow.OriginalComponent;

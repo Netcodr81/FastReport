@@ -52,9 +52,9 @@ namespace FastReport.Import.RDL
             return UnitsConverter.ConvertColor(htmlColor);
         }
 
-        private System.Drawing.Color SKColorToDrawingColor(SKColor skColor)
+        private static string SKColorToHtml(SKColor color)
         {
-            return System.Drawing.Color.FromArgb(skColor.Alpha, skColor.Red, skColor.Green, skColor.Blue);
+            return $"#{color.Red:X2}{color.Green:X2}{color.Blue:X2}";
         }
 
         private void LoadBorderColor(XmlNode borderColorNode, string border)
@@ -239,7 +239,7 @@ namespace FastReport.Import.RDL
 
         private void LoadStyle(XmlNode styleNode)
         {
-            System.Drawing.FontStyle fontStyle = System.Drawing.FontStyle.Regular;
+            SKFontStyleSlant fontSlant = SKFontStyleSlant.Upright;
             string fontFamily = "Arial";
             float fontSize = 10.0f;
             int paddingTop = 0;
@@ -266,7 +266,7 @@ namespace FastReport.Import.RDL
                 }
                 else if (node.Name == "FontStyle")
                 {
-                    fontStyle = UnitsConverter.ConvertFontStyle(node.InnerText);
+                    fontSlant = UnitsConverter.ConvertFontStyle(node.InnerText);
                 }
                 else if (node.Name == "FontFamily")
                 {
@@ -301,8 +301,7 @@ namespace FastReport.Import.RDL
                 {
                     if (component is TextObject)
                     {
-                        SKColor skColor = UnitsConverter.ConvertColor(node.InnerText);
-                        (component as TextObject).TextColor = System.Drawing.Color.FromArgb(skColor.Alpha, skColor.Red, skColor.Green, skColor.Blue);
+                        (component as TextObject).TextColor = UnitsConverter.ConvertColor(node.InnerText);
                     }
                 }
                 else if (node.Name == "PaddingLeft")
@@ -324,12 +323,13 @@ namespace FastReport.Import.RDL
             }
             if (component is TextObject)
             {
-                (component as TextObject).Font = new System.Drawing.Font(fontFamily, fontSize, fontStyle);
-                (component as TextObject).Padding = new System.Windows.Forms.Padding(paddingLeft, paddingTop, paddingRight, paddingBottom);
+                SKTypeface typeface = SKTypeface.FromFamilyName(fontFamily, new SKFontStyle(SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, fontSlant)) ?? SKTypeface.Default;
+                (component as TextObject).Font = new SKFont(typeface, fontSize);
+                (component as TextObject).Padding = new Padding(paddingLeft, paddingTop, paddingRight, paddingBottom);
             }
             else if (component is PictureObject)
             {
-                (component as PictureObject).Padding = new System.Windows.Forms.Padding(paddingLeft, paddingTop, paddingRight, paddingBottom);
+                (component as PictureObject).Padding = new Padding(paddingLeft, paddingTop, paddingRight, paddingBottom);
             }
         }
 
@@ -442,7 +442,7 @@ namespace FastReport.Import.RDL
             parent = component;
             XmlNodeList nodeList = rectangleNode.ChildNodes;
             (component as ContainerObject).Border.Lines = BorderLines.All;
-            (component as ContainerObject).Border.Color = System.Drawing.Color.Black;
+            (component as ContainerObject).Border.Color = SKColors.Black;
             LoadReportItem(nodeList);
             foreach (XmlNode node in nodeList)
             {
@@ -524,37 +524,43 @@ namespace FastReport.Import.RDL
 
         private void ParseTextBoxStyle(XmlNode runChild)
         {
-            System.Drawing.FontStyle style = System.Drawing.FontStyle.Regular;
+            bool isBold = false;
+            bool isItalic = false;
+            bool isUnderline = false;
             SKColor textBoxForeColor = SKColors.Black;
             string fontFamily = String.Empty;
-            int fontSize = 0;
+            float fontSize = 0;
             foreach (XmlNode styleChild in runChild.ChildNodes)
             {
                 if (styleChild.Name == "FontFamily")
                     fontFamily = styleChild.InnerText;
                 else if (styleChild.Name == "FontSize")
-                    int.TryParse(styleChild.InnerText.Replace("pt", ""), out fontSize);
+                    float.TryParse(styleChild.InnerText.Replace("pt", ""), out fontSize);
                 else if (styleChild.Name == "FontWeight" && styleChild.InnerText == "Bold")
-                    style = style | System.Drawing.FontStyle.Bold;
+                    isBold = true;
                 else if (styleChild.Name == "FontStyle" && styleChild.InnerText == "Italic")
-                    style = style | System.Drawing.FontStyle.Italic;
+                    isItalic = true;
                 else if (styleChild.Name == "TextDecoration" && styleChild.InnerText == "Underline")
-                    style = style | System.Drawing.FontStyle.Underline;
+                    isUnderline = true;
                 else if (styleChild.Name == "Color")
                     textBoxForeColor = ConvertHtmlColor(styleChild.InnerText);
 
             }
+
+            TextObject textObject = component as TextObject;
             if (fontFamily == string.Empty)
                 fontFamily = defaultFontFamily;
-            if (fontFamily == string.Empty && fontSize == 0)
-                (component as TextObject).Font = new System.Drawing.Font((component as TextObject).Font, style);
-            else if (fontFamily == string.Empty)
-                (component as TextObject).Font = new System.Drawing.Font((component as TextObject).Font.FontFamily, fontSize, style);
-            else if (fontSize == 0)
-                (component as TextObject).Font = new System.Drawing.Font(fontFamily, (component as TextObject).Font.Size, style);
-            else
-                (component as TextObject).Font = new System.Drawing.Font(fontFamily, fontSize, style);
-            (component as TextObject).TextColor = SKColorToDrawingColor(textBoxForeColor);
+            if (fontFamily == string.Empty)
+                fontFamily = textObject.Font?.Typeface?.FamilyName ?? SKTypeface.Default.FamilyName;
+            if (fontSize == 0)
+                fontSize = textObject.Font?.Size ?? 10f;
+
+            SKFontStyleWeight weight = isBold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
+            SKFontStyleSlant slant = isItalic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
+            SKTypeface typeface = SKTypeface.FromFamilyName(fontFamily, new SKFontStyle(weight, SKFontStyleWidth.Normal, slant)) ?? SKTypeface.Default;
+            textObject.Font = new SKFont(typeface, fontSize);
+            textObject.Underlines = isUnderline;
+            textObject.TextColor = textBoxForeColor;
         }
 
         private string GetValue(string rdlValue)

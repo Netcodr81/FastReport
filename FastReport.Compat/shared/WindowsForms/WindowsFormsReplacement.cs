@@ -1,9 +1,8 @@
-using System;
+using SkiaSharp;
 using System.Collections.Generic;
-using System.Text;
 using System.ComponentModel;
 using System.Globalization;
-using System.Drawing;
+using System.Text;
 
 #pragma warning disable 1591 // disable missing xml comments warning
 #pragma warning disable FR0000 // Field must be texted in lowerCamelCase.
@@ -266,6 +265,19 @@ namespace System.Windows.Forms
         ImageAboveText,
         TextAboveImage
     };
+
+    public enum ContentAlignment
+    {
+        TopLeft = 1,
+        TopCenter = 2,
+        TopRight = 4,
+        MiddleLeft = 16,
+        MiddleCenter = 32,
+        MiddleRight = 64,
+        BottomLeft = 256,
+        BottomCenter = 512,
+        BottomRight = 1024
+    }
 
     public enum DialogResult
     {
@@ -598,8 +610,9 @@ namespace System.Windows.Forms
         public readonly MouseButtons Button;
         public readonly int Clicks;
         public readonly int Delta;
-        public Point Location => new Point(X, Y);
-        public MouseEventArgs(MouseButtons button, int clicks, int x, int y, int delta) {
+        public SKPoint Location => new SKPoint(X, Y);
+        public MouseEventArgs(MouseButtons button, int clicks, int x, int y, int delta)
+        {
             Button = button;
             X = x;
             Y = y;
@@ -610,13 +623,13 @@ namespace System.Windows.Forms
 
     public class PaintEventArgs : EventArgs
     {
-        public Graphics Graphics;
+        public SKCanvas Graphics;
     }
 
     public class InvalidateEventArgs : EventArgs
     {
-        public Rectangle Rect;
-        public InvalidateEventArgs(Rectangle r) { Rect = r; }
+        public SKRect Rect;
+        public InvalidateEventArgs(SKRect r) { Rect = r; }
     }
 
     public class DateRangeEventArgs : EventArgs
@@ -732,9 +745,11 @@ namespace System.Windows.Forms
 
     public class Control : Component
     {
-        public Control Parent {
+        public Control Parent
+        {
             get { return _parent; }
-            set {
+            set
+            {
                 _parent = value;
                 _parent?.Controls.Add(this);
             }
@@ -744,7 +759,7 @@ namespace System.Windows.Forms
         private Control _parent;
         public Cursor Cursor;
         public bool Enabled = true;                                                         //
-        public Font Font;                                           //
+        public SKFont Font;                                           //
         public RightToLeft RightToLeft;
         public int TabIndex;
         public bool TabStop;
@@ -757,25 +772,25 @@ namespace System.Windows.Forms
         public int Width;                                                                   //
         public int Height;                                                                  //
         public static Keys ModifierKeys;
-        public Rectangle ClientRectangle { get; }
+        public SKRect ClientRectangle { get; }
 
-        public Point Location
+        public SKPoint Location
         {
-            get => new Point(Left, Top);
+            get => new SKPoint(Left, Top);
             set
             {
-                Left = Location.X;
-                Top = Location.Y;
+                Left = (int)value.X;
+                Top = (int)value.Y;
             }
         }
 
-        public Size Size
+        public SKSize Size
         {
-            get => new Size(Width, Height);
+            get => new SKSize(Width, Height);
             set
             {
-                Width = value.Width;
-                Height = value.Height;
+                Width = (int)value.Width;
+                Height = (int)value.Height;
             }
         }
 
@@ -784,7 +799,7 @@ namespace System.Windows.Forms
         /// <summary>
         /// Gets the rectangle that represents the display area of the control.
         /// </summary>
-        public virtual Rectangle DisplayRectangle { get; }
+        public virtual SKRect DisplayRectangle { get; }
 
         public readonly IntPtr Handle = IntPtr.Zero;
 
@@ -808,9 +823,9 @@ namespace System.Windows.Forms
         public Control() : base()
         {
             // Compute our default size.
-            Size defaultSize = DefaultSize;
-            Width = defaultSize.Width;
-            Height = defaultSize.Height;
+            SKSize defaultSize = DefaultSize;
+            Width = (int)defaultSize.Width;
+            Height = (int)defaultSize.Height;
         }
 
         public Control(Control parent, string text) : this()
@@ -826,17 +841,17 @@ namespace System.Windows.Forms
         public virtual void Refresh() { }
         public void Update() { }
         public virtual void Invalidate(bool b) { }
-        public void Invalidate(Rectangle r) { }
+        public void Invalidate(SKRect r) { }
         public void Invalidate() { }
         public void SetStyle(ControlStyles style, bool fl) { }
         public Form FindForm() { return null; }
         public void PerformLayout() { }
         protected void UpdateStyles() { }
 
-        protected virtual System.Drawing.Size DefaultSize { get; set; }
-        public virtual Image BackgroundImage { get; set; }
-        public virtual Color BackColor { get; set; }
-        public virtual Color ForeColor { get; set; }
+        protected virtual SKSize DefaultSize { get; set; }
+        public virtual SKImage BackgroundImage { get; set; }
+        public virtual SKColor BackColor { get; set; }
+        public virtual SKColor ForeColor { get; set; }
 
 
         protected virtual void OnPaint(PaintEventArgs e) { }
@@ -860,9 +875,11 @@ namespace System.Windows.Forms
 
     public class GroupBox : Control
     {
-        protected override Size DefaultSize {
-            get {
-                return new Size(200, 100);
+        protected override SKSize DefaultSize
+        {
+            get
+            {
+                return new SKSize(200, 100);
             }
         }
 
@@ -883,27 +900,31 @@ namespace System.Windows.Forms
     public class ButtonBase : Control
     {
         public bool AutoSize;
-        public Image Image;
+        public SKImage Image;
         public ContentAlignment ImageAlign;
         public ContentAlignment TextAlign = ContentAlignment.MiddleCenter;                  //
         public TextImageRelation TextImageRelation;
 
-        protected override Size DefaultSize {
-            get {
-                return new Size(75, 23);
+        protected override SKSize DefaultSize
+        {
+            get
+            {
+                return new SKSize(75, 23);
             }
         }
     }
 
     public class PictureBox : Control
     {
-        private Image _image;
+        private SKImage _image;
         private BorderStyle _borderStyle = BorderStyle.None;
         private PictureBoxSizeMode _sizeMode = PictureBoxSizeMode.Normal;
 
-        public BorderStyle BorderStyle {
+        public BorderStyle BorderStyle
+        {
             get => _borderStyle;
-            set {
+            set
+            {
                 if (_borderStyle != value)
                 {
                     _borderStyle = value;
@@ -911,14 +932,17 @@ namespace System.Windows.Forms
             }
         }
 
-        public Image Image {
+        public SKImage Image
+        {
             get => _image;
             set => _image = value;
         }
 
-        public PictureBoxSizeMode SizeMode {
+        public PictureBoxSizeMode SizeMode
+        {
             get => _sizeMode;
-            set {
+            set
+            {
                 if (_sizeMode != value)
                 {
                     _sizeMode = value;
@@ -927,7 +951,7 @@ namespace System.Windows.Forms
         }
 
 
-        protected override Size DefaultSize => new Size(100, 50);
+        protected override SKSize DefaultSize => new SKSize(100, 50);
 
 
     }
@@ -948,9 +972,11 @@ namespace System.Windows.Forms
 
         public event EventHandler CheckedChanged;
 
-        protected override Size DefaultSize {
-            get {
-                return new Size(104, 24);
+        protected override SKSize DefaultSize
+        {
+            get
+            {
+                return new SKSize(104, 24);
             }
         }
     }
@@ -987,9 +1013,11 @@ namespace System.Windows.Forms
         SelectedIndexCollection selectedIndices;
         SelectedObjectCollection selectedItems;
 
-        protected override Size DefaultSize {
-            get {
-                return new Size(120, 96);
+        protected override SKSize DefaultSize
+        {
+            get
+            {
+                return new SKSize(120, 96);
             }
         }
 
@@ -1156,9 +1184,11 @@ namespace System.Windows.Forms
         private bool sorted;
         public object Tag;
 
-        protected override Size DefaultSize {
-            get {
-                return new Size(121,
+        protected override SKSize DefaultSize
+        {
+            get
+            {
+                return new SKSize(121,
                     21);    // Approximate value, may be incorrect
             }
         }
@@ -1207,7 +1237,7 @@ namespace System.Windows.Forms
             }
         }
 
-        public object SelectedItem 
+        public object SelectedItem
         {
             get
             {
@@ -1301,11 +1331,11 @@ namespace System.Windows.Forms
             set => this.borderStyle = value;
         }
 
-        protected override Size DefaultSize
+        protected override SKSize DefaultSize
         {
             get
             {
-                return new Size(200,
+                return new SKSize(200,
                     100);
             }
         }
@@ -1326,9 +1356,11 @@ namespace System.Windows.Forms
         public bool ShowUpDown;
         public DateTime Value = DateTime.Now;                                               //
 
-        protected override Size DefaultSize {
-            get {
-                return new Size(200, 
+        protected override SKSize DefaultSize
+        {
+            get
+            {
+                return new SKSize(200,
                     20);    // Approximate value, may be incorrect
             }
         }
@@ -1339,9 +1371,11 @@ namespace System.Windows.Forms
         public bool AutoSize;
         public ContentAlignment TextAlign = ContentAlignment.TopLeft;                       //
 
-        protected override Size DefaultSize {
-            get {
-                return new Size(100, 
+        protected override SKSize DefaultSize
+        {
+            get
+            {
+                return new SKSize(100,
                     23);    // Approximate value, may be incorrect
             }
         }
@@ -1371,7 +1405,7 @@ namespace System.Windows.Forms
     {
         public event DateRangeEventHandler DateChanged;
 
-        public Size CalendarDimensions;
+        public SKSize CalendarDimensions;
         public Day FirstDayOfWeek;
         public DateTime MaxDate;
         public int MaxSelectionCount;
@@ -1399,15 +1433,16 @@ namespace System.Windows.Forms
 
     public class RadioButton : ButtonBase
     {
-        private bool isChecked = false; 
+        private bool isChecked = false;
         public event EventHandler CheckedChanged;
 
         public ContentAlignment CheckAlign;
-        public bool Checked {
+        public bool Checked
+        {
             get { return isChecked; }
-            set 
+            set
             {
-                if(isChecked != value)
+                if (isChecked != value)
                 {
                     isChecked = value;
                     if (value && Parent != null)
@@ -1423,9 +1458,11 @@ namespace System.Windows.Forms
             }
         }                                                      //
 
-        protected override Size DefaultSize {
-            get {
-                return new Size(104, 24);
+        protected override SKSize DefaultSize
+        {
+            get
+            {
+                return new SKSize(104, 24);
             }
         }
     }
@@ -1446,9 +1483,11 @@ namespace System.Windows.Forms
 
         public void SelectAll() { }
 
-        protected override Size DefaultSize {
-            get {
-                return new Size(100, 
+        protected override SKSize DefaultSize
+        {
+            get
+            {
+                return new SKSize(100,
                     20);    // Approximate value, may be incorrect
             }
         }
@@ -1456,7 +1495,7 @@ namespace System.Windows.Forms
 
     }
 
-	public enum AutoScaleMode
+    public enum AutoScaleMode
     {
         None = 0,
         Font = 1,
@@ -1474,14 +1513,14 @@ namespace System.Windows.Forms
         public Button AcceptButton;
         public Button CancelButton;
         public FormBorderStyle FormBorderStyle;
-        public Size ClientSize { get; set; }
+        public SKSize ClientSize { get; set; }
         public FormStartPosition StartPosition;
         public bool ShowIcon;
         public bool ShowInTaskbar;
         public bool MinimizeBox;
         public bool MaximizeBox;
         public DialogResult DialogResult;
-        public SizeF AutoScaleDimensions;
+        public SKSize AutoScaleDimensions;
         public AutoScaleMode AutoScaleMode;
 
         public DialogResult ShowDialog()
@@ -1489,9 +1528,11 @@ namespace System.Windows.Forms
             return DialogResult.OK;
         }
 
-        protected override Size DefaultSize {
-            get {
-                return new Size(300, 300);
+        protected override SKSize DefaultSize
+        {
+            get
+            {
+                return new SKSize(300, 300);
             }
         }
 
@@ -1558,7 +1599,7 @@ namespace System.Windows.Forms
 
     public sealed class ControlPaint
     {
-        public static void DrawFocusRectangle(Graphics g, Rectangle r) { }
+        public static void DrawFocusRectangle(FastReport.IGraphics g, SKRect r) { }
     }
 
     public class ScrollableControl : Control

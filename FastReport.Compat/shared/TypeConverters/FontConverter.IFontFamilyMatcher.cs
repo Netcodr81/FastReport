@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
-using System.Drawing;
-using System.Linq;
+using SkiaSharp;
 
 namespace FastReport.TypeConverters
 {
@@ -10,15 +9,21 @@ namespace FastReport.TypeConverters
 
         public interface IFontFamilyMatcher
         {
-            FontFamily GetFontFamilyOrDefault(string name);
+            SKTypeface GetFontFamilyOrDefault(string name);
         }
 
         private class DefaultFontFamilyMatcher : IFontFamilyMatcher
         {
-            public FontFamily GetFontFamilyOrDefault(string name)
+            public SKTypeface GetFontFamilyOrDefault(string name)
             {
-                var fontFamily = FontFamily.Families.Where(f => f.Name == name).FirstOrDefault();
-                return fontFamily ?? FontFamily.GenericSansSerif;
+                if (!string.IsNullOrEmpty(name))
+                {
+                    SKTypeface matched = SKTypeface.FromFamilyName(name);
+                    if (matched != null)
+                        return matched;
+                }
+
+                return SKTypeface.Default;
             }
         }
     }

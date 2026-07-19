@@ -19,25 +19,17 @@ namespace FastReport.Export.Html
             {
                 TextObject textObj = obj as TextObject;
 
-                // TODO: Replace System.Drawing.Font with SKFont in TextObject
-                // Extract font properties directly from System.Drawing.Font
                 SKFont skFont = null;
                 if (textObj.Font != null)
                 {
-                    var sysFont = textObj.Font;
-                    SKFontStyle fontStyle = new SKFontStyle(
-                        (sysFont.Style & System.Drawing.FontStyle.Bold) != 0 ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
-                        SKFontStyleWidth.Normal,
-                        (sysFont.Style & System.Drawing.FontStyle.Italic) != 0 ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright
-                    );
-                    SKTypeface typeface = SKTypeface.FromFamilyName(sysFont.FontFamily.Name, fontStyle);
-                    skFont = new SKFont(typeface, sysFont.Size * (Zoom != 1 ? Zoom : 1));
+                    var srcFont = textObj.Font;
+                    SKTypeface srcTypeface = srcFont.Typeface ?? SKTypeface.Default;
+                    SKFontStyle fontStyle = new SKFontStyle(srcTypeface.FontWeight, srcTypeface.FontWidth, srcTypeface.FontSlant);
+                    SKTypeface typeface = SKTypeface.FromFamilyName(srcTypeface.FamilyName, fontStyle) ?? SKTypeface.Default;
+                    skFont = new SKFont(typeface, srcFont.Size * (Zoom != 1 ? Zoom : 1));
                 }
 
-                // TODO: Replace System.Drawing.Color with SKColor in TextObject.TextColor
-                // Convert System.Drawing.Color to SKColor
-                var sysColor = textObj.TextColor;
-                SKColor textColor = new SKColor(sysColor.R, sysColor.G, sysColor.B, sysColor.A);
+                SKColor textColor = textObj.TextColor;
 
                 style = GetStyle(skFont, textColor, textObj.FillColor,
                     textObj.RightToLeft, textObj.HorzAlign, textObj.Border, textObj.WordWrap, textObj.LineHeight,
@@ -49,18 +41,14 @@ namespace FastReport.Export.Html
             {
                 HtmlObject htmlObj = obj as HtmlObject;
 
-                // TODO: Replace System.Drawing.Font with SKFont in DrawUtils.DefaultTextObjectFont
                 SKFont skFont = null;
-                var sysFont = DrawUtils.DefaultTextObjectFont;
-                if (sysFont != null)
+                var srcFont = DrawUtils.DefaultTextObjectFont;
+                if (srcFont != null)
                 {
-                    SKFontStyle fontStyle = new SKFontStyle(
-                        (sysFont.Style & SKFontStyle.Bold) != 0 ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
-                        SKFontStyleWidth.Normal,
-                        (sysFont.Style & SKFontStyle.Italic) != 0 ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright
-                    );
-                    SKTypeface typeface = SKTypeface.FromFamilyName(sysFont.FontFamily.Name, fontStyle);
-                    skFont = new SKFont(typeface, sysFont.Size * (Zoom != 1 ? Zoom : 1));
+                    SKTypeface srcTypeface = srcFont.Typeface ?? SKTypeface.Default;
+                    SKFontStyle fontStyle = new SKFontStyle(srcTypeface.FontWeight, srcTypeface.FontWidth, srcTypeface.FontSlant);
+                    SKTypeface typeface = SKTypeface.FromFamilyName(srcTypeface.FamilyName, fontStyle) ?? SKTypeface.Default;
+                    skFont = new SKFont(typeface, srcFont.Size * (Zoom != 1 ? Zoom : 1));
                 }
 
                 style = GetStyle(skFont, SKColors.Black, htmlObj.FillColor,

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using FastReport.Utils;
+using SkiaSharp;
 
 namespace FastReport.Import.ListAndLabel
 {
@@ -118,43 +119,34 @@ namespace FastReport.Import.ListAndLabel
         }
 
         /// <summary>
-        /// Converts string color name to Color.
+        /// Converts string color name to SKColor.
         /// </summary>
         /// <param name="colorName">The color name.</param>
-        /// <returns>A Color value.</returns>
-        public static System.Drawing.Color ConvertColor(string colorName)
+        /// <returns>A SKColor value.</returns>
+        public static SKColor ConvertColor(string colorName)
         {
-            System.Drawing.Color color;
-            // Try parsing as a named color first
-            try
-            {
-                color = System.Drawing.Color.FromName(colorName);
-                if (color.IsKnownColor)
-                    return color;
-            }
-            catch
-            {
-                // Not a named color, try RGB format
-            }
+            if (string.IsNullOrEmpty(colorName))
+                return SKColors.Black;
 
-            // Try parsing RGB format
+            if (SKColor.TryParse(colorName, out SKColor parsed))
+                return parsed;
+
             string[] parts = colorName.Replace("RGB", "").Replace("(", "").Replace(")", "").Split(',');
             if (parts.Length == 3)
             {
                 try
                 {
-                    return System.Drawing.Color.FromArgb(
-                        int.Parse(parts[0].Trim()),
-                        int.Parse(parts[1].Trim()),
-                        int.Parse(parts[2].Trim()));
+                    return new SKColor(
+                        byte.Parse(parts[0].Trim()),
+                        byte.Parse(parts[1].Trim()),
+                        byte.Parse(parts[2].Trim()));
                 }
                 catch
                 {
-                    // Fall through to default
                 }
             }
 
-            return System.Drawing.Color.Black;
+            return SKColors.Black;
         }
 
         #endregion // Public Methods

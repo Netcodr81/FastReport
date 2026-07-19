@@ -13,14 +13,14 @@ namespace FastReport.Matrix
             if (style.Fill is SolidFill solidHeaderFill)
                 headerColor = solidHeaderFill.Color;
             else if (style.Fill is LinearGradientFill linearHeaderFill)
-                headerColor = ConvertColor(linearHeaderFill.StartColor);
+                headerColor = linearHeaderFill.StartColor;
 
             style = styleCollection[styleCollection.IndexOf("Body")];
             SKColor bodyColor = SKColors.White;
             if (style.Fill is SolidFill solidBodyFill)
                 bodyColor = solidBodyFill.Color;
             else if (style.Fill is LinearGradientFill linearBodyFill)
-                bodyColor = ConvertColor(linearBodyFill.StartColor);
+                bodyColor = linearBodyFill.StartColor;
 
             SKBitmap result = new SKBitmap(16, 16, true);
             using SKCanvas canvas = new SKCanvas(result);
@@ -41,9 +41,5 @@ namespace FastReport.Matrix
             return result;
         }
 
-        private static SKColor ConvertColor(System.Drawing.Color color)
-        {
-            return new SKColor(color.R, color.G, color.B, color.A);
-        }
     }
 }

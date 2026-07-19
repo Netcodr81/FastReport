@@ -12,15 +12,35 @@ using System;
 using System.Collections;
 using System.ComponentModel;
 using System.ComponentModel.Design.Serialization;
-using System.Drawing.Text;
 using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Drawing;
-using System.Linq;
+using SkiaSharp;
 
 namespace FastReport.TypeConverters
 {
+    [Flags]
+    public enum FontStyle
+    {
+        Regular = 0,
+        Bold = 1,
+        Italic = 2,
+        Underline = 4,
+        Strikeout = 8
+    }
+
+    public enum GraphicsUnit
+    {
+        World,
+        Display,
+        Pixel,
+        Point,
+        Inch,
+        Document,
+        Millimeter
+    }
+
     public partial class FontConverter : TypeConverter
     {
         private const string StylePrefix = "style=";
@@ -41,9 +61,9 @@ namespace FastReport.TypeConverters
         /// <inheritdoc/>
         public override object ConvertTo(ITypeDescriptorContext context, CultureInfo culture, object value, Type destinationType)
         {
-            if (value is Font)
+            if (value is SKFont)
             {
-                Font font = value as Font;
+                SKFont font = value as SKFont;
                 if (destinationType == typeof(string))
                 {
                     if (culture == null)
@@ -52,50 +72,20 @@ namespace FastReport.TypeConverters
                     }
 
                     StringBuilder sb = new StringBuilder();
-                    sb.Append(font.Name);
+                    string fontName = font.Typeface?.FamilyName ?? SKTypeface.Default.FamilyName;
+                    FontStyle style = GetFontStyle(font);
+
+                    sb.Append(fontName);
                     sb.Append(culture.TextInfo.ListSeparator[0]);
                     sb.Append(' ');
                     sb.Append(font.Size.ToString(culture.NumberFormat));
+                    sb.Append("pt");
 
-                    switch (font.Unit)
-                    {
-                        // MS throws ArgumentException, if unit is set
-                        // to GraphicsUnit.Display
-                        // Don't know what to append for GraphicsUnit.Display
-                        case GraphicsUnit.Display:
-                            sb.Append("display");
-                            break;
-
-                        case GraphicsUnit.Document:
-                            sb.Append("doc");
-                            break;
-
-                        case GraphicsUnit.Point:
-                            sb.Append("pt");
-                            break;
-
-                        case GraphicsUnit.Inch:
-                            sb.Append("in");
-                            break;
-
-                        case GraphicsUnit.Millimeter:
-                            sb.Append("mm");
-                            break;
-
-                        case GraphicsUnit.Pixel:
-                            sb.Append("px");
-                            break;
-
-                        case GraphicsUnit.World:
-                            sb.Append("world");
-                            break;
-                    }
-
-                    if (font.Style != FontStyle.Regular)
+                    if (style != FontStyle.Regular)
                     {
                         sb.Append(culture.TextInfo.ListSeparator[0]);
                         sb.Append(" style=");
-                        sb.Append(font.Style.ToString());
+                        sb.Append(style.ToString());
                     }
 
                     return sb.ToString();
@@ -103,12 +93,10 @@ namespace FastReport.TypeConverters
 
                 if (destinationType == typeof(InstanceDescriptor))
                 {
-                    ConstructorInfo met = typeof(Font).GetConstructor(new Type[] { typeof(string), typeof(float), typeof(FontStyle), typeof(GraphicsUnit) });
-                    object[] args = new object[4];
-                    args[0] = font.Name;
+                    ConstructorInfo met = typeof(SKFont).GetConstructor(new Type[] { typeof(SKTypeface), typeof(float) });
+                    object[] args = new object[2];
+                    args[0] = font.Typeface ?? SKTypeface.Default;
                     args[1] = font.Size;
-                    args[2] = font.Style;
-                    args[3] = font.Unit;
 
                     return new InstanceDescriptor(met, args);
                 }
@@ -153,7 +141,9 @@ namespace FastReport.TypeConverters
 
             if (nameIndex < 0)
             {
-                return new Font(fontName, fontSize, fontStyle, units);
+                SKFontStyle skStyle = GetSKFontStyle(fontStyle);
+                SKTypeface defaultTypeface = SKTypeface.FromFamilyName(fontName, skStyle) ?? SKTypeface.Default;
+                return new SKFont(defaultTypeface, fontSize);
             }
 
             // Some parameters are provided in addition to name.
@@ -226,8 +216,9 @@ namespace FastReport.TypeConverters
                 }
             }
 
-            var fontFamily = FontFamilyMatcher.GetFontFamilyOrDefault(fontName);
-            return new Font(fontFamily, fontSize, fontStyle, units);
+            SKFontStyle skFontStyle = GetSKFontStyle(fontStyle);
+            SKTypeface typeface = SKTypeface.FromFamilyName(fontName, skFontStyle) ?? SKTypeface.Default;
+            return new SKFont(typeface, fontSize);
         }
 
         private void ParseSizeTokens(string text, char separator, ref string size, ref string units)
@@ -278,20 +269,39 @@ namespace FastReport.TypeConverters
             else throw new ArgumentException("Invalid font units: " + units);
         }
 
+        private static FontStyle GetFontStyle(SKFont font)
+        {
+            FontStyle style = FontStyle.Regular;
+            SKTypeface typeface = font.Typeface;
+            if (typeface != null)
+            {
+                if (typeface.FontWeight >= (int)SKFontStyleWeight.SemiBold)
+                    style |= FontStyle.Bold;
+                if (typeface.FontSlant != SKFontStyleSlant.Upright)
+                    style |= FontStyle.Italic;
+            }
+            return style;
+        }
+
+        private static SKFontStyle GetSKFontStyle(FontStyle style)
+        {
+            SKFontStyleWeight weight = (style & FontStyle.Bold) != 0
+                ? SKFontStyleWeight.Bold
+                : SKFontStyleWeight.Normal;
+            SKFontStyleSlant slant = (style & FontStyle.Italic) != 0
+                ? SKFontStyleSlant.Italic
+                : SKFontStyleSlant.Upright;
+            return new SKFontStyle(weight, SKFontStyleWidth.Normal, slant);
+        }
+
         /// <inheritdoc/>
         public override object CreateInstance(ITypeDescriptorContext context, IDictionary propertyValues)
         {
             object value;
-            byte charSet = 1;
             float size = 8;
             string name = null;
-            bool vertical = false;
             FontStyle style = FontStyle.Regular;
-            FontFamily fontFamily = null;
             GraphicsUnit unit = GraphicsUnit.Point;
-
-            if ((value = propertyValues["GdiCharSet"]) != null)
-                charSet = (byte)value;
 
             if ((value = propertyValues["Size"]) != null)
                 size = (float)value;
@@ -301,9 +311,6 @@ namespace FastReport.TypeConverters
 
             if ((value = propertyValues["Name"]) != null)
                 name = (string)value;
-
-            if ((value = propertyValues["GdiVerticalFont"]) != null)
-                vertical = (bool)value;
 
             if ((value = propertyValues["Bold"]) != null)
             {
@@ -329,16 +336,10 @@ namespace FastReport.TypeConverters
                     style |= FontStyle.Underline;
             }
 
-            if (name == null)
-            {
-                fontFamily = new FontFamily("Tahoma");
-            }
-            else
-            {
-                fontFamily = FontFamilyMatcher.GetFontFamilyOrDefault(name);
-            }
-
-            return new Font(fontFamily, size, style, unit, charSet, vertical);
+            string familyName = string.IsNullOrEmpty(name) ? "Tahoma" : name;
+            SKFontStyle skStyle = GetSKFontStyle(style);
+            SKTypeface typeface = SKTypeface.FromFamilyName(familyName, skStyle) ?? SKTypeface.Default;
+            return new SKFont(typeface, size);
         }
 
         /// <inheritdoc/>
@@ -353,7 +354,7 @@ namespace FastReport.TypeConverters
             object value,
             Attribute[] attributes)
         {
-            return value is Font ? TypeDescriptor.GetProperties(value, attributes) : base.GetProperties(context, value, attributes);
+            return value is SKFont ? TypeDescriptor.GetProperties(value, attributes) : base.GetProperties(context, value, attributes);
         }
 
         /// <inheritdoc/>
@@ -364,11 +365,11 @@ namespace FastReport.TypeConverters
 
         public sealed class FontNameConverter : TypeConverter, IDisposable
         {
-            private readonly FontFamily[] _fonts;
+            private readonly string[] _fonts;
 
             public FontNameConverter()
             {
-                _fonts = FontFamily.Families;
+                _fonts = SKFontManager.Default.FontFamilies.ToArray();
             }
 
             void IDisposable.Dispose()
@@ -390,11 +391,7 @@ namespace FastReport.TypeConverters
             /// <inheritdoc/>
             public override StandardValuesCollection GetStandardValues(ITypeDescriptorContext context)
             {
-                string[] values = new string[_fonts.Length];
-                for (int i = 0; i < _fonts.Length; i++)
-                {
-                    values[i] = _fonts[i].Name;
-                }
+                string[] values = (string[])_fonts.Clone();
                 Array.Sort(values, Comparer.Default);
 
                 return new TypeConverter.StandardValuesCollection(values);

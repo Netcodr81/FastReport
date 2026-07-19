@@ -267,7 +267,7 @@ namespace FastReport.Gauge.Radial
             using SKPaint pen = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = new SKColor(Border.Color.R, Border.Color.G, Border.Color.B, Border.Color.A),
+                Color = Border.Color,
                 StrokeWidth = Border.Width * e.ScaleX,
                 IsAntialias = true
             };

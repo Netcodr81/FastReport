@@ -76,7 +76,7 @@ namespace FastReport.Web
                             }
                             else if (c is T)
                             {
-                                if (c.Name == objectName && c.AbsBounds.Contains(point))
+                                if (c.Name == objectName && c.AbsBounds.Contains(new SkiaSharp.SKPoint(point.X, point.Y)))
                                 {
                                     action(c as T, page, pageN);
                                     found = true;

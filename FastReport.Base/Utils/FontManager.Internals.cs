@@ -1,4 +1,5 @@
 ﻿using System;
+using SkiaSharp;
 
 namespace FastReport
 {
@@ -59,7 +60,11 @@ namespace FastReport
                 FastReport.TypeConverters.FontConverter.FontFamilyMatcher = this;
             }
 
-            public FontFamily GetFontFamilyOrDefault(string name) => FontManager.GetFontFamilyOrDefault(name);
+            public SKTypeface GetFontFamilyOrDefault(string name)
+            {
+                FontFamily family = FontManager.GetFontFamilyOrDefault(name);
+                return SKTypeface.FromFamilyName(family?.Name) ?? SKTypeface.Default;
+            }
         }
     }
 }

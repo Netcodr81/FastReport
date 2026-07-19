@@ -496,9 +496,9 @@ namespace FastReport.Table
                 CellData.UpdateLayout(dx, dy);
         }
 
-        private static System.Windows.Forms.Padding ToPadding(SKRectI rect)
+        private static Padding ToPadding(SKRectI rect)
         {
-            return new System.Windows.Forms.Padding(rect.Left, rect.Top, rect.Right, rect.Bottom);
+            return new Padding(rect.Left, rect.Top, rect.Right, rect.Bottom);
         }
         #endregion
 

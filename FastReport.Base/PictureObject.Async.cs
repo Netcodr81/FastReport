@@ -1,6 +1,6 @@
 using System;
-using System.Drawing;
 using FastReport.Utils;
+using SkiaSharp;
 using System.Threading.Tasks;
 using System.Threading;
 
@@ -54,9 +54,13 @@ namespace FastReport
                 {
                     SetImageData((byte[])data);
                 }
-                else if (data is Image)
+                else if (data is SKBitmap bitmap)
                 {
-                    Image = data as Image;
+                    Image = bitmap;
+                }
+                else if (data is SKImage image)
+                {
+                    Image = SKBitmap.FromImage(image);
                 }
                 else if (data is string dataStr)
                 {

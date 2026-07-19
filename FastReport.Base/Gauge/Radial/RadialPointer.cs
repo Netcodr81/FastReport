@@ -45,11 +45,6 @@ namespace FastReport.Gauge.Radial
 
         #region Private Methods
 
-        private static SKColor ToSKColor(System.Drawing.Color color)
-        {
-            return new SKColor(color.R, color.G, color.B, color.A);
-        }
-
         private static SKPoint[] RotateVector(SKPoint[] vector, double angle, SKPoint center)
         {
             SKPoint[] rotatedVector = new SKPoint[2];
@@ -68,7 +63,7 @@ namespace FastReport.Gauge.Radial
             using SKPaint pen = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = ToSKColor(BorderColor),
+                Color = BorderColor,
                 StrokeWidth = BorderWidth * e.ScaleX,
                 IsAntialias = true
             };

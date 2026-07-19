@@ -1,6 +1,7 @@
 ﻿using FastReport.Export.PdfSimple.PdfCore;
 using FastReport.Export.PdfSimple.PdfObjects;
 using FastReport.Utils;
+using SkiaSharp;
 using System.Collections.Generic;
 using System.Drawing;
 
@@ -18,9 +19,9 @@ namespace FastReport.Export.PdfSimple
     {
         #region Private Fields
 
-        private Bitmap pageBitmap;
+        private SKBitmap pageBitmap;
         private PdfContents pageContent;
-        private Graphics pageGraphics;
+        private IGraphics pageGraphics;
         private PdfPage pdfPage;
         private PdfPages pdfPages;
         private PdfIndirectObject pdfPagesLink;
@@ -85,10 +86,9 @@ namespace FastReport.Export.PdfSimple
                 const ulong maxPixels = 536870912;
                 if ((ulong)width * (ulong)height < maxPixels)
                 {
-                    pageBitmap = new Bitmap(width, height);
-                    pageGraphics = Graphics.FromImage(pageBitmap);
-                    pageGraphics.TranslateTransform(this.scaleFactor * page.LeftMargin * Units.Millimeters, this.scaleFactor *  page.TopMargin * Units.Millimeters, System.Drawing.Drawing2D.MatrixOrder.Append);
-                    //pageGraphics.ScaleTransform(scale, scale, System.Drawing.Drawing2D.MatrixOrder.Append);
+                    pageBitmap = new SKBitmap(width, height, true);
+                    pageGraphics = new GdiGraphics(pageBitmap);
+                    pageGraphics.TranslateTransform(this.scaleFactor * page.LeftMargin * Units.Millimeters, this.scaleFactor * page.TopMargin * Units.Millimeters);
                 }
             }
 
@@ -139,7 +139,7 @@ namespace FastReport.Export.PdfSimple
 
             pageGraphics.Dispose();
             pageGraphics = null;
-            DrawImage(new System.Drawing.RectangleF(0, 0,
+            DrawImage(new SKRect(0, 0,
                 ExportUtils.GetPageWidth(page) * PdfWriter.PDF_PAGE_DIVIDER,
                 ExportUtils.GetPageHeight(page) * PdfWriter.PDF_PAGE_DIVIDER), pageBitmap);
             pdfPage["Contents"] = pdfWriter.Write(pageContent);

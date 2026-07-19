@@ -51,14 +51,9 @@ namespace FastReport.Gauge.Simple.Progress
         private SKFont CreateFont(FRPaintEventArgs e)
         {
             float size = Parent.IsPrinting ? Font.Size : Font.Size * e.ScaleX * 96f / DrawUtils.ScreenDpi;
-            SKFontStyleWeight weight = (Font.Style & SKFontStyle.Bold) != 0
-                ? SKFontStyleWeight.Bold
-                : SKFontStyleWeight.Normal;
-            SKFontStyleSlant slant = (Font.Style & SKFontStyle.Italic) != 0
-                ? SKFontStyleSlant.Italic
-                : SKFontStyleSlant.Upright;
-            SKTypeface typeface = SKTypeface.FromFamilyName(Font.FontFamily.Name, new SKFontStyle(weight, SKFontStyleWidth.Normal, slant));
-            return new SKFont(typeface, size);
+            SKTypeface typeface = Font?.Typeface ?? SKTypeface.Default;
+            SKFontStyle style = new SKFontStyle(typeface.FontWeight, typeface.FontWidth, typeface.FontSlant);
+            return new SKFont(SKTypeface.FromFamilyName(typeface.FamilyName, style) ?? SKTypeface.Default, size);
         }
 
         /// <inheritdoc />
@@ -77,7 +72,7 @@ namespace FastReport.Gauge.Simple.Progress
             using SKPaint brush = new SKPaint
             {
                 Style = SKPaintStyle.Fill,
-                Color = new SKColor(Color.R, Color.G, Color.B, Color.A),
+                Color = Color,
                 IsAntialias = true
             };
 

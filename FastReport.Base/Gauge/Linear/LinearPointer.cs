@@ -63,11 +63,6 @@ namespace FastReport.Gauge.Linear
 
         #region Private Methods
 
-        private static SKColor ToSKColor(System.Drawing.Color color)
-        {
-            return new SKColor(color.R, color.G, color.B, color.A);
-        }
-
         private SKColor GetFillColor()
         {
             if (Fill is SolidFill solidFill)
@@ -109,7 +104,7 @@ namespace FastReport.Gauge.Linear
             using SKPaint pen = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = ToSKColor(BorderColor),
+                Color = BorderColor,
                 StrokeWidth = BorderWidth * e.ScaleX,
                 IsAntialias = true
             };
@@ -156,7 +151,7 @@ namespace FastReport.Gauge.Linear
             using SKPaint pen = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = ToSKColor(BorderColor),
+                Color = BorderColor,
                 StrokeWidth = BorderWidth * e.ScaleX,
                 IsAntialias = true
             };
