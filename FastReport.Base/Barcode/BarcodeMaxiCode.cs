@@ -261,11 +261,7 @@ namespace FastReport.Barcode
             }
         }
 
-#if READONLY_STRUCTS
-        public readonly struct Hexagon
-#else
-        public struct Hexagon
-#endif
+public readonly struct Hexagon
         {
             const double INK_SPREAD = 1.25;
 
@@ -288,11 +284,7 @@ namespace FastReport.Barcode
             }
         }
 
-#if READONLY_STRUCTS
-        public readonly struct Ellipse
-#else
-        public struct Ellipse
-#endif
+public readonly struct Ellipse
         {
 #pragma warning disable FR0006 // Field name of struct must be longer than 2 characters.
             public readonly double x;

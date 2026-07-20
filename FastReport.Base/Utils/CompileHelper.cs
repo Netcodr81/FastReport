@@ -1,10 +1,5 @@
-﻿#if CROSSPLATFORM || COREWIN
-using FastReport.Code.CodeDom.Compiler;
+﻿using FastReport.Code.CodeDom.Compiler;
 using FastReport.Code.CSharp;
-#else
-using System.CodeDom.Compiler;
-using Microsoft.CSharp;
-#endif
 using System.Reflection;
 
 namespace FastReport.Utils
@@ -32,11 +27,8 @@ namespace FastReport.Utils
                     parameters.ReferencedAssemblies.Add(asm);
                 }
 
-#if CROSSPLATFORM || COREWIN
-
                 var mscorPath = compiler.GetReference("System.Private.CoreLib.dll").Display;
                 parameters.ReferencedAssemblies.Add(mscorPath);
-#endif
 
                 CompilerResults results = compiler.CompileAssemblyFromSource(parameters, sourceCode);
                 return results.CompiledAssembly;
@@ -44,3 +36,4 @@ namespace FastReport.Utils
         }
     }
 }
+

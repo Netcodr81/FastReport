@@ -107,15 +107,9 @@ namespace FastReport
             RegisteredObjects.InternalAdd(typeof(TableRow), "", 216);
             RegisteredObjects.InternalAdd(typeof(TableCell), "", 214);
 
-#if !COMMUNITY
-            RegisteredObjects.AddCategory("ReportPage,Matrix", 142, 7, "Objects,Matrix");
-            RegisteredObjects.InternalAdd(typeof(MatrixObject), "ReportPage,Matrix", 142, 1);
-#if !(WPF || AVALONIA)
-            RegisteredObjects.InternalAdd(typeof(CrossViewObject), "ReportPage,Matrix", 247, 2);
-#endif
-#else
-            RegisteredObjects.InternalAdd(typeof(MatrixObject), "ReportPage", 142, 7);
-#endif
+RegisteredObjects.AddCategory("ReportPage,Matrix", 142, 7, "Objects,Matrix");
+RegisteredObjects.InternalAdd(typeof(MatrixObject), "ReportPage,Matrix", 142, 1);
+RegisteredObjects.InternalAdd(typeof(CrossViewObject), "ReportPage,Matrix", 247, 2);
 
 
             RegisteredObjects.AddCategory("ReportPage,Barcodes", 123, 9, "Objects,BarcodeObject");

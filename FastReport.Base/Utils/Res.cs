@@ -33,18 +33,6 @@ namespace FastReport.Utils
                 Report.EnsureInit();
                 string folder = Config.Root.FindItem("Language").GetProp("Folder");
                 // check the registry
-#if !CROSSPLATFORM
-                if (String.IsNullOrEmpty(folder) && !Config.WebMode)
-                {
-                    RegistryKey key = Registry.CurrentUser.OpenSubKey("Software").OpenSubKey("FastReports");
-                    if (key != null)
-                    {
-                        key = key.OpenSubKey("FastReport.Net");
-                        if (key != null)
-                            folder = (string)key.GetValue("LocalizationFolder", "");
-                    }
-                }
-#endif
                 // get application folder
                 if (String.IsNullOrEmpty(folder))
                     folder = Config.ApplicationFolder;

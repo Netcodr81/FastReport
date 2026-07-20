@@ -1,7 +1,7 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.8.12009.203 stable
+VisualStudioVersion = 18.8.12009.203
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastReport.OpenSource", "FastReport.OpenSource\FastReport.OpenSource.csproj", "{62667265-5E09-444D-8218-244DE84804A7}"
 EndProject
@@ -44,8 +44,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastReport.OpenSource.Plugins.WebP", "Extras\Core\FastReport.Plugin\FastReport.Plugins.WebP\FastReport.OpenSource.Plugins.WebP.csproj", "{28005ED3-3E5B-443F-A054-C74A45BE3C4C}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastReport.OpenSource.Data.Odbc", "Extras\Core\FastReport.Data\FastReport.Data.Odbc\FastReport.OpenSource.Data.Odbc.csproj", "{7C97A904-620B-49A5-9000-41452DA11BB3}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastReport.Compat", "FastReport.Compat\FastReport.Compat\FastReport.Compat.csproj", "{00AF18F4-89D0-434A-82C2-C8A8A43F008C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -156,12 +154,6 @@ Global
 		{7C97A904-620B-49A5-9000-41452DA11BB3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7C97A904-620B-49A5-9000-41452DA11BB3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7C97A904-620B-49A5-9000-41452DA11BB3}.Release|Any CPU.Build.0 = Release|Any CPU
-		{00AF18F4-89D0-434A-82C2-C8A8A43F008C}.Academic|Any CPU.ActiveCfg = Debug|Any CPU
-		{00AF18F4-89D0-434A-82C2-C8A8A43F008C}.Academic|Any CPU.Build.0 = Debug|Any CPU
-		{00AF18F4-89D0-434A-82C2-C8A8A43F008C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{00AF18F4-89D0-434A-82C2-C8A8A43F008C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{00AF18F4-89D0-434A-82C2-C8A8A43F008C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{00AF18F4-89D0-434A-82C2-C8A8A43F008C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

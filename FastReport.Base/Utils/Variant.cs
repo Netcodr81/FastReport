@@ -72,11 +72,7 @@ namespace FastReport
     /// restoration of the utility and positive merits of the Variant
     /// where it can be used responsibly.</para>
     /// </remarks>
-#if READONLY_STRUCTS
-    public readonly struct Variant
-#else
-    public struct Variant
-#endif
+public readonly struct Variant
     : IConvertible, IComparable
     {
         /// <summary>

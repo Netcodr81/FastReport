@@ -8,11 +8,7 @@ namespace FastReport.Utils
     /// <summary>
     /// Represents a xml property.
     /// </summary>
-#if READONLY_STRUCTS
-    public readonly struct XmlProperty
-#else
-    public struct XmlProperty
-#endif
+public readonly struct XmlProperty
     {
         private readonly string key;
         private readonly string value;
@@ -958,14 +954,10 @@ namespace FastReport.Utils
 
         private void WriteLn(StringBuilder sb)
         {
-#if NETCOREAPP
-            if (!autoIndent)
-                writer.Write(sb);
-            else
-                writer.WriteLine(sb);
-#else
-            WriteLn(sb.ToString());
-#endif
+if (!autoIndent)
+    writer.Write(sb);
+else
+    writer.WriteLine(sb);
         }
 
         private static string Dup(int num)

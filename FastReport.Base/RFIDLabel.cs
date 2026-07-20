@@ -539,10 +539,8 @@ namespace FastReport
         /// <summary>
         /// Contains RFID bank data.
         /// </summary>
-#if !FRCORE
-        [TypeConverter(typeof(TypeConverters.FRExpandableObjectConverter))]
-#endif
-        public class RFIDBank
+[TypeConverter(typeof(TypeConverters.FRExpandableObjectConverter))]
+public class RFIDBank
         {
             private int offset;
             private string data;

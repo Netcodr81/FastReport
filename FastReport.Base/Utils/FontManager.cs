@@ -194,6 +194,48 @@ namespace FastReport
         }
 
         /// <summary>
+        /// Adds a font from the specified file to the private font collection.
+        /// </summary>
+        /// <param name="filename">The path to the font file.</param>
+        /// <returns><c>true</c> if the font was added; <c>false</c> if the file was not found.</returns>
+        public static bool AddFont(string filename)
+        {
+            if (!File.Exists(filename))
+                return false;
+            PrivateFontCollection.AddFontFile(filename);
+            return true;
+        }
+
+        /// <summary>
+        /// Adds a font contained in system memory to the private font collection.
+        /// </summary>
+        /// <param name="memory">The memory address of the font to add.</param>
+        /// <param name="length">The memory length of the font to add.</param>
+        public static void AddFont(IntPtr memory, int length)
+        {
+            PrivateFontCollection.AddMemoryFont(memory, length);
+        }
+
+        /// <summary>
+        /// Checks whether the font from the specified file is installed in the system.
+        /// </summary>
+        /// <param name="filename">The path to the font file.</param>
+        /// <returns><c>true</c> if the font is installed on the system; otherwise <c>false</c>.</returns>
+        public static bool CheckFontIsInstalled(string filename)
+        {
+            try
+            {
+                using SKTypeface typeface = SKTypeface.FromFile(filename);
+                if (typeface == null) return false;
+                return FindFontFamily(typeface.FamilyName, SearchScope.Installed) != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Finds a FontFamily by its name.
         /// </summary>
         /// <param name="name">The family name, e.g. "Arial".</param>

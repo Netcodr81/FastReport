@@ -69,12 +69,7 @@ namespace FastReport.Utils.Json.Serialization
 
                 obj = CastToType(obj, propInfo.PropertyType);
 
-#if COREWIN || CROSSPLATFORM || MONO // .Net 4.5 or greater
-                propInfo.SetValue(instance, obj);
-#else
-                propInfo.GetSetMethod(true)
-                    .Invoke(instance, BindingFlags.SetProperty, null, new[] { obj }, null);
-#endif
+propInfo.SetValue(instance, obj);
             }
         }
 
@@ -203,11 +198,7 @@ namespace FastReport.Utils.Json.Serialization
                 throw new Exception("There are no available public parameterless constructors for this type");
 
             var ctor = availableCtor[0];
-#if COREWIN
-            _ctorsCache.TryAdd(type, ctor);
-#else
-            _ctorsCache.Add(type, ctor);
-#endif
+_ctorsCache.TryAdd(type, ctor);
             return ctor;
         }
 
@@ -235,11 +226,7 @@ namespace FastReport.Utils.Json.Serialization
             }
 
             var propInfos = propInfoList.ToArray();
-#if COREWIN
-            _writablePropertiesCache.TryAdd(type, propInfos);
-#else
-            _writablePropertiesCache.Add(type, propInfos);
-#endif
+_writablePropertiesCache.TryAdd(type, propInfos);
             return propInfos;
         }
 

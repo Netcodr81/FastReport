@@ -4,9 +4,6 @@ using SkiaSharp;
 using System;
 using System.Globalization;
 using System.Xml;
-#if MSCHART
-using FastReport.DataVisualization.Charting;
-#endif
 
 namespace FastReport.Import.JasperReports
 {
@@ -371,54 +368,6 @@ namespace FastReport.Import.JasperReports
             return HyperlinkKind.Custom;
         }
 
-#if MSCHART
-        /// <summary>
-        /// Converts the JasperReports SeriesChartType to SeriesChartType.
-        /// </summary>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        public static SeriesChartType ConvertChartType(string value)
-        {
-            switch (value)
-            {
-                case "pie3DChart":
-                case "pieChart":
-                    return SeriesChartType.Pie;
-                case "stackedBar3DChart":
-                case "stackedBarChart":
-                    return SeriesChartType.StackedColumn;
-                case "xyBarChart":
-                case "bar3DChart":
-                case "barChart":
-                    return SeriesChartType.Column;
-                case "scatterChart":
-                case "xyLineChart":
-                case "lineChart":
-                case "timeSeriesChart":
-                    return SeriesChartType.Line;
-                case "c:spiderChart":
-                    return SeriesChartType.Radar;
-                case "xyAreaChart":
-                case "areaChart":
-                    return SeriesChartType.Area;
-                case "highLowChart":
-                    return SeriesChartType.RangeColumn;
-                case "candlestickChart":
-                    return SeriesChartType.Candlestick;
-                case "stackedAreaChart":
-                    return SeriesChartType.StackedArea;
-                case "bubbleChart":
-                    return SeriesChartType.Bubble;
-                case "thermometerChart":
-                case "meterChart":
-                case "ganttChart":
-                case "multiAxisPlot":
-                default:
-                    return SeriesChartType.Column;
-            }
-        }
-#endif
-
-        #endregion // Public Methods
+#endregion // Public Methods
     }
 }

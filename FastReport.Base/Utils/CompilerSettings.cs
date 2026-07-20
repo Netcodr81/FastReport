@@ -1,9 +1,4 @@
-﻿#if NETSTANDARD || NETCOREAPP
-#else
-using System.CodeDom.Compiler;
-using Microsoft.CSharp;
-#endif
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace FastReport.Utils
 {
@@ -74,46 +69,28 @@ namespace FastReport.Utils
         public int RecompileCount { get; set; } = 1;
 
 
-#if REFLECTION_EMIT_COMPILER
-        private bool _reflectionEmitCompiler = false;
-        
-        /// <summary>
-        /// Enables faster compiler if the report script hasn't been changed
-        /// </summary>
-        public bool ReflectionEmitCompiler
-        {
-            get => _reflectionEmitCompiler;
-            set 
-            { 
-                _reflectionEmitCompiler = value;
-                CodeProvider.DefaultProvider = value ? typeof(FastReport.Code.ReflectionEmit.ReflectionEmitCodeProvider) : null;
-            }
-        }
-#endif
 
-#if CROSSPLATFORM || COREWIN
-        // sets by user
-        private CultureInfo cultureInfo;
+// sets by user
+private CultureInfo cultureInfo;
 
-        /// <summary>
-        /// Sets culture for compiler
-        /// </summary>
-        public CultureInfo CultureInfo
+/// <summary>
+/// Sets culture for compiler
+/// </summary>
+public CultureInfo CultureInfo
+{
+    get
+    {
+        if (cultureInfo == null)
         {
-            get
-            {
-                if (cultureInfo == null)
-                {
-                    return Res.CurrentCulture;
-                }
-                return cultureInfo;
-            }
-            set
-            {
-                cultureInfo = value;
-            }
+            return Res.CurrentCulture;
         }
-#endif
+        return cultureInfo;
+    }
+    set
+    {
+        cultureInfo = value;
+    }
+}
 
         #endregion Properties
 

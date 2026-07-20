@@ -7,10 +7,6 @@ using System.Linq;
 using System.Reflection;
 using FastReport.Barcode;
 using FastReport.Utils;
-#if MSCHART
-using FastReport.MSChart;
-using FastReport.DataVisualization.Charting;
-#endif
 using FastReport.Matrix;
 using FastReport.Data;
 using FastReport.Data.JsonConnection;

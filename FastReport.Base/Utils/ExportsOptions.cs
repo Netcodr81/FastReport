@@ -5,7 +5,6 @@ using System.Collections.ObjectModel;
 
 namespace FastReport.Utils
 {
-#if !COMMUNITY
     /// <summary>
     /// Class for handling Exports visibility in the Preview control.
     /// </summary>
@@ -299,5 +298,4 @@ namespace FastReport.Utils
             }
         }
     }
-#endif
 }

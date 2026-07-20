@@ -15,19 +15,7 @@ namespace FastReport.Utils
     /// </summary>
     public static partial class Config
     {
-#if COMMUNITY
-        const string CONFIG_NAME = "FastReport.Community.config";
-#elif MONO
-#if WPF
-        const string CONFIG_NAME = "FastReport.WPF.config";
-#elif AVALONIA
-        const string CONFIG_NAME = "FastReport.Avalonia.config";
-#else
-        const string CONFIG_NAME = "FastReport.Mono.config";
-#endif
-#else
-        const string CONFIG_NAME = "FastReport.config";
-#endif
+const string CONFIG_NAME = "FastReport.config";
         #region Private Fields
 
         private static readonly XmlDocument FDoc = new XmlDocument();
@@ -70,11 +58,9 @@ namespace FastReport.Utils
             get { return FIsRunningOnMono; }
         }
 
-#if CROSSPLATFORM
-        internal static bool IsWindows { get; } = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+internal static bool IsWindows { get; } = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
-        internal static bool IsWasm { get; } = RuntimeInformation.IsOSPlatform(OSPlatform.Create("BROWSER"));// (int)RuntimeInformation.ProcessArchitecture == 4;  // Architecture.Wasm = 4;
-#endif
+internal static bool IsWasm { get; } = RuntimeInformation.IsOSPlatform(OSPlatform.Create("BROWSER"));// (int)RuntimeInformation.ProcessArchitecture == 4;  // Architecture.Wasm = 4;
 
 
         /// <summary>
@@ -306,27 +292,17 @@ namespace FastReport.Utils
             FIsRunningOnMono = Type.GetType("Mono.Runtime") != null;
             CheckWebMode();
 
-#if !CROSSPLATFORM || AVALONIA
-            if (!WebMode)
-                LoadConfig();
-#endif
+if (!WebMode)
+    LoadConfig();
 
-            if (!userSetsScriptSecurity && WebMode)
-            {
-                enableScriptSecurity = true;    // don't throw event
-                scriptSecurityProps = new ScriptSecurityProperties();
-            }
+if (!userSetsScriptSecurity && WebMode)
+{
+    enableScriptSecurity = true;    // don't throw event
+    scriptSecurityProps = new ScriptSecurityProperties();
+}
 
-            LoadPlugins();
-#if !COMMUNITY
-            RestoreExportOptions();
-#endif
-#if !SKIA
-            InitTextRenderingHint();
-#endif
-#if (AVALONIA || WPF)
-            System.Windows.Forms.Locale.GetTextFunc = (id) => Res.Get($"SystemWindowsForms,{id}");
-#endif
+LoadPlugins();
+RestoreExportOptions();
         }
 
         private static void InitTextRenderingHint()
@@ -347,22 +323,16 @@ namespace FastReport.Utils
             // If we/user sets 'WebMode = true' before this check - Config shouln't change it (because check may be incorrect)
             if (!WebMode)
             {
-#if NETSTANDARD || NETCOREAPP
-                var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-                foreach (var loadedAsmbly in loadedAssemblies)
-                {
-                    bool isAspNetCore = loadedAsmbly.GetName().Name.StartsWith("Microsoft.AspNetCore");
-                    if (isAspNetCore)
-                    {
-                        WebMode = true;
-                        break;
-                    }
-                }
-#else
-                string processName = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
-                WebMode = String.Compare(processName, "iisexpress") == 0 ||
-                              String.Compare(processName, "w3wp") == 0;
-#endif
+var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+foreach (var loadedAsmbly in loadedAssemblies)
+{
+    bool isAspNetCore = loadedAsmbly.GetName().Name.StartsWith("Microsoft.AspNetCore");
+    if (isAspNetCore)
+    {
+        WebMode = true;
+        break;
+    }
+}
             }
         }
 
@@ -400,20 +370,18 @@ namespace FastReport.Utils
             }
         }
 
-#if NETSTANDARD || NETCOREAPP
-        /// <summary>
-        /// Event fires before script compilation.
-        /// </summary>
-        public static event EventHandler<Code.CodeDom.Compiler.CompilationEventArgs> BeforeEmitCompile;
+/// <summary>
+/// Event fires before script compilation.
+/// </summary>
+public static event EventHandler<Code.CodeDom.Compiler.CompilationEventArgs> BeforeEmitCompile;
 
-        internal static void OnBeforeScriptCompilation(object sender, Code.CodeDom.Compiler.CompilationEventArgs e)
-        {
-            if (BeforeEmitCompile != null)
-            {
-                BeforeEmitCompile.Invoke(sender, e);
-            }
-        }
-#endif
+internal static void OnBeforeScriptCompilation(object sender, Code.CodeDom.Compiler.CompilationEventArgs e)
+{
+    if (BeforeEmitCompile != null)
+    {
+        BeforeEmitCompile.Invoke(sender, e);
+    }
+}
 
 
         internal static void GcCollect(int generation)
@@ -463,9 +431,7 @@ namespace FastReport.Utils
             SaveAuthServiceUser();
             SaveConnectionStringVisible();
             SaveMaskConnectionStringPassword();
-#if !COMMUNITY
-            SaveExportOptions();
-#endif
+SaveExportOptions();
 
             if (!WebMode)
             {
@@ -569,11 +535,7 @@ namespace FastReport.Utils
                 }
             }
 
-            // For CoreWin
-#if (COREWIN || AVALONIA)
-            LoadPluginsInCurrentFolder();
-#endif
-        }
+            }
 
 
         private static void ProcessAssembly(Assembly a)

@@ -51,10 +51,6 @@ namespace FastReport.Engine
 
         private async Task RunReportPagesAsync(CancellationToken cancellationToken)
         {
-#if TIMETRIAL
-      if (new DateTime($YEAR, $MONTH, $DAY) < System.DateTime.Now)
-        throw new Exception("The trial version is now expired!");
-#endif
 
             for (int i = 0; i < Report.Pages.Count; i++)
             {

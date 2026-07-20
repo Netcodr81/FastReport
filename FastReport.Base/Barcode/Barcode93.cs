@@ -9,11 +9,7 @@ namespace FastReport.Barcode
     /// </summary>
     public class Barcode93 : LinearBarcodeBase
     {
-#if READONLY_STRUCTS
-        private readonly struct Code93
-#else
-        private struct Code93
-#endif
+private readonly struct Code93
         {
             public readonly string data;
 #pragma warning disable FR0006 // Field name of struct must be longer than 2 characters.

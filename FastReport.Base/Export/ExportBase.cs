@@ -7,9 +7,6 @@ using FastReport.Preview;
 using System.Drawing;
 using System.Linq;
 
-#if FRCORE || FROPENSOURCE
-#pragma warning disable CS1574 // missing cref members in XML comments
-#endif
 
 namespace FastReport.Export
 {
@@ -292,13 +289,9 @@ namespace FastReport.Export
                 Process proc = new Process();
                 proc.EnableRaisingEvents = false;
 
-#if (NETCOREAPP && !AVALONIA)
-                proc.StartInfo.FileName = "cmd";
-                proc.StartInfo.Arguments = $"/c \"{fileName}\"";
-                proc.StartInfo.CreateNoWindow = true;
-#else
-                proc.StartInfo = new ProcessStartInfo(fileName) { UseShellExecute = true };
-#endif
+proc.StartInfo.FileName = "cmd";
+proc.StartInfo.Arguments = $"/c \"{fileName}\"";
+proc.StartInfo.CreateNoWindow = true;
                 proc.Start();
             }
             catch

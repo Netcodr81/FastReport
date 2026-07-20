@@ -350,9 +350,7 @@ namespace FastReport.Table
                             if (!IsInsideSpan(cell) && (!IsPrinting || cell.Printable))
                             {
                                 cell.SetPrinting(IsPrinting);
-#if !MONO || (WPF || AVALONIA)
-                                if (cell.IsVisible(e))
-#endif
+if (cell.IsVisible(e))
                                     proc(e, cell);
                             }
 

@@ -850,12 +850,7 @@ namespace FastReport.Utils
                                         lines.Add(line);
                                     }
                                 }
-#if DOTNET_4
-                                currentWord.Clear();    // .NET 2.0 doesn't have Clear()
-#else
-                                currentWord.Length = 0;
-#endif
-                                lastChar = ' ';
+currentWord.Length = 0;
                             }
                             else
                             {
@@ -963,12 +958,7 @@ namespace FastReport.Utils
                                         // finish the word
                                         word.Runs.Add(new Run(currentWord.ToString(), style, word));
                                     }
-#if DOTNET_4
-                                    currentWord.Clear();    // .NET 2.0 doesn't have Clear()
-#else
-                                    currentWord.Length = 0;
-#endif
-                                    //end
+currentWord.Length = 0;
                                     word.Runs.Add(new RunImage(src, alt, style, word));
                                     skipSpace = false;
                                     i = right - 4;
@@ -1138,12 +1128,8 @@ namespace FastReport.Utils
                                 word.Runs.Add(new Run(currentWord.ToString(), style, word));
                             }
 
-#if DOTNET_4
-                            currentWord.Clear();    // .NET 2.0 doesn't have Clear()
-#else
-                            currentWord.Length = 0;
-#endif
-                            style = newStyle;
+currentWord.Length = 0;
+style = newStyle;
                             i--;
 
                             if (i >= text.Length - 1)
@@ -1232,11 +1218,7 @@ namespace FastReport.Utils
                             {
                                 word = new Word("", line);
                                 line.Words.Add(word);
-#if DOTNET_4
-                                currentWord.Clear();    // .NET 2.0 doesn't have Clear()
-#else
                                 currentWord.Length = 0;
-#endif
                                 originalCharIndex = this.originalCharIndex + i + 1;
                                 skipSpace = true;
                             }

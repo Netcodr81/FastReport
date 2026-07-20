@@ -2,9 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-#if FRCORE || FROPENSOURCE
-#pragma warning disable CS1574 // missing cref members in XML comments
-#endif
 
 namespace FastReport.Utils
 {

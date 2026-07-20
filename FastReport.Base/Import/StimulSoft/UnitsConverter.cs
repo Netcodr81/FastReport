@@ -6,9 +6,6 @@ using FastReport.Barcode;
 using System.Drawing.Drawing2D;
 using FastReport.Format;
 using System.Xml;
-#if MSCHART
-using FastReport.DataVisualization.Charting;
-#endif
 using FastReport.Matrix;
 
 namespace FastReport.Import.StimulSoft
@@ -298,40 +295,8 @@ namespace FastReport.Import.StimulSoft
             return LineStyle.Solid;
         }
 
-#if MSCHART
-        /// <summary>
-        /// Converts the StimulSoft BorderDashStyle to LineStyle.
-        /// </summary>
-        /// <param name="chartDashStyle">The DevExpress BorderDashStyle value.</param>
-        /// <returns>The LineStyle value.</returns>
-        public static ChartDashStyle ConvertBorderChartDashStyle(string chartDashStyle)
-        {
-            if (chartDashStyle.Equals("Dot"))
-            {
-                return ChartDashStyle.Dot;
-            }
-            else if (chartDashStyle.Equals("Dash"))
-            {
-                return ChartDashStyle.Dash;
-            }
-            else if (chartDashStyle.Equals("DashDot"))
-            {
-                return ChartDashStyle.DashDot;
-            }
-            else if (chartDashStyle.Equals("DashDotDot"))
-            {
-                return ChartDashStyle.DashDotDot;
-            }
-            else if (chartDashStyle.Equals("Double"))
-            {
-                return ChartDashStyle.NotSet;
-            }
-            return ChartDashStyle.Solid;
-        }
-#endif
-
-        /// <summary>
-        /// Converts the StimulSoft LineStyle to LineStyle.
+/// <summary>
+/// Converts the StimulSoft LineStyle to LineStyle.
         /// </summary>
         /// <param name="lineStyle">The StimulSoft LineStyle value.</param>
         /// <returns>The LineStyle value.</returns>
@@ -767,50 +732,8 @@ namespace FastReport.Import.StimulSoft
             return Color.Transparent;
         }
 
-#if MSCHART
-        /// <summary>
-        /// Converts the StimulSoft SeriesChartType to SeriesChartType.
-        /// </summary>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        public static SeriesChartType ConvertChartType(string value)
-        {
-            switch (value)
-            {
-                case "Stimulsoft.Report.Chart.StiPieSeries":
-                    return SeriesChartType.Pie;
-                case "Stimulsoft.Report.Chart.StiStackedColumnSeries":
-                    return SeriesChartType.StackedColumn;
-                case "Stimulsoft.Report.Chart.StiStackedLineSeries":
-                    return SeriesChartType.StackedColumn;
-                case "Stimulsoft.Report.Chart.StiClusteredBarSeries":
-                    return SeriesChartType.Bar;
-                case "Stimulsoft.Report.Chart.StiLineSeries":
-                    return SeriesChartType.Line;
-                case "Stimulsoft.Report.Chart.StiGanttSeries":
-                case "Stimulsoft.Report.Chart.StiClusteredColumnSeries":
-                    return SeriesChartType.Column;
-                case "Stimulsoft.Report.Chart.StiRadarAreaSeries":
-                case "Stimulsoft.Report.Chart.StiSteppedAreaSeries":
-                    return SeriesChartType.Area;
-                case "Stimulsoft.Report.Chart.StiDoughnutSeries":
-                    return SeriesChartType.Doughnut;
-                case "Stimulsoft.Report.Chart.StiStackedSplineAreaSeries":
-                    return SeriesChartType.SplineArea;
-                case "Stimulsoft.Report.Chart.StiFullStackedColumnSeries":
-                    return SeriesChartType.StackedColumn100;
-                case "Stimulsoft.Report.Chart.StiFullStackedAreaSeries":
-                    return SeriesChartType.StackedArea100;
-                case "Stimulsoft.Report.Chart.StiStackedBarSeries":
-                    return SeriesChartType.StackedBar;
-                default:
-                    return SeriesChartType.Column;
-            }
-        }
-#endif
-
-        /// <summary>
-        /// Parse string to struct f Point.
+/// <summary>
+/// Parse string to struct f Point.
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>

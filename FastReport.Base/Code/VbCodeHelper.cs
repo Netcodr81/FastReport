@@ -241,10 +241,6 @@ End Namespace
                     modifier += " ParamArray";
                 result += fullForm ? fontBegin + modifier + fontEnd + " " + par.Name + " " + fontBegin + "As" + fontEnd + " " : "";
                 result += (fullForm ? fontBegin : "") + GetEquivalentKeyword(par.ParameterType.Name) + (fullForm ? fontEnd : "");
-#if DOTNET_4
-                if (par.IsOptional && fullForm)
-                    result += CodeUtils.GetOptionalParameter(par, CodeUtils.Language.Vb);
-#endif
                 result += ", ";
             }
 
@@ -278,10 +274,6 @@ End Namespace
                     modifier += " ParamArray";
                 result += modifier + " " + parName + " As ";
                 result += GetTypeDeclaration(par.ParameterType);
-#if DOTNET_4
-                if (par.IsOptional)
-                    result += CodeUtils.GetOptionalParameter(par, CodeUtils.Language.Vb);
-#endif
                 result += ", ";
             }
 

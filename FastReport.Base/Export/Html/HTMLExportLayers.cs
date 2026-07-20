@@ -110,11 +110,7 @@ namespace FastReport.Export.Html
 
         private string EncodeURL(string value)
         {
-#if CROSSPLATFORM || COREWIN
-            return Uri.EscapeDataString(value);
-#else
-            return ExportUtils.HtmlURL(value);
-#endif
+return Uri.EscapeDataString(value);
         }
 
         private string GetHref(ReportComponentBase obj)
@@ -502,9 +498,6 @@ namespace FastReport.Export.Html
                     using (SKCanvas canvas = new SKCanvas(image))
                     {
                         var needClear = obj is TextObjectBase
-#if MSCHART
-                                        || obj is MSChart.MSChartObject
-#endif
                                         || obj is Gauge.GaugeObject;
 
                         if (needClear)
@@ -549,29 +542,9 @@ namespace FastReport.Export.Html
                         PictureObject pic = (obj as PictureObject);
                         if (pic.Image != null)
                         {
-#if MONO
-                            using (MemoryStream picStr = new MemoryStream())
-                            {
-                                
-                                ImageHelper.Save(pic.Image, picStr);
-                                using(StreamWriter picWriter = new StreamWriter(picStr))
-                                {
-                                    picWriter.Write(pic.Width);
-                                    picWriter.Write(pic.Height);
-                                    picWriter.Write(pic.Angle);
-                                    picWriter.Write(pic.Transparency);
-                                    // TransparentColor is System.Drawing.Color
-                                    picWriter.Write(pic.TransparentColor.ToArgb());
-                                    picWriter.Write(pic.CanShrink);
-                                    picWriter.Write(pic.CanGrow);
-                                    hash = Crypter.ComputeHash(picStr);
-                                }        
-                            }   
-#else
 
-                            hash = Crypter.ComputeHash(PictureStream);
-                            PictureStream.Position = 0;
-#endif
+hash = Crypter.ComputeHash(PictureStream);
+PictureStream.Position = 0;
                         }
                     }
                     else

@@ -1345,10 +1345,8 @@ public partial class ReportPage : PageBase, IParent
                     ReportComponentBase obj = c as ReportComponentBase;
                     if (!IsPrinting)
                     {
-#if !MONO || (WPF || AVALONIA)
                         if (!obj.IsVisible(e))
                             continue;
-#endif
                     }
                     else
                     {

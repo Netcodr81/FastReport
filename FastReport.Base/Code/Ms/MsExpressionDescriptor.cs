@@ -20,24 +20,7 @@ namespace FastReport.Code.Ms
             if (methodInfo == null)
                 return null;
 
-#if NETCOREAPP
-            return methodInfo.Invoke(Assembly.Instance, parameters);
-#else
-#pragma warning disable 618
-            var restrictions = Assembly.Report.ScriptRestrictions;
-            if (restrictions != null)
-                restrictions.Deny();
-            try
-            {
-                return methodInfo.Invoke(Assembly.Instance, parameters);
-            }
-            finally
-            {
-                if (restrictions != null)
-                    System.Security.CodeAccessPermission.RevertDeny();
-            }
-#pragma warning restore 618
-#endif
+return methodInfo.Invoke(Assembly.Instance, parameters);
         }
 
         public MsExpressionDescriptor(MsAssemblyDescriptor assembly, string methodName) : base(assembly, methodName)

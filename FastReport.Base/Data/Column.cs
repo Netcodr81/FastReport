@@ -4,9 +4,6 @@ using SkiaSharp;
 using System;
 using System.ComponentModel;
 
-#if FRCORE || FROPENSOURCE
-#pragma warning disable CS1574 // missing cref members in XML comments
-#endif
 
 namespace FastReport.Data
 {

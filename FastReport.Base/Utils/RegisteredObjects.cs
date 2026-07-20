@@ -7,9 +7,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 
-#if FRCORE || FROPENSOURCE || COMMUNITY
-#pragma warning disable CS1574 // missing cref members in XML comments
-#endif
 
 namespace FastReport.Utils
 {
@@ -50,9 +47,6 @@ namespace FastReport.Utils
     {
         #region Fields
         private string text;
-#if CATEGORY_OPTIMIZATION
-        private FunctionInfo root;
-#endif
         #endregion
 
         #region Properties
@@ -65,34 +59,22 @@ namespace FastReport.Utils
             set;
         }
 
-#if CATEGORY_OPTIMIZATION
-        public FunctionInfo Category
+/// <summary>
+/// Tooltip text.
+/// </summary>
+public override string Text
+{
+    get { return text; }
+    set
+    {
+        text = value;
+        if (text == "")
         {
-            get => root;
-            set
-            {
-                root = value;
-            }
+            if (Function != null)
+                text = "Objects," + Function.Name;
         }
-#else
-
-        /// <summary>
-        /// Tooltip text.
-        /// </summary>
-        public override string Text
-        {
-            get { return text; }
-            set
-            {
-                text = value;
-                if (text == "")
-                {
-                    if (Function != null)
-                        text = "Objects," + Function.Name;
-                }
-            }
-        }
-#endif
+    }
+}
 
         /// <summary>
         /// The registered function.
@@ -120,51 +102,32 @@ namespace FastReport.Utils
             }
         }
 
-#if !CATEGORY_OPTIMIZATION
-        internal override FunctionInfo FindOrCreate(string complexName)
+internal override FunctionInfo FindOrCreate(string complexName)
+{
+    string[] itemNames = complexName.Split(',');
+    FunctionInfo root = this;
+    foreach (string itemName in itemNames)
+    {
+        FunctionInfo item = null;
+        foreach (var rootItem in root.Items)
         {
-            string[] itemNames = complexName.Split(',');
-            FunctionInfo root = this;
-            foreach (string itemName in itemNames)
+            if (rootItem.Name != "" && rootItem.Name == itemName)
             {
-                FunctionInfo item = null;
-                foreach (var rootItem in root.Items)
-                {
-                    if (rootItem.Name != "" && rootItem.Name == itemName)
-                    {
-                        item = rootItem;
-                        break;
-                    }
-                }
-                if (item == null)
-                {
-                    item = new FunctionInfo();
-                    item.Name = itemName;
-                    item.Text = itemName;
-                    root.Items.Add(item);
-                }
-                root = item;
+                item = rootItem;
+                break;
             }
-            return root;
         }
-#else
-
-        internal FunctionInfo FindOrCreate(FunctionInfo category, string name)
+        if (item == null)
         {
-            foreach(FunctionInfo item in category.Items)
-            {
-                if (item.Name == name)
-                {
-                    return item;
-                }
-            }
-            FunctionInfo newItem = new FunctionInfo();
-            newItem.Name = name;
-            newItem.Category = category;
-            category.Items.Add(newItem);
-            return newItem;
+            item = new FunctionInfo();
+            item.Name = itemName;
+            item.Text = itemName;
+            root.Items.Add(item);
         }
-#endif
+        root = item;
+    }
+    return root;
+}
 
         internal void Update(MethodInfo func, string text)
         {
@@ -673,19 +636,11 @@ namespace FastReport.Utils
             return item;
         }
 
-#if CATEGORY_OPTIMIZATION
-        private static void PrivateAddFunction(MethodInfo func, FunctionInfo category, int imageIndex, string name)
-        {
-            FunctionInfo item = Functions.FindOrCreate(category, func.Name);
-            item.Update(func, imageIndex);
-        }
-#else
-        private static void PrivateAddFunction(MethodInfo func, string category, string text = "")
-        {
-            FunctionInfo item = Functions.FindOrCreate(category);
-            item.Update(func, text);
-        }
-#endif
+private static void PrivateAddFunction(MethodInfo func, string category, string text = "")
+{
+    FunctionInfo item = Functions.FindOrCreate(category);
+    item.Update(func, text);
+}
 
         #endregion
 
@@ -941,12 +896,6 @@ namespace FastReport.Utils
             PrivateAddFunction(null, "Functions," + category, text);
         }
 
-#if CATEGORY_OPTIMIZATION
-        public static void AddFunctionCategory(string name, FunctionInfo category)
-        {
-            PrivateAddFunction(null, category, 66, name);
-        }
-#endif
 
         /// <summary>
         /// Adds a new function into the specified category.

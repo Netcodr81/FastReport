@@ -2,11 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using FastReport.Utils;
-#if NETSTANDARD || NETCOREAPP
 using FastReport.Code.CodeDom.Compiler;
-#else
-using System.CodeDom.Compiler;
-#endif
 
 namespace FastReport
 {

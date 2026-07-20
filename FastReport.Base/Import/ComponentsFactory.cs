@@ -4,9 +4,6 @@ using FastReport.Barcode;
 using FastReport.Gauge.Linear;
 using FastReport.Gauge.Simple;
 using FastReport.Data;
-#if !CROSSPLATFORM
-using System.CodeDom.Compiler;
-#endif
 
 namespace FastReport.Import
 {
@@ -19,11 +16,7 @@ namespace FastReport.Import
 
         private static bool IsValidIdentifier(string identifier)
         {
-#if !CROSSPLATFORM
-            if (!CodeGenerator.IsValidLanguageIndependentIdentifier(identifier))
-                return false;
-#endif
-            return true;
+return true;
         }
 
         #endregion // Private Methods

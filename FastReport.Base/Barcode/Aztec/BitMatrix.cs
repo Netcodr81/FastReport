@@ -418,11 +418,7 @@ namespace FastReport.Barcode.Aztec
                 {
                     result.Append(this[x, y] ? "X " : "  ");
                 }
-#if WindowsCE
-            result.Append("\r\n");
-#else
-                result.AppendLine("");
-#endif
+result.AppendLine("");
             }
             return result.ToString();
         }

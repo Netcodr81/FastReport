@@ -1,11 +1,8 @@
 using FastReport.Code.CodeDom.Compiler;
 using FastReport.Code.CSharp;
 using FastReport.Utils;
-using Microsoft.CSharp;
-using Microsoft.VisualBasic;
 using SkiaSharp;
 using System;
-using System.CodeDom.Compiler;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -57,15 +54,12 @@ namespace FastReport.Code.Ms
             foreach (Assembly assembly in RegisteredObjects.Assemblies)
             {
                 string aLocation = assembly.Location;
-#if CROSSPLATFORM || COREWIN
                 if (string.IsNullOrEmpty(aLocation))
                 {
-                    // try fix SFA in FastReport.Compat
                     string fixedReference = CodeDomProvider.TryFixAssemblyReference(assembly);
                     if (!string.IsNullOrEmpty(fixedReference))
                         aLocation = fixedReference;
                 }
-#endif
                 if (!ContainsAssembly(assemblies, aLocation))
                     assemblies.Add(aLocation);
             }
@@ -77,29 +71,18 @@ namespace FastReport.Code.Ms
             {
                 string s = Report.ReferencedAssemblies[i];
 
-#if CROSSPLATFORM
-                if (s == "SkiaSharp.dll")
-                {
-                    var assemblyWithSkiaSharp = typeof(SKBitmap).Assembly.GetName()?.Name ?? "SkiaSharp";
-                    s = assemblyWithSkiaSharp;
-                }
-#endif
+if (s == "SkiaSharp.dll")
+{
+    var assemblyWithSkiaSharp = typeof(SKBitmap).Assembly.GetName()?.Name ?? "SkiaSharp";
+    s = assemblyWithSkiaSharp;
+}
                 // fix for old reports with DataVisualization in referenced assemblies 
                 if (s.Contains("DataVisualization"))
                     s = "FastReport.DataVisualization";
-#if (SKIA && !AVALONIA)
-                if (s.Contains("FastReport.Compat"))
-                    s = "FastReport.Compat.Skia";
-                if (s.Contains("FastReport.DataVisualization"))
-                    s = "FastReport.DataVisualization.Skia";
-#endif
 
                 AddReferencedAssembly(assemblies, defaultPath, s);
             }
 
-#if SKIA
-            AddReferencedAssembly(assemblies, defaultPath, "FastReport.SkiaDrawing");
-#endif
 
             // these two required for "dynamic" type support
             AddReferencedAssembly(assemblies, defaultPath, "System.Core");
@@ -115,54 +98,6 @@ namespace FastReport.Code.Ms
 
         private string GetFullAssemblyReference(string relativeReference, string defaultPath)
         {
-            // in .NET Core we get the AssemblyReference in FR.Compat
-#if !(CROSSPLATFORM || COREWIN)
-            if (relativeReference == null || relativeReference.Trim() == "")
-                return "";
-
-            // Strip off any trailing ".dll" ".exe" if present.
-            string dllName = relativeReference;
-            if (string.Compare(relativeReference.Substring(relativeReference.Length - 4), ".dll", true) == 0 ||
-              string.Compare(relativeReference.Substring(relativeReference.Length - 4), ".exe", true) == 0)
-                dllName = relativeReference.Substring(0, relativeReference.Length - 4);
-
-            // See if the required assembly is already present in our current AppDomain
-            foreach (Assembly currAssembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                if (string.Compare(currAssembly.GetName().Name, dllName, true) == 0)
-                {
-                    // Found it, return the location as the full reference.
-                    return currAssembly.Location;
-                }
-            }
-
-            // See if the required assembly is present in the ReferencedAssemblies but not yet loaded
-            foreach (AssemblyName assemblyName in Assembly.GetExecutingAssembly().GetReferencedAssemblies())
-            {
-                if (string.Compare(assemblyName.Name, dllName, true) == 0)
-                {
-                    // Found it, try to load assembly and return the location as the full reference.
-                    try
-                    {
-                        return Assembly.ReflectionOnlyLoad(assemblyName.FullName).Location;
-                    }
-                    catch { }
-                }
-            }
-
-            // See if the required assembly is present locally
-            string path = Path.Combine(defaultPath, relativeReference);
-            if (File.Exists(path))
-                return path;
-
-            path = Path.Combine(defaultPath, relativeReference + ".dll");
-            if (File.Exists(path))
-                return path;
-
-            path = Path.Combine(defaultPath, relativeReference + ".exe");
-            if (File.Exists(path))
-                return path;
-#endif
             return relativeReference;
         }
 
@@ -273,14 +208,8 @@ namespace FastReport.Code.Ms
                 ScriptSecurityEventArgs ssea = new ScriptSecurityEventArgs(Report, script, Report.ReferencedAssemblies);
                 Config.OnScriptCompile(ssea);
 
-#if CROSSPLATFORM || COREWIN
-                provider.BeforeEmitCompilation += Config.OnBeforeScriptCompilation;
-
-                // in .NET Core we use cultureInfo to represent errors
-                cr = provider.CompileAssemblyFromSource(cp, script, Config.CompilerSettings.CultureInfo);
-#else
-                cr = provider.CompileAssemblyFromSource(cp, script);
-#endif
+provider.BeforeEmitCompilation += Config.OnBeforeScriptCompilation;
+cr = provider.CompileAssemblyFromSource(cp, script, Config.CompilerSettings.CultureInfo);
                 Assembly = null;
                 Instance = null;
 
@@ -421,11 +350,7 @@ namespace FastReport.Code.Ms
                     try
                     {
                         // in .Net Core compiler will return other quotes
-#if CROSSPLATFORM || COREWIN
-                        const string quotes = "\'";
-#else
-                        const string quotes = "\"";
-#endif
+const string quotes = "\'";  // .NET Core compiler uses single quotes
                         const string pattern = quotes + @"(\S{1,}),";
                         Regex regex = new Regex(pattern, RegexOptions.Compiled);
                         string assemblyName = regex.Match(ce.ErrorText).Groups[1].Value;   // Groups[1] include string without quotes and , symbols

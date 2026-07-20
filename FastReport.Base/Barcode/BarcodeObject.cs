@@ -782,11 +782,7 @@ namespace FastReport.Barcode
 
     internal static class Barcodes
     {
-#if READONLY_STRUCTS
-        internal readonly struct BarcodeItem
-#else
-        internal struct BarcodeItem
-#endif
+internal readonly struct BarcodeItem
         {
             public readonly Type objType;
             public readonly string barcodeName;

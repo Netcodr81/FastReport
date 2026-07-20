@@ -859,12 +859,7 @@ namespace FastReport
                         return new SizeF(width, height);
                     }
                 }
-#if CROSSPLATFORM && !SKIA
-                // in FR.Core we use AdvancedTextRenderer only if needed (IsAdvancedRendererNeeded) or if it's not Windows
-                if (IsAdvancedRendererNeeded || !Config.IsWindows)
-#else
-                if (IsAdvancedRendererNeeded)
-#endif
+if (IsAdvancedRendererNeeded)
                 {
                     if (width == 0)
                         width = 100000;
@@ -1219,39 +1214,30 @@ namespace FastReport
         internal HtmlTextRenderer GetHtmlTextRenderer(string text, IGraphics g, float formatScale, float scale, float fontScale,
             RectangleF textRect, FastReport.Utils.StringFormat format, bool isPrinting)
         {
-#if true
-            HtmlTextRenderer.RendererContext context;
-            context.angle = angle;
-            context.widthRatio = FontWidthRatio;
-            context.text = text;
-            context.g = g;
-            context.font = new FontFamily(font.Typeface?.FamilyName ?? FontFamily.GenericSansSerif.Name);
-            context.size = font.Size;
-            context.style = ToUtilsFontStyle(font);
-            context.color = TextColor; // no keep
-            context.underlineColor = textOutline.Color;
-            context.rect = textRect;
-            context.underlines = Underlines;
-            context.format = format; // no keep
-            context.horzAlign = horzAlign;
-            context.vertAlign = vertAlign;
-            context.paragraphFormat = ParagraphFormat.MultipleScale(formatScale);
-            context.forceJustify = ForceJustify;
-            context.scale = scale * 96f / DrawUtils.ScreenDpi;
-            context.fontScale = fontScale * 96f / DrawUtils.ScreenDpi;
-            context.cache = InlineImageCache;
-            context.isPrinting = isPrinting;
-            context.isDifferentTabPositions = TabPositions.Count > 0;
-            context.keepLastLineSpace = false;
-            return new HtmlTextRenderer(context);
-#else
-            bool isDifferentTabPositions = TabPositions.Count > 0;
-            return new HtmlTextRenderer(text, g, font.FontFamily, font.Size, font.Style, TextColor,
-                      textOutline.Color, textRect, Underlines,
-                      format, horzAlign, vertAlign, ParagraphFormat.MultipleScale(formatScale), ForceJustify,
-                      scale * 96f / DrawUtils.ScreenDpi, fontScale * 96f / DrawUtils.ScreenDpi, InlineImageCache,
-                      isPrinting, isDifferentTabPositions);
-#endif
+HtmlTextRenderer.RendererContext context;
+context.angle = angle;
+context.widthRatio = FontWidthRatio;
+context.text = text;
+context.g = g;
+context.font = new FontFamily(font.Typeface?.FamilyName ?? FontFamily.GenericSansSerif.Name);
+context.size = font.Size;
+context.style = ToUtilsFontStyle(font);
+context.color = TextColor; // no keep
+context.underlineColor = textOutline.Color;
+context.rect = textRect;
+context.underlines = Underlines;
+context.format = format; // no keep
+context.horzAlign = horzAlign;
+context.vertAlign = vertAlign;
+context.paragraphFormat = ParagraphFormat.MultipleScale(formatScale);
+context.forceJustify = ForceJustify;
+context.scale = scale * 96f / DrawUtils.ScreenDpi;
+context.fontScale = fontScale * 96f / DrawUtils.ScreenDpi;
+context.cache = InlineImageCache;
+context.isPrinting = isPrinting;
+context.isDifferentTabPositions = TabPositions.Count > 0;
+context.keepLastLineSpace = false;
+return new HtmlTextRenderer(context);
         }
 
         /// <summary>

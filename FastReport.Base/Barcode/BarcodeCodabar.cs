@@ -8,11 +8,7 @@ namespace FastReport.Barcode
     /// </summary>
     public class BarcodeCodabar : LinearBarcodeBase
     {
-#if READONLY_STRUCTS
-        private readonly struct Codabar
-#else
-        private struct Codabar
-#endif
+private readonly struct Codabar
         {
 #pragma warning disable FR0006 // Field name of struct must be longer than 2 characters.
             public readonly string c;

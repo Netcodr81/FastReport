@@ -1460,11 +1460,7 @@ namespace FastReport.Utils
         /// <summary>
         /// Represents colored line segment used for underlines/strikeouts.
         /// </summary>
-#if READONLY_STRUCTS
-        public readonly struct LineFColor
-#else
-        public struct LineFColor
-#endif
+public readonly struct LineFColor
         {
             #region Public Fields
 
@@ -1529,11 +1525,7 @@ namespace FastReport.Utils
         /// <summary>
         /// Represents colored rectangle used for drawing text background.
         /// </summary>
-#if READONLY_STRUCTS
-        public readonly struct RectangleFColor
-#else
-        public struct RectangleFColor
-#endif
+public readonly struct RectangleFColor
         {
             #region Public Fields
 
@@ -3327,50 +3319,29 @@ namespace FastReport.Utils
 
         private class OwnHashSet<T>
         {
-#if DOTNET_4
-            private HashSet<T> internalHashSet;
-            public int Count { get { return internalHashSet.Count; } }
-#else
             private Dictionary<T, object> internalDictionary;
             private object FHashSetObject;
             public int Count { get { return internalDictionary.Count; } }
-#endif
 
             public OwnHashSet()
             {
-#if DOTNET_4
-                internalHashSet = new HashSet<T>();
-#else
                 internalDictionary = new Dictionary<T, object>();
                 FHashSetObject = new object();
-#endif
             }
 
             public void Clear()
             {
-#if DOTNET_4
-                internalHashSet.Clear();
-#else
                 internalDictionary.Clear();
-#endif
             }
 
             public bool Contains(T value)
             {
-#if DOTNET_4
-                return internalHashSet.Contains(value);
-#else
                 return internalDictionary.ContainsKey(value);
-#endif
             }
 
             public void Add(T value)
             {
-#if DOTNET_4
-                internalHashSet.Add(value);
-#else
                 internalDictionary.Add(value, FHashSetObject);
-#endif
             }
         }
         #endregion Internal Classes

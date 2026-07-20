@@ -162,11 +162,7 @@ namespace FastReport.Data
 
             // read lines
             Encoding encoding;
-#if !NETFRAMEWORK
-            encoding = CodePagesEncodingProvider.Instance.GetEncoding(builder.Codepage);
-#else
-            encoding = Encoding.GetEncoding(builder.Codepage);
-#endif
+encoding = CodePagesEncodingProvider.Instance.GetEncoding(builder.Codepage);
             using (StreamReader reader = new StreamReader(response.GetResponseStream(), encoding))
             {
                 for (int i = 0; i < maxLines; i++)

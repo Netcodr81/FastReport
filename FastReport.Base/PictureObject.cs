@@ -450,10 +450,7 @@ namespace FastReport
             PictureObject c = writer.DiffObject as PictureObject;
             base.Serialize(writer);
 
-#if PRINT_HOUSE
-      writer.WriteStr("ImageLocation", ImageLocation);
-#endif
-            if (TransparentColor != c.TransparentColor)
+if (TransparentColor != c.TransparentColor)
                 writer.WriteValue("TransparentColor", TransparentColor);
             if (FloatDiff(Transparency, c.Transparency))
                 writer.WriteFloat("Transparency", Transparency);

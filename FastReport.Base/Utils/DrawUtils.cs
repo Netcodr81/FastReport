@@ -147,31 +147,18 @@ namespace FastReport.Utils
             {
                 if (FDefaultFont == null)
                 {
-#if AVALONIA
-                    if (OperatingSystem.IsWindows())
-                        FDefaultFont = CreateFont("Segoe UI", 8.5f);
-                    else if (OperatingSystem.IsMacOS())
-                        FDefaultFont = CreateFont("Helvetica Neue", 8.5f);
-                    else if (OperatingSystem.IsLinux())
-                        FDefaultFont = CreateFont("Liberation Sans", 8.5f);
-#else
-                    switch (System.Globalization.CultureInfo.CurrentCulture.TwoLetterISOLanguageName)
-                    {
-                        case "ja":
-                            FDefaultFont = CreateFont("MS UI Gothic", 9);
-                            break;
-                        case "zh":
-                            FDefaultFont = CreateFont("SimSun", 9);
-                            break;
-                        default:
-#if WPF
-                            FDefaultFont = CreateFont("Segoe UI", 8.5f);
-#else
-                            FDefaultFont = CreateFont("Tahoma", 8.25f);
-#endif
-                            break;
-                    }
-#endif
+switch (System.Globalization.CultureInfo.CurrentCulture.TwoLetterISOLanguageName)
+{
+    case "ja":
+        FDefaultFont = CreateFont("MS UI Gothic", 9);
+        break;
+    case "zh":
+        FDefaultFont = CreateFont("SimSun", 9);
+        break;
+    default:
+        FDefaultFont = CreateFont("Tahoma", 8.25f);
+        break;
+}
                 }
                 return FDefaultFont;
             }
@@ -230,18 +217,7 @@ namespace FastReport.Utils
             get
             {
                 if (FFixedFont == null)
-#if WPF
-                    FFixedFont = CreateFont("Consolas", 9);
-#elif AVALONIA
-                    if (OperatingSystem.IsWindows())
-                        FFixedFont = CreateFont("Lucida Console", 9);
-                    else if (OperatingSystem.IsMacOS())
-                        FFixedFont = CreateFont("PT Mono", 9);
-                    else if (OperatingSystem.IsLinux())
-                        FFixedFont = CreateFont("Liberation Mono", 9);
-#else
-                    FFixedFont = CreateFont("Courier New", 10);
-#endif
+FFixedFont = CreateFont("Courier New", 10);
                 return FFixedFont;
             }
         }
@@ -306,7 +282,6 @@ namespace FastReport.Utils
                 width = Math.Min(width, layoutRect.Width);
             return new SKSize(width, height);
         }
-#if !TRANSPORT
         internal static MonoRendering GetMonoRendering(IGraphics printerGraphics)
         {
             if (FMonoRendering == MonoRendering.Undefined)
@@ -337,6 +312,5 @@ namespace FastReport.Utils
                 pen.DashStyle = border.DashStyle;
             }
         }
-#endif
     }
 }

@@ -493,40 +493,30 @@ namespace FastReport.Export
         internal static string HtmlURL(string Value)
         {
             FastString Result = new FastString();
-#if DOTNET_4
-            foreach (char c in Value)
-            {
-                if (!char.IsLetterOrDigit(c) && !char.IsPunctuation(c))
-                    Result.Append("%").Append(Convert.ToInt32(c).ToString("x"));
-                else
-                    Result.Append(c);
-            }
-#else
-            for (int i = 0; i < Value.Length; i++)
-            {
-                switch (Value[i])
-                {
-                    case '\\':
-                        Result.Append("/");
-                        break;
-                    case '&':
-                    case '<':
-                    case '>':
-                    case '{':
-                    case '}':
-                    case ';':
-                    case '?':
-                    case ' ':
-                    case '\'':
-                    case '"':
-                        Result.Append("%" + ExportUtils.ByteToHex((byte)Value[i]));
-                        break;
-                    default:
-                        Result.Append(Value[i]);
-                        break;
-                }
-            }
-#endif
+for (int i = 0; i < Value.Length; i++)
+{
+    switch (Value[i])
+    {
+        case '\\':
+            Result.Append("/");
+            break;
+        case '&':
+        case '<':
+        case '>':
+        case '{':
+        case '}':
+        case ';':
+        case '?':
+        case ' ':
+        case '\'':
+        case '"':
+            Result.Append("%" + ExportUtils.ByteToHex((byte)Value[i]));
+            break;
+        default:
+            Result.Append(Value[i]);
+            break;
+    }
+}
             return Result.ToString();
         }
 

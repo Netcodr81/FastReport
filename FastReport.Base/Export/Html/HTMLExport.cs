@@ -5,9 +5,6 @@ using System.ComponentModel;
 using System.IO;
 using System.Text;
 
-#if FROPENSOURCE
-#pragma warning disable CS0414 // value assigned but never used
-#endif
 
 namespace FastReport.Export.Html
 {
@@ -51,11 +48,7 @@ namespace FastReport.Export.Html
 
         #region Private fields
 
-#if READONLY_STRUCTS
-        private readonly struct HTMLData
-#else
-        private struct HTMLData
-#endif
+private readonly struct HTMLData
         {
             public readonly int ReportPage;
             public readonly int PageNumber;
@@ -73,11 +66,7 @@ namespace FastReport.Export.Html
             }
         }
 
-#if READONLY_STRUCTS
-        private readonly struct PicsArchiveItem
-#else
-        private struct PicsArchiveItem
-#endif
+private readonly struct PicsArchiveItem
         {
             public readonly string FileName;
             public readonly MemoryStream Stream;

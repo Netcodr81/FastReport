@@ -15,9 +15,6 @@ using System.IO;
 using System.Security;
 using System.Text;
 
-#if FRCORE || FROPENSOURCE
-#pragma warning disable CS1574 // missing cref members in XML comments
-#endif
 
 namespace FastReport
 {
@@ -793,9 +790,7 @@ namespace FastReport
         /// </example>
         /// </remarks>
         [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-#if NETCOREAPP
         [Obsolete("Code Access Security has no effect in .NET Core")]
-#endif
         public PermissionSet ScriptRestrictions
         {
             get { return scriptRestrictions; }
@@ -898,25 +893,8 @@ namespace FastReport
                     "System.Xml.dll",
 
                     "FastReport.Compat.dll",
-#if !(WPF || AVALONIA)
                     "System.Windows.Forms.dll",
-#endif
-
-#if WPF
-                    "FastReport.Forms.WPF.dll",
-#endif
-
-#if AVALONIA
-                    "FastReport.Forms.Avalonia.dll",
-#endif
-
-#if CROSSPLATFORM || COREWIN
                     "System.Drawing.Primitives",
-#endif
-
-#if MSCHART
-                    "FastReport.DataVisualization.dll"
-#endif
                 };
             }
         }
@@ -950,12 +928,8 @@ namespace FastReport
             {
                 if (measureGraphics == null)
                 {
-#if CROSSPLATFORM || MONO
-                    measureBitmap = new SKBitmap(1, 1);
-                    measureGraphics = new GdiGraphics(measureBitmap);
-#else
-                    measureGraphics = GdiGraphics.FromGraphics(Graphics.FromHwnd(IntPtr.Zero));
-#endif
+measureBitmap = new SKBitmap(1, 1);
+measureGraphics = new GdiGraphics(measureBitmap);
                 }
                 return measureGraphics;
             }

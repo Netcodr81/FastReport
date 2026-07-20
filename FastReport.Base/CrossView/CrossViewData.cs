@@ -61,80 +61,37 @@ namespace FastReport.CrossView
         /// 
         /// </summary>
         public bool SourceAssigned { get { return cubeSource != null; } }
-#if !DOTNET_4
-    private string intArrayToString(int[] intArray)
-    {
-      string res = "";
-      foreach (int item in intArray)
-      {
-        if (res != "")
-          res += ",";
-        res += item.ToString();
-      }
-      return res;
-    }
-    private int[] stringToIntArray(string str)
-    {
-      string[] strArray = str.Split(',');
-      int[] res = new int[strArray.Length];
-      for (int i = 0; i < strArray.Length; i++)
-      {
-        res[i] = int.Parse(strArray[i]);
-      }
-      return res;
-    }
-#endif
         /// <summary>
         /// 
         /// </summary>
         public string ColumnDescriptorsIndexes
         {
-#if DOTNET_4
             get { return string.Join(",", columnDescriptorsIndexes); }
             set { columnDescriptorsIndexes = Array.ConvertAll(value.Split(','), int.Parse); }
-#else
-      get { return intArrayToString(columnDescriptorsIndexes); }
-      set { columnDescriptorsIndexes = stringToIntArray(value); }
-#endif
         }
         /// <summary>
         /// 
         /// </summary>
         public string RowDescriptorsIndexes
         {
-#if DOTNET_4
             get { return string.Join(",", rowDescriptorsIndexes); }
             set { rowDescriptorsIndexes = Array.ConvertAll(value.Split(','), int.Parse); }
-#else
-      get { return intArrayToString(rowDescriptorsIndexes); }
-      set { rowDescriptorsIndexes = stringToIntArray(value); }
-#endif
         }
         /// <summary>
         /// 
         /// </summary>
         public string ColumnTerminalIndexes
         {
-#if DOTNET_4
             get { return string.Join(",", columnTerminalIndexes); }
             set { columnTerminalIndexes = Array.ConvertAll(value.Split(','), int.Parse); }
-#else
-      get { return intArrayToString(columnTerminalIndexes); }
-      set { columnTerminalIndexes = stringToIntArray(value); }
-#endif
         }
         /// <summary>
         /// 
         /// </summary>
         public string RowTerminalIndexes
         {
-#if DOTNET_4
             get { return string.Join(",", rowTerminalIndexes); }
             set { rowTerminalIndexes = Array.ConvertAll(value.Split(','), int.Parse); }
-#else
-      get { return intArrayToString(rowTerminalIndexes); }
-      set { rowTerminalIndexes = stringToIntArray(value); }
-#endif
         }
         internal CubeSourceBase CubeSource
         {

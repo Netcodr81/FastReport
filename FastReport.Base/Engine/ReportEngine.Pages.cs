@@ -66,10 +66,6 @@ namespace FastReport.Engine
 
         private void RunReportPages()
         {
-#if TIMETRIAL
-      if (new DateTime($YEAR, $MONTH, $DAY) < System.DateTime.Now)
-        throw new Exception("The trial version is now expired!");
-#endif
 
             for (int i = 0; i < Report.Pages.Count; i++)
             {

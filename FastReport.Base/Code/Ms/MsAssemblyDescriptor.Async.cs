@@ -23,15 +23,13 @@ namespace FastReport.Code.Ms
             foreach (Assembly assembly in RegisteredObjects.Assemblies)
             {
                 string aLocation = assembly.Location;
-#if CROSSPLATFORM || COREWIN
-                if (string.IsNullOrEmpty(aLocation))
-                {
-                    // try fix SFA in FastReport.Compat
-                    string fixedReference = await CodeDomProvider.TryFixAssemblyReferenceAsync(assembly, token);
-                    if (!string.IsNullOrEmpty(fixedReference))
-                        aLocation = fixedReference;
-                }
-#endif
+if (string.IsNullOrEmpty(aLocation))
+{
+    // try fix SFA in FastReport.Compat
+    string fixedReference = await CodeDomProvider.TryFixAssemblyReferenceAsync(assembly, token);
+    if (!string.IsNullOrEmpty(fixedReference))
+        aLocation = fixedReference;
+}
                 if (!ContainsAssembly(assemblies, aLocation))
                     assemblies.Add(aLocation);
             }
@@ -126,13 +124,9 @@ namespace FastReport.Code.Ms
                 ScriptSecurityEventArgs ssea = new ScriptSecurityEventArgs(Report, script, Report.ReferencedAssemblies);
                 Config.OnScriptCompile(ssea);
 
-#if CROSSPLATFORM || COREWIN
-                provider.BeforeEmitCompilation += Config.OnBeforeScriptCompilation;
+provider.BeforeEmitCompilation += Config.OnBeforeScriptCompilation;
 
-                cr = await provider.CompileAssemblyFromSourceAsync(cp, script, Config.CompilerSettings.CultureInfo, cancellationToken);
-#else
-                cr = provider.CompileAssemblyFromSource(cp, script);
-#endif
+cr = await provider.CompileAssemblyFromSourceAsync(cp, script, Config.CompilerSettings.CultureInfo, cancellationToken);
                 Assembly = null;
                 Instance = null;
 
@@ -164,11 +158,7 @@ namespace FastReport.Code.Ms
                     try
                     {
                         // in .Net Core compiler will return other quotes
-#if CROSSPLATFORM || COREWIN
                         const string quotes = "\'";
-#else
-                        const string quotes = "\"";
-#endif
                         const string pattern = quotes + @"(\S{1,}),";
                         Regex regex = new Regex(pattern, RegexOptions.Compiled);
                         string assemblyName = regex.Match(ce.ErrorText).Groups[1].Value;   // Groups[1] include string without quotes and , symbols

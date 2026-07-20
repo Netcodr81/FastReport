@@ -264,10 +264,6 @@ namespace FastReport
                 paramType += GetEquivalentKeyword(par.ParameterType.Name, fullForm);
                 result += paramType;
                 result += (fullForm ? " " + par.Name : "");
-#if DOTNET_4
-                if (par.IsOptional && fullForm)
-                    result += CodeUtils.GetOptionalParameter(par, CodeUtils.Language.Cs);
-#endif
                 result += ", ";
             }
 
@@ -297,10 +293,6 @@ namespace FastReport
                 paramType += GetTypeDeclaration(par.ParameterType);
                 result += paramType;
                 result += " " + par.Name;
-#if DOTNET_4
-                if (par.IsOptional)
-                    result += CodeUtils.GetOptionalParameter(par, CodeUtils.Language.Cs);
-#endif
                 result += ", ";
             }
 

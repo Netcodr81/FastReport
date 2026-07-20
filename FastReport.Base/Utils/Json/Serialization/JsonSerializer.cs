@@ -186,11 +186,7 @@ namespace FastReport.Utils.Json.Serialization
             }
 
             var propInfos = propInfoList.ToArray();
-#if COREWIN
-            _readablePropertiesCache.TryAdd(type, propInfos);
-#else
-            _readablePropertiesCache.Add(type, propInfos);
-#endif
+_readablePropertiesCache.TryAdd(type, propInfos);
             return propInfos;
         }
     }
