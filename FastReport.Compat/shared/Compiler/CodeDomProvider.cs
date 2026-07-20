@@ -101,14 +101,25 @@ namespace FastReport.Code.CodeDom.Compiler
         {
             Debug.WriteLine(message);
             Console.WriteLine(message);
-            
+
             Log?.Invoke(null, message);
+        }
+
+        private static bool ShouldSkipReference(string reference)
+        {
+            return string.Equals(GetCorrectAssemblyName(reference), "System.Windows.Forms", StringComparison.OrdinalIgnoreCase);
         }
 
         protected void AddReferences(CompilerParameters cp, List<MetadataReference> references)
         {
             foreach (string reference in cp.ReferencedAssemblies)
             {
+                if (ShouldSkipReference(reference))
+                {
+                    DebugMessage($"SKIP '{reference}'");
+                    continue;
+                }
+
                 DebugMessage($"TRY ADD '{reference}'");
 #if NETCOREAPP
                 try
@@ -146,6 +157,12 @@ namespace FastReport.Code.CodeDom.Compiler
         {
             foreach (string reference in cp.ReferencedAssemblies)
             {
+                if (ShouldSkipReference(reference))
+                {
+                    DebugMessage($"SKIP '{reference}'");
+                    continue;
+                }
+
                 DebugMessage($"TRY ADD '{reference}'");
 #if NETCOREAPP
                 try

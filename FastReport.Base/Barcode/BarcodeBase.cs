@@ -100,7 +100,9 @@ namespace FastReport.Barcode
         public virtual void Assign(BarcodeBase source)
         {
             Color = source.Color;
-            Font = source.Font;
+            Font = source.Font != null
+                ? new SKFont(source.Font.Typeface, source.Font.Size)
+                : null;
         }
 
         internal virtual void Serialize(FRWriter writer, string prefix, BarcodeBase diff)
