@@ -1,5 +1,5 @@
-using System.Globalization;
 using SkiaSharp;
+using System.Globalization;
 
 namespace FastReport.Import.RDL
 {
@@ -250,64 +250,7 @@ namespace FastReport.Import.RDL
             return StringAlignment.Center;
         }
 
-        /// <summary>
-        /// Converts the RDL TextAlign and VerticalAlign to ContentAlignment.
-        /// </summary>
-        /// <param name="textAlign">The RDL TextAlign value.</param>
-        /// <param name="vertAlign">The RDL VerticalAlign value.</param>
-        /// <returns>The ContentAlignment value.</returns>
-        public static System.Windows.Forms.ContentAlignment ConvertTextAndVerticalAlign(string textAlign, string vertAlign)
-        {
-            if (textAlign == "General" || textAlign == "Center")
-            {
-                if (vertAlign == "Top")
-                {
-                    return System.Windows.Forms.ContentAlignment.TopCenter;
-                }
-                else if (vertAlign == "Middle")
-                {
-                    return System.Windows.Forms.ContentAlignment.MiddleCenter;
-                }
-                else if (vertAlign == "Bottom")
-                {
-                    return System.Windows.Forms.ContentAlignment.BottomCenter;
-                }
-                return System.Windows.Forms.ContentAlignment.TopCenter;
-            }
-            else if (textAlign == "Left")
-            {
-                if (vertAlign == "Top")
-                {
-                    return System.Windows.Forms.ContentAlignment.TopLeft;
-                }
-                else if (vertAlign == "Middle")
-                {
-                    return System.Windows.Forms.ContentAlignment.MiddleLeft;
-                }
-                else if (vertAlign == "Bottom")
-                {
-                    return System.Windows.Forms.ContentAlignment.BottomLeft;
-                }
-                return System.Windows.Forms.ContentAlignment.TopLeft;
-            }
-            else if (textAlign == "Right")
-            {
-                if (vertAlign == "Top")
-                {
-                    return System.Windows.Forms.ContentAlignment.TopRight;
-                }
-                else if (vertAlign == "Middle")
-                {
-                    return System.Windows.Forms.ContentAlignment.MiddleRight;
-                }
-                else if (vertAlign == "Bottom")
-                {
-                    return System.Windows.Forms.ContentAlignment.BottomRight;
-                }
-                return System.Windows.Forms.ContentAlignment.TopRight;
-            }
-            return System.Windows.Forms.ContentAlignment.TopLeft;
-        }
+
 
         /// <summary>
         /// Converts the RDL BorderStyle to LineStyle.

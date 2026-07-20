@@ -15,7 +15,12 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Remove="C:\Repositories\FastReport\FastReport.Compat\shared\WindowsForms\**" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Remove="C:\Repositories\FastReport\FastReport.Compat\shared\Compiler\VBCodeProvider.cs" />
+    <Compile Remove="C:\Repositories\FastReport\FastReport.Compat\shared\DotNetClasses\Color.Full.cs" />
+    <Compile Remove="C:\Repositories\FastReport\FastReport.Compat\shared\TypeConverters\SizeConverter.cs" />
   </ItemGroup>
  
   

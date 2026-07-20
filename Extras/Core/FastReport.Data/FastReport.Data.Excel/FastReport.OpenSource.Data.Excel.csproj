@@ -8,7 +8,6 @@
   <Import Project="Shared.props" />
   
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\FastReport.Compat\FastReport.Compat\FastReport.Compat.csproj" />
     <ProjectReference Include="..\..\..\..\FastReport.OpenSource\FastReport.OpenSource.csproj" />
   </ItemGroup>
 </Project>

@@ -78,20 +78,14 @@ namespace FastReport.Code.Ms
                 string s = Report.ReferencedAssemblies[i];
 
 #if CROSSPLATFORM
-                if (s == "System.Windows.Forms.dll")
+                if (s == "SkiaSharp.dll")
                 {
-                    // Here we check which assembly a Windows Forms type belongs to.
-                    // If it's from the System.Windows.Forms assembly, we leave it as is.
-                    // If it's from the FastReport.Compat assembly, we replace reference.
-                    var assemblyWithWinForms = typeof(System.Windows.Forms.Form).Assembly.GetName()?.Name ?? "System.Windows.Forms";
-                    if (assemblyWithWinForms != "System.Windows.Forms")
-                    {
-                        s = assemblyWithWinForms;
-                    }
+                    var assemblyWithSkiaSharp = typeof(SKBitmap).Assembly.GetName()?.Name ?? "SkiaSharp";
+                    s = assemblyWithSkiaSharp;
                 }
 #endif
-                // fix for old reports with "System.Windows.Forms.DataVisualization" in referenced assemblies 
-                if (s.Contains("System.Windows.Forms.DataVisualization"))
+                // fix for old reports with DataVisualization in referenced assemblies 
+                if (s.Contains("DataVisualization"))
                     s = "FastReport.DataVisualization";
 #if (SKIA && !AVALONIA)
                 if (s.Contains("FastReport.Compat"))
@@ -375,7 +369,7 @@ namespace FastReport.Code.Ms
                             TextObjectBase text = Report.FindObject(errObjName) as TextObjectBase;
                             text.Text = ReplaceExpression(ce.ErrorText, text);
                             if (Config.CompilerSettings.ExceptionBehaviour == CompilerExceptionBehaviour.ShowExceptionMessage)
-                                System.Windows.Forms.MessageBox.Show(ce.ErrorText);
+                                System.Diagnostics.Debug.WriteLine(ce.ErrorText);
                             continue;
                         }
                     }

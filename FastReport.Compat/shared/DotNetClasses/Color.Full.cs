@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-#if !NETSTANDARD
-namespace System.Drawing
+﻿namespace System.Drawing
 {
     public class ColorExt
     {
@@ -27,4 +23,3 @@ namespace System.Drawing
         }
     }
 }
-#endif

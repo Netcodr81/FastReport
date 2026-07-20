@@ -1,14 +1,10 @@
+using FastReport.CrossView;
+using FastReport.Utils;
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 using System.Data;
 using System.IO;
-using FastReport.Utils;
-using System.CodeDom;
-using System.ComponentModel;
-using System.Collections;
-using FastReport.CrossView;
-using System.Windows.Forms;
 
 namespace FastReport.Data
 {
@@ -299,25 +295,26 @@ namespace FastReport.Data
         /// <param name="data">The business object.</param>
         /// <param name="referenceName">The name of the object.</param>
         /// <param name="maxNestingLevel">Maximum level of data nesting.</param>
-        /// <param name="enabled">Determines wheter to enable the object or not.</param>
+        /// <param name="enabled">Determines whether to enable the object or not.</param>
         /// <remarks>
         /// This method is for internal use only.
         /// </remarks>
-        public void RegisterBusinessObject(IEnumerable data, string referenceName, int maxNestingLevel, bool enabled)
+        /// <summary>
+        /// Registers a business object.
+        /// </summary>
+        public void RegisterBusinessObject(
+            IEnumerable data,
+            string referenceName,
+            int maxNestingLevel,
+            bool enabled)
         {
             AddRegisteredItem(data, referenceName);
 
             Type dataType = data.GetType();
-            if (data is BindingSource)
-            {
-                if ((data as BindingSource).DataSource is Type)
-                    dataType = ((data as BindingSource).DataSource as Type);
-                else
-                    dataType = (data as BindingSource).DataSource.GetType();
-            }
 
-            BusinessObjectConverter converter = new BusinessObjectConverter(this);
-            BusinessObjectDataSource source = FindDataComponent(referenceName) as BusinessObjectDataSource;
+            var converter = new BusinessObjectConverter(this);
+            var source = FindDataComponent(referenceName) as BusinessObjectDataSource;
+
             if (source != null)
             {
                 source.Reference = data;
@@ -326,13 +323,17 @@ namespace FastReport.Data
             }
             else
             {
-                source = new BusinessObjectDataSource();
-                source.ReferenceName = referenceName;
-                source.Reference = data;
-                source.DataType = dataType;
-                source.Name = CreateUniqueName(referenceName);
+                source = new BusinessObjectDataSource
+                {
+                    ReferenceName = referenceName,
+                    Reference = data,
+                    DataType = dataType,
+                    Name = CreateUniqueName(referenceName),
+                    Enabled = enabled
+                };
+
                 source.Alias = CreateUniqueAlias(source.Alias);
-                source.Enabled = enabled;
+
                 DataSources.Add(source);
 
                 converter.CreateInitialObjects(source, maxNestingLevel);
@@ -748,7 +749,7 @@ namespace FastReport.Data
                 {
                     if ((c is Total || c is Parameter) && mergeOnlyDataSource)
                         continue;
-                   
+
                     Base my = FindByName(c.Name);
                     if (my != null)
                     {
@@ -777,7 +778,7 @@ namespace FastReport.Data
                 ReRegisterData();
             }
         }
-#endregion
+        #endregion
 
         #region IParent Members
         /// <inheritdoc/>
