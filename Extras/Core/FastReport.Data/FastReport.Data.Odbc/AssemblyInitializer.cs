@@ -1,12 +1,11 @@
 using FastReport.Utils;
 
-namespace FastReport.Data
+namespace FastReport.Data;
+
+public class OdbcAssemblyInitializer : AssemblyInitializerBase
 {
-    public class OdbcAssemblyInitializer : AssemblyInitializerBase
+    public OdbcAssemblyInitializer()
     {
-        public OdbcAssemblyInitializer()
-        {
-            RegisteredObjects.AddConnection(typeof(OdbcDataConnection));
-        }
+        RegisteredObjects.AddConnection(typeof(OdbcDataConnection));
     }
 }

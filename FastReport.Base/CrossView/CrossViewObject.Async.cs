@@ -1,24 +1,24 @@
 using System;
-using FastReport.Table;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
 
-namespace FastReport.CrossView
+using FastReport.Table;
+
+namespace FastReport.CrossView;
+
+/// <summary>
+/// Represents the crossview object that is used to print cube slice or slicegrid.
+/// </summary>
+public partial class CrossViewObject : TableBase
 {
-    /// <summary>
-    /// Represents the crossview object that is used to print cube slice or slicegrid.
-    /// </summary>
-    public partial class CrossViewObject : TableBase
+    #region Report Engine
+
+    /// <inheritdoc/>
+    public override async Task GetDataAsync(CancellationToken cancellationToken)
     {
-        #region Report Engine
-
-        /// <inheritdoc/>
-        public override async Task GetDataAsync(CancellationToken cancellationToken)
-        {
-            await base.GetDataAsync(cancellationToken);
-            GetDataShared();
-        }
-
-        #endregion
+        await base.GetDataAsync(cancellationToken);
+        GetDataShared();
     }
+
+    #endregion
 }

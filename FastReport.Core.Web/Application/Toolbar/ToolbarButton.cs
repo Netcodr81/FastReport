@@ -1,33 +1,32 @@
 ﻿using System;
 
-namespace FastReport.Web.Toolbar
+namespace FastReport.Web.Application.Toolbar;
+
+/// <summary>
+/// Button for the toolbar
+/// </summary>
+public class ToolbarButton : ToolbarElement
 {
     /// <summary>
-    /// Button for the toolbar
+    /// The image of the button that appears in the toolbar
     /// </summary>
-    public class ToolbarButton : ToolbarElement
+    public ToolbarElementImage Image { get; set; } = new ToolbarElementImage();
+
+    /// <summary>
+    /// Action that is triggered when the button is clicked
+    /// </summary>
+    public IClickAction OnClickAction { get; set; }
+
+    internal override string Render(string template_FR)
     {
-        /// <summary>
-        /// The image of the button that appears in the toolbar
-        /// </summary>
-        public ToolbarElementImage Image { get; set; } = new ToolbarElementImage();
+        if (!Enabled) return default;
 
-        /// <summary>
-        /// Action that is triggered when the button is clicked
-        /// </summary>
-        public IClickAction OnClickAction { get; set; }
+        var action = OnClickAction is ElementScript scriptButton
+            ? scriptButton.Script
+            : $"{template_FR}.customMethodInvoke('{ID}', this.value)";
 
-        internal override string Render(string template_FR)
-        {
-            if (!Enabled) return default;
-
-            var action = OnClickAction is ElementScript scriptButton
-                ? scriptButton.Script
-                : $"{template_FR}.customMethodInvoke('{ID}', this.value)";
-
-            return $@"<div class=""fr-toolbar-item fr-toolbar-pointer fr-toolbar-item fr-pointer {ElementClasses}"" style=""{ElementCustomStyle}"" onclick=""{action}"">
+        return $@"<div class=""fr-toolbar-item fr-toolbar-pointer fr-toolbar-item fr-pointer {ElementClasses}"" style=""{ElementCustomStyle}"" onclick=""{action}"">
                     <img src=""{Image.RenderedImage}"" title=""{Title}"" class=""fr-toolbar-image"">
                     </div>";
-        }
     }
 }

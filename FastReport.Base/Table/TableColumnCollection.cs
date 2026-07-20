@@ -1,45 +1,44 @@
 using FastReport.Utils;
 
-namespace FastReport.Table
+namespace FastReport.Table;
+
+/// <summary>
+/// Represents a collection of <see cref="TableColumn"/> objects.
+/// </summary>
+public class TableColumnCollection : FRCollectionBase
 {
     /// <summary>
-    /// Represents a collection of <see cref="TableColumn"/> objects.
+    /// Gets a column with specified index.
     /// </summary>
-    public class TableColumnCollection : FRCollectionBase
+    /// <param name="index">Index of a column.</param>
+    /// <returns>The column with specified index.</returns>
+    public TableColumn this[int index]
     {
-        /// <summary>
-        /// Gets a column with specified index.
-        /// </summary>
-        /// <param name="index">Index of a column.</param>
-        /// <returns>The column with specified index.</returns>
-        public TableColumn this[int index]
+        get
         {
-            get
-            {
-                TableColumn column = List[index] as TableColumn;
-                column.SetIndex(index);
-                return column;
-            }
+            TableColumn column = List[index] as TableColumn;
+            column.SetIndex(index);
+            return column;
         }
+    }
 
-        /// <inheritdoc/>
-        protected override void OnInsert(int index, object value)
-        {
-            base.OnInsert(index, value);
-            if (Owner != null)
-                (Owner as TableBase).CorrectSpansOnColumnChange(index, 1);
-        }
+    /// <inheritdoc/>
+    protected override void OnInsert(int index, object value)
+    {
+        base.OnInsert(index, value);
+        if (Owner != null)
+            (Owner as TableBase).CorrectSpansOnColumnChange(index, 1);
+    }
 
-        /// <inheritdoc/>
-        protected override void OnRemove(int index, object value)
-        {
-            base.OnRemove(index, value);
-            if (Owner != null)
-                (Owner as TableBase).CorrectSpansOnColumnChange(index, -1);
-        }
+    /// <inheritdoc/>
+    protected override void OnRemove(int index, object value)
+    {
+        base.OnRemove(index, value);
+        if (Owner != null)
+            (Owner as TableBase).CorrectSpansOnColumnChange(index, -1);
+    }
 
-        internal TableColumnCollection(Base owner) : base(owner)
-        {
-        }
+    internal TableColumnCollection(Base owner) : base(owner)
+    {
     }
 }

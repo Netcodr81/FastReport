@@ -1,13 +1,12 @@
 ﻿using FastReport.Utils;
 
 
-namespace FastReport.Data
+namespace FastReport.Data;
+
+public class RavenDBAssemblyInitializer : AssemblyInitializerBase
 {
-    public class RavenDBAssemblyInitializer : AssemblyInitializerBase
+    public RavenDBAssemblyInitializer()
     {
-        public RavenDBAssemblyInitializer()
-        {
-            RegisteredObjects.AddConnection(typeof(RavenDBDataConnection));
-        }
+        RegisteredObjects.AddConnection(typeof(RavenDBDataConnection));
     }
 }

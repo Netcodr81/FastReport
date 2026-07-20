@@ -1,26 +1,25 @@
 ﻿using FastReport.Export;
 using FastReport.Export.Html;
 using FastReport.Export.Image;
+using FastReport.Web.Application;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application.ReportExporter.Strategies;
+
+internal static class ExportStrategyFactory
 {
-    internal static class ExportStrategyFactory
+    public static IExportStrategy GetExportStrategy(ExportsHelper.ExportInfo exportInfo, ExportBase export)
     {
-        public static IExportStrategy GetExportStrategy(ExportsHelper.ExportInfo exportInfo, ExportBase export)
-        {
-            IExportStrategy strategy;
+        IExportStrategy strategy;
 
-            if (exportInfo.Export == Exports.Prepared)
-                strategy = new PreparedExportStrategy();
-            else if (export is HTMLExport { EmbedPictures: false } or ImageExport { SeparateFiles: true })
-                strategy = new ArchiveExportStrategy();
-            else if (export != null)
-                strategy = new DefaultExportStrategy();
-            else
-                throw new UnsupportedExportException();
+        if (exportInfo.Export == Exports.Prepared)
+            strategy = new PreparedExportStrategy();
+        else if (export is HTMLExport { EmbedPictures: false } or ImageExport { SeparateFiles: true })
+            strategy = new ArchiveExportStrategy();
+        else if (export != null)
+            strategy = new DefaultExportStrategy();
+        else
+            throw new UnsupportedExportException();
 
-            return strategy;
-        }
+        return strategy;
     }
-
 }

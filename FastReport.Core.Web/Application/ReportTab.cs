@@ -3,32 +3,31 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
 
-namespace FastReport.Web
+namespace FastReport.Web.Application;
+
+public class ReportTabCollection : Collection<ReportTab>
 {
-    public class ReportTabCollection : Collection<ReportTab>
-    {
-    }
+}
 
-    public class ReportTab
-    {
-        public string Name { get; set; } = null;
-        public Report Report { get; set; } = null;
-        public bool ReportPrepared { get => Report?.IsPrepared ?? false; set { } }
-        public int CurrentPageIndex { get; set; } = 0;
-        public int MinPageIndex { get; set; } = 0;
-        public bool Closeable { get; set; } = true;
-        public bool NeedParent { get; set; } = false;
+public class ReportTab
+{
+    public string Name { get; set; } = null;
+    public Report Report { get; set; } = null;
+    public bool ReportPrepared { get => Report?.IsPrepared ?? false; set { } }
+    public int CurrentPageIndex { get; set; } = 0;
+    public int MinPageIndex { get; set; } = 0;
+    public bool Closeable { get; set; } = true;
+    public bool NeedParent { get; set; } = false;
 
-        //public ReportTab Clone()
-        //{
-        //    return new ReportTab()
-        //    {
-        //        Name = Name,
-        //        Report = Report,
-        //        ReportPrepared = ReportPrepared,
-        //        CurrentPageIndex = CurrentPageIndex,
-        //        Closeable = Closeable,
-        //    };
-        //}
-    }
+    //public ReportTab Clone()
+    //{
+    //    return new ReportTab()
+    //    {
+    //        Name = Name,
+    //        Report = Report,
+    //        ReportPrepared = ReportPrepared,
+    //        CurrentPageIndex = CurrentPageIndex,
+    //        Closeable = Closeable,
+    //    };
+    //}
 }

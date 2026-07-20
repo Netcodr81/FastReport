@@ -1,7 +1,6 @@
-﻿namespace FastReport.Engine
+﻿namespace FastReport.Engine;
+
+partial class ReportEngine
 {
-    partial class ReportEngine
-    {
-        partial void ShowProgress();
-    }
+    partial void ShowProgress();
 }

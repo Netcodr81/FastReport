@@ -1,28 +1,27 @@
 ﻿
-namespace FastReport.Web.Application.Localizations
+namespace FastReport.Web.Application.Localizations;
+
+internal class XmlExportSettingsLocalization
 {
-    internal class XmlExportSettingsLocalization
+    internal readonly string Title;
+
+    internal readonly string Options;
+
+    internal readonly string PageBreaks;
+
+    internal readonly string DataOnly;
+
+
+    public XmlExportSettingsLocalization(IWebRes res)
     {
-        internal readonly string Title;
+        res.Root("Export,Xml");
+        Title = res.Get("");
 
-        internal readonly string Options;
+        res.Root("Export,Misc");
+        PageBreaks = res.Get("PageBreaks");
+        Options = res.Get("Options");
 
-        internal readonly string PageBreaks;
-
-        internal readonly string DataOnly;
-
-
-        public XmlExportSettingsLocalization(IWebRes res)
-        {
-            res.Root("Export,Xml");
-            Title = res.Get(""); 
-
-            res.Root("Export,Misc");
-            PageBreaks = res.Get("PageBreaks");
-            Options = res.Get("Options");
-
-            res.Root("Export,Text");
-            DataOnly = res.Get("DataOnly");
-        }
+        res.Root("Export,Text");
+        DataOnly = res.Get("DataOnly");
     }
 }

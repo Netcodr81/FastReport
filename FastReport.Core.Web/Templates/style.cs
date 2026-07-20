@@ -1,9 +1,8 @@
 ﻿using System.Drawing;
 
-namespace FastReport.Web
+namespace FastReport.Web;
+
+partial class WebReport
 {
-    partial class WebReport
-    {
-        string template_style() => $" :root{{ {GetStyleVars()} }}";
-    }
+    string template_style() => $" :root{{ {GetStyleVars()} }}";
 }

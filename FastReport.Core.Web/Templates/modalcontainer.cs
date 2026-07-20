@@ -4,13 +4,13 @@ using System.Net;
 using System.Text;
 using System.Web;
 
-namespace FastReport.Web
+namespace FastReport.Web;
+
+partial class WebReport
 {
-    partial class WebReport
+    string template_modalcontainer()
     {
-        string template_modalcontainer()
-        {
-            var templateModalContainer = $@"
+        var templateModalContainer = $@"
 <div class=""modalcontainers"" id=""modalcontainers"">
  {(false ? @"<script type=""module"" src=""./_content/FastReport.Web/js/webreport-export-script.bundle.js""></script>" : "")}
     <div class=""modalcontainer-overlay"">
@@ -18,8 +18,6 @@ namespace FastReport.Web
         <div class=""content-modalcontainer""></div>
     </div>
 </div>";
-            return templateModalContainer;
-        }
+        return templateModalContainer;
     }
-
 }

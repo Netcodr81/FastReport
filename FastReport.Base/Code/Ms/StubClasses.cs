@@ -1,11 +1,11 @@
 ﻿
-namespace FastReport.Code.Ms
+namespace FastReport.Code.Ms;
+
+partial class MsAssemblyDescriptor
 {
-    partial class MsAssemblyDescriptor
+    private void AddStubClasses()
     {
-        private void AddStubClasses()
-        {
-            const string stubClassesCSharp = @"
+        const string stubClassesCSharp = @"
 namespace System
 {
 internal static class Activator {}
@@ -164,7 +164,7 @@ internal static class DllImportAttribute {}
 }
 ";
 
-            const string stubClassesVBNet = @"
+        const string stubClassesVBNet = @"
 Namespace System
     Friend Class Activator
     End Class
@@ -504,10 +504,9 @@ Namespace System.Runtime.InteropServices
 End Namespace
 ";
 
-            if (Report.ScriptLanguage == Language.CSharp)
-                ScriptText.Append(stubClassesCSharp);
-            else
-                ScriptText.Append(stubClassesVBNet);
-        }
+        if (Report.ScriptLanguage == Language.CSharp)
+            ScriptText.Append(stubClassesCSharp);
+        else
+            ScriptText.Append(stubClassesVBNet);
     }
 }

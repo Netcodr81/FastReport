@@ -1,17 +1,16 @@
 ﻿using System;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
 
-namespace FastReport
+namespace FastReport;
+
+public partial class RFIDLabel
 {
-    public partial class RFIDLabel
-    {
 
-        /// <inheritdoc/>
-        public override async Task GetDataAsync(CancellationToken cancellationToken)
-        {
-            await base.GetDataAsync(cancellationToken);
-            GetDataShared();
-        }
+    /// <inheritdoc/>
+    public override async Task GetDataAsync(CancellationToken cancellationToken)
+    {
+        await base.GetDataAsync(cancellationToken);
+        GetDataShared();
     }
 }

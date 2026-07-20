@@ -1,57 +1,56 @@
-using System.Data;
 using System.Collections;
-using System.Threading.Tasks;
+using System.Data;
 using System.Threading;
+using System.Threading.Tasks;
 
-namespace FastReport.Data
+namespace FastReport.Data;
+
+public partial class TableDataSource
 {
-    public partial class TableDataSource
+    #region Public Methods
+    /// <inheritdoc/>
+    public override async Task InitSchemaAsync(CancellationToken cancellationToken = default)
     {
-        #region Public Methods
-        /// <inheritdoc/>
-        public override async Task InitSchemaAsync(CancellationToken cancellationToken = default)
+        if (Connection != null)
         {
-            if (Connection != null)
+            if (!StoreData)
             {
-                if (!StoreData)
-                {
-                    await Connection.CreateTableAsync(this, cancellationToken);
-                    if (Table.Columns.Count == 0)
-                        await Connection.FillTableSchemaAsync(Table, SelectCommand, Parameters, cancellationToken);
-                }
+                await Connection.CreateTableAsync(this, cancellationToken);
+                if (Table.Columns.Count == 0)
+                    await Connection.FillTableSchemaAsync(Table, SelectCommand, Parameters, cancellationToken);
             }
-            else
-                table = Reference as DataTable;
-
-            InitSchemaShared();
         }
+        else
+            table = Reference as DataTable;
 
-        /// <inheritdoc/>
-        public override async Task LoadDataAsync(ArrayList rows, CancellationToken cancellationToken)
-        {
-            if (Connection != null)
-            {
-                if (!StoreData)
-                    await Connection.FillTableAsync(this, cancellationToken);
-            }
-            else
-            {
-                TryToLoadData();
-            }
-            LoadDataShared(rows);
-        }
-
-
-        /// <summary>
-        /// Refresh the table schema.
-        /// </summary>
-        public async Task RefreshTableAsync(CancellationToken cancellationToken)
-        {
-            DeleteTable();
-            await InitSchemaAsync(cancellationToken);
-            RefreshColumns(true);
-        }
-        #endregion
-
+        InitSchemaShared();
     }
+
+    /// <inheritdoc/>
+    public override async Task LoadDataAsync(ArrayList rows, CancellationToken cancellationToken)
+    {
+        if (Connection != null)
+        {
+            if (!StoreData)
+                await Connection.FillTableAsync(this, cancellationToken);
+        }
+        else
+        {
+            TryToLoadData();
+        }
+        LoadDataShared(rows);
+    }
+
+
+    /// <summary>
+    /// Refresh the table schema.
+    /// </summary>
+    public async Task RefreshTableAsync(CancellationToken cancellationToken)
+    {
+        DeleteTable();
+        await InitSchemaAsync(cancellationToken);
+        RefreshColumns(true);
+    }
+    #endregion
+
 }

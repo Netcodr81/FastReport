@@ -3,83 +3,82 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace FastReport.Web.Toolbar
+namespace FastReport.Web.Application.Toolbar;
+
+/// <summary>
+/// Element that opens a drop-down list when you hover over it
+/// </summary>
+public class ToolbarSelect : ToolbarElement
 {
     /// <summary>
-    /// Element that opens a drop-down list when you hover over it
+    /// The image of the button that appears in the toolbar
     /// </summary>
-    public class ToolbarSelect : ToolbarElement
+    public ToolbarElementImage Image { get; set; } = new ToolbarElementImage();
+
+    /// <summary>
+    /// Contains items that will be displayed in the drop-down list
+    /// 
+    /// List of ToolbarSelectItems
+    /// </summary>
+    public List<ToolbarSelectItem> Items { get; set; } = new List<ToolbarSelectItem>();
+
+    internal override string Render(string template_FR)
     {
-        /// <summary>
-        /// The image of the button that appears in the toolbar
-        /// </summary>
-        public ToolbarElementImage Image { get; set; } = new ToolbarElementImage();
+        if (!Enabled) return default;
 
-        /// <summary>
-        /// Contains items that will be displayed in the drop-down list
-        /// 
-        /// List of ToolbarSelectItems
-        /// </summary>
-        public List<ToolbarSelectItem> Items { get; set; } = new List<ToolbarSelectItem>();
+        var sb = new StringBuilder();
 
-        internal override string Render(string template_FR)
-        {
-            if (!Enabled) return default;
-
-            var sb = new StringBuilder();
-
-            sb.Append(
-                $@"<div class=""fr-toolbar-item fr-toolbar-item {ElementClasses}"" style = ""{ElementCustomStyle}"">
+        sb.Append(
+            $@"<div class=""fr-toolbar-item fr-toolbar-item {ElementClasses}"" style = ""{ElementCustomStyle}"">
                             <img src=""{Image.RenderedImage}"" title=""{Title}"" class=""fr-toolbar-image"">
                          <div class=""fr-toolbar-dropdown-content fr-toolbar-dropdown-content"">");
 
-            foreach (var item in Items.Where(item => item.Enabled))
-                sb.Append(item.Render(template_FR));
+        foreach (var item in Items.Where(item => item.Enabled))
+            sb.Append(item.Render(template_FR));
 
-            sb.Append("</div></div>");
-            return sb.ToString();
-        }
+        sb.Append("</div></div>");
+        return sb.ToString();
+    }
+}
+
+/// <summary>
+/// The element that appears in the drop-down list
+/// </summary> 
+public class ToolbarSelectItem
+{
+    public ToolbarSelectItem()
+    {
+        Name = ID.ToString();
     }
 
+    internal Guid ID { get; } = Guid.NewGuid();
+
     /// <summary>
-    /// The element that appears in the drop-down list
-    /// </summary> 
-    public class ToolbarSelectItem
+    /// Name of toolbar item required to interact with the items list
+    /// </summary>
+    public string Name { get; set; }
+
+    /// <summary>
+    /// The inscription displayed in the drop-down list
+    /// </summary>
+    public string Title { get; set; }
+
+    /// <summary>
+    /// Defines the visibility of the item in the drop-down list
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Action that is triggered when the item is clicked
+    /// </summary>
+    public IClickAction OnClickAction { get; set; }
+
+    internal string Render(string template_FR)
     {
-        public ToolbarSelectItem() 
-        { 
-            Name = ID.ToString();
-        }
+        var action = OnClickAction is ElementScript scriptButton
+            ? scriptButton.Script
+            : $"{template_FR}.customMethodInvoke('{ID}', this.value)";
 
-        internal Guid ID { get; } = Guid.NewGuid();
-
-        /// <summary>
-        /// Name of toolbar item required to interact with the items list
-        /// </summary>
-        public string Name { get; set; }
-
-        /// <summary>
-        /// The inscription displayed in the drop-down list
-        /// </summary>
-        public string Title { get; set; }
-
-        /// <summary>
-        /// Defines the visibility of the item in the drop-down list
-        /// </summary>
-        public bool Enabled { get; set; } = true;
-
-        /// <summary>
-        /// Action that is triggered when the item is clicked
-        /// </summary>
-        public IClickAction OnClickAction { get; set; }
-
-        internal string Render(string template_FR)
-        {
-            var action = OnClickAction is ElementScript scriptButton
-                ? scriptButton.Script
-                : $"{template_FR}.customMethodInvoke('{ID}', this.value)";
-
-            return $@"<a onclick=""{action}"">{Title}</a>";
-        }
+        return $@"<a onclick=""{action}"">{Title}</a>";
     }
 }

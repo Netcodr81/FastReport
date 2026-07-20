@@ -1,8 +1,7 @@
 ﻿
-namespace FastReport
+namespace FastReport;
+
+internal interface ITranslatable
 {
-    internal interface ITranslatable
-    {
-        void ConvertToReportObjects();
-    }
+    void ConvertToReportObjects();
 }

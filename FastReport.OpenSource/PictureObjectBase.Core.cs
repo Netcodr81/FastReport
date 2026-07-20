@@ -1,24 +1,24 @@
-﻿using FastReport.Utils;
-using System.Drawing;
+﻿using System.Drawing;
 
-namespace FastReport
+using FastReport.Utils;
+
+namespace FastReport;
+
+partial class PictureObjectBase
 {
-    partial class PictureObjectBase
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    /// <param name="g"></param>
+    /// <param name="e"></param>
+    protected void DrawErrorImage(IGraphics g, FRPaintEventArgs e)
     {
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        /// <param name="g"></param>
-        /// <param name="e"></param>
-        protected void DrawErrorImage(IGraphics g, FRPaintEventArgs e)
-        {
 
-        }
-
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        /// <param name="e"></param>
-        partial void DrawDesign(FRPaintEventArgs e);
     }
+
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    /// <param name="e"></param>
+    partial void DrawDesign(FRPaintEventArgs e);
 }

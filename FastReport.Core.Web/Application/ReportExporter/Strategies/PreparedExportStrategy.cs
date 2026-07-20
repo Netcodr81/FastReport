@@ -1,13 +1,13 @@
-﻿using FastReport.Export;
-using System.IO;
+﻿using System.IO;
 
-namespace FastReport.Web
+using FastReport.Export;
+
+namespace FastReport.Web.Application.ReportExporter.Strategies;
+
+internal sealed class PreparedExportStrategy : IExportStrategy
 {
-    internal sealed class PreparedExportStrategy : IExportStrategy
+    public void Export(Stream stream, Report report, ExportBase export)
     {
-        public void Export(Stream stream, Report report, ExportBase export)
-        {
-            report.SavePrepared(stream);
-        }
+        report.SavePrepared(stream);
     }
 }

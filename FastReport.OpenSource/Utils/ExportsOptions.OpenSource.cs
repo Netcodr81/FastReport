@@ -1,11 +1,10 @@
-﻿namespace FastReport.Utils
+﻿namespace FastReport.Utils;
+
+partial class ExportsOptions
 {
-    partial class ExportsOptions
-    {
-        partial void CreateDefaultExports();
+    partial void CreateDefaultExports();
 
-        partial void SaveOptions();
+    partial void SaveOptions();
 
-        partial void RestoreOptions();
-    }
+    partial void RestoreOptions();
 }

@@ -1,13 +1,13 @@
-﻿using FastReport.Utils;
-using System;
+﻿using System;
 
-namespace FastReport
+using FastReport.Utils;
+
+namespace FastReport;
+
+partial class CellularTextObject
 {
-    partial class CellularTextObject
+    private float GetCellWidthInternal(float fontHeight)
     {
-        private float GetCellWidthInternal(float fontHeight)
-        {
-            return (int)Math.Round((fontHeight + 10) / (0.25f * Units.Centimeters)) * (0.25f * Units.Centimeters);
-        }
+        return (int)Math.Round((fontHeight + 10) / (0.25f * Units.Centimeters)) * (0.25f * Units.Centimeters);
     }
 }

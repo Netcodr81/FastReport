@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+
 using FastReport.Utils;
 
-namespace FastReport.Data
+namespace FastReport.Data;
+
+public class SQLiteAssemblyInitializer : AssemblyInitializerBase
 {
-    public class SQLiteAssemblyInitializer : AssemblyInitializerBase
+    public SQLiteAssemblyInitializer()
     {
-        public SQLiteAssemblyInitializer()
-        {
-            RegisteredObjects.AddConnection(typeof(SQLiteDataConnection));
-        }
+        RegisteredObjects.AddConnection(typeof(SQLiteDataConnection));
     }
 }

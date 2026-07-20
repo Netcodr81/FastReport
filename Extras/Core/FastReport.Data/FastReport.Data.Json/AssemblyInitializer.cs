@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+
 using FastReport.Utils;
 
-namespace FastReport.Data
+namespace FastReport.Data;
+
+public class JsonAssemblyInitializer : AssemblyInitializerBase
 {
-    public class JsonAssemblyInitializer : AssemblyInitializerBase
+    public JsonAssemblyInitializer()
     {
-        public JsonAssemblyInitializer()
-        {
-            RegisteredObjects.AddConnection(typeof(JsonDataConnection));
-        }
+        RegisteredObjects.AddConnection(typeof(JsonDataConnection));
     }
 }

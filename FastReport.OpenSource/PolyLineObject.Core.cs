@@ -1,28 +1,27 @@
 ﻿using FastReport.Utils;
 
-namespace FastReport
+namespace FastReport;
+
+partial class PolyLineObject
 {
-    partial class PolyLineObject
-    {
-        #region Private Methods
+    #region Private Methods
 
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        /// <param name="e"></param>
-        partial void DrawDesign0(FRPaintEventArgs e);
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    /// <param name="e"></param>
+    partial void DrawDesign0(FRPaintEventArgs e);
 
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        /// <param name="e"></param>
-        partial void DrawDesign1(FRPaintEventArgs e);
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    /// <param name="e"></param>
+    partial void DrawDesign1(FRPaintEventArgs e);
 
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        partial void InitDesign();
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    partial void InitDesign();
 
-        #endregion Private Methods
-    }
+    #endregion Private Methods
 }

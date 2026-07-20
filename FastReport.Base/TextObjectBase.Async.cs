@@ -1,27 +1,27 @@
 using System;
-using FastReport.Utils;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
 
-namespace FastReport
+using FastReport.Utils;
+
+namespace FastReport;
+
+public partial class TextObjectBase
 {
-    public partial class TextObjectBase
+    #region Public Methods
+
+    internal async Task<string> CalcAndFormatExpressionAsync(string expression, int expressionIndex, CancellationToken token)
     {
-        #region Public Methods
-
-        internal async Task<string> CalcAndFormatExpressionAsync(string expression, int expressionIndex, CancellationToken token)
+        try
         {
-            try
-            {
-                return FormatValue(await Report.CalcAsync(expression, token), expressionIndex);
-            }
-            catch (Exception e)
-            {
-                throw new Exception(Name + ": " + Res.Get("Messages,ErrorInExpression") + ": " + expression,
-                    e.InnerException == null ? e : e.InnerException);
-            }
+            return FormatValue(await Report.CalcAsync(expression, token), expressionIndex);
         }
-
-        #endregion
+        catch (Exception e)
+        {
+            throw new Exception(Name + ": " + Res.Get("Messages,ErrorInExpression") + ": " + expression,
+                e.InnerException == null ? e : e.InnerException);
+        }
     }
+
+    #endregion
 }

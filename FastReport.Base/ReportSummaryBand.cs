@@ -2,12 +2,11 @@ using System;
 using System.Collections;
 using System.ComponentModel;
 
-namespace FastReport
+namespace FastReport;
+
+/// <summary>
+/// Represents a report summary band.
+/// </summary>
+public partial class ReportSummaryBand : HeaderFooterBandBase
 {
-    /// <summary>
-    /// Represents a report summary band.
-    /// </summary>
-    public partial class ReportSummaryBand : HeaderFooterBandBase
-    {
-    }
 }

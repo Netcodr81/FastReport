@@ -1,14 +1,13 @@
-﻿namespace FastReport.Preview
+﻿namespace FastReport.Preview;
+
+partial class PageCache
 {
-    partial class PageCache
+    #region Private Methods
+
+    private int GetPageLimit()
     {
-        #region Private Methods
-
-        private int GetPageLimit()
-        {
-            return 50;
-        }
-
-        #endregion Private Methods
+        return 50;
     }
+
+    #endregion Private Methods
 }

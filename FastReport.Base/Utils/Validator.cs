@@ -1,178 +1,178 @@
-using SkiaSharp;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
-namespace FastReport.Utils
-{
+using SkiaSharp;
 
+namespace FastReport.Utils;
+
+
+/// <summary>
+/// Represents the validation data.
+/// </summary>
+public struct ValidationError
+{
     /// <summary>
-    /// Represents the validation data.
+    /// Represents erro level.
     /// </summary>
-    public struct ValidationError
+    public enum ErrorLevel
     {
         /// <summary>
-        /// Represents erro level.
+        /// Warning.
         /// </summary>
-        public enum ErrorLevel
-        {
-            /// <summary>
-            /// Warning.
-            /// </summary>
-            Warning,
-            /// <summary>
-            /// Error.
-            /// </summary>
-            Error
-        }
-
+        Warning,
         /// <summary>
-        /// The error name.
+        /// Error.
         /// </summary>
-        public readonly string Name;
-        /// <summary>
-        /// The error level.
-        /// </summary>
-        public readonly ErrorLevel Level;
-        /// <summary>
-        /// The message.
-        /// </summary>
-        public readonly string Message;
-        /// <summary>
-        /// The report object.
-        /// </summary>
-        public readonly ReportComponentBase Object;
-
-        internal ValidationError(string name, ErrorLevel level, string message, ReportComponentBase obj)
-        {
-            this.Name = name;
-            this.Level = level;
-            this.Message = message;
-            this.Object = obj;
-        }
+        Error
     }
 
     /// <summary>
-    /// Contains methods used for validation of report.
+    /// The error name.
     /// </summary>
-    public static class Validator
+    public readonly string Name;
+    /// <summary>
+    /// The error level.
+    /// </summary>
+    public readonly ErrorLevel Level;
+    /// <summary>
+    /// The message.
+    /// </summary>
+    public readonly string Message;
+    /// <summary>
+    /// The report object.
+    /// </summary>
+    public readonly ReportComponentBase Object;
+
+    internal ValidationError(string name, ErrorLevel level, string message, ReportComponentBase obj)
     {
-        internal static void NormalizeBounds(ref SKRect bounds)
+        this.Name = name;
+        this.Level = level;
+        this.Message = message;
+        this.Object = obj;
+    }
+}
+
+/// <summary>
+/// Contains methods used for validation of report.
+/// </summary>
+public static class Validator
+{
+    internal static void NormalizeBounds(ref SKRect bounds)
+    {
+        float left = bounds.Left;
+        float top = bounds.Top;
+        float right = bounds.Right;
+        float bottom = bounds.Bottom;
+
+        if (right < left)
+            (left, right) = (right, left);
+        if (bottom < top)
+            (top, bottom) = (bottom, top);
+
+        bounds = new SKRect(left, top, right, bottom);
+    }
+
+    internal static void GetIntersectingObjects(List<ReportComponentBase> list, BandBase band)
+    {
+        int n = band.Objects.Count;
+        for (int i = 0; i < n; i++)
         {
-            float left = bounds.Left;
-            float top = bounds.Top;
-            float right = bounds.Right;
-            float bottom = bounds.Bottom;
-
-            if (right < left)
-                (left, right) = (right, left);
-            if (bottom < top)
-                (top, bottom) = (bottom, top);
-
-            bounds = new SKRect(left, top, right, bottom);
-        }
-
-        internal static void GetIntersectingObjects(List<ReportComponentBase> list, BandBase band)
-        {
-            int n = band.Objects.Count;
-            for (int i = 0; i < n; i++)
-            {
-                var bounds = band.Objects[i].GetExtendedSize();
-                if (bounds.Width < 0 || bounds.Height < 0)
-                    NormalizeBounds(ref bounds);
-
-                // compensate for inaccuracy of designer's grid fit
-                bounds.Inflate(-0.01f, -0.01f);
-
-                for (int j = 0; j < n; j++)
-                {
-                    var bounds1 = band.Objects[j].GetExtendedSize();
-                    if (bounds1.Width < 0 || bounds1.Height < 0)
-                        NormalizeBounds(ref bounds1);
-
-                    if (i != j && bounds.IntersectsWith(bounds1))
-                    {
-                        list.Add(band.Objects[i]);
-                        break;
-                    }
-                }
-            }
-        }
-
-        internal static bool RectContainInOtherRect(SKRect parent, SKRect child)
-        {
-            NormalizeBounds(ref parent);
-            NormalizeBounds(ref child);
+            var bounds = band.Objects[i].GetExtendedSize();
+            if (bounds.Width < 0 || bounds.Height < 0)
+                NormalizeBounds(ref bounds);
 
             // compensate for inaccuracy of designer's grid fit
-            child.Inflate(-0.01f, -0.01f);
+            bounds.Inflate(-0.01f, -0.01f);
 
-            return parent.Contains(child);
+            for (int j = 0; j < n; j++)
+            {
+                var bounds1 = band.Objects[j].GetExtendedSize();
+                if (bounds1.Width < 0 || bounds1.Height < 0)
+                    NormalizeBounds(ref bounds1);
+
+                if (i != j && bounds.IntersectsWith(bounds1))
+                {
+                    list.Add(band.Objects[i]);
+                    break;
+                }
+            }
         }
+    }
 
-        /// <summary>
-        /// Validate report.
-        /// </summary>
-        /// <param name="report"></param>
-        /// <param name="checkIntersectObj">Need set false if enabled backlight intersecting objects and report is designing.</param>
-        /// <param name="token">Token for cancelling method if it execute in thread.</param>
-        /// <returns>List of errors.</returns>
-        public static List<ValidationError> ValidateReport(Report report, bool checkIntersectObj = true, CancellationToken token = default)
+    internal static bool RectContainInOtherRect(SKRect parent, SKRect child)
+    {
+        NormalizeBounds(ref parent);
+        NormalizeBounds(ref child);
+
+        // compensate for inaccuracy of designer's grid fit
+        child.Inflate(-0.01f, -0.01f);
+
+        return parent.Contains(child);
+    }
+
+    /// <summary>
+    /// Validate report.
+    /// </summary>
+    /// <param name="report"></param>
+    /// <param name="checkIntersectObj">Need set false if enabled backlight intersecting objects and report is designing.</param>
+    /// <param name="token">Token for cancelling method if it execute in thread.</param>
+    /// <returns>List of errors.</returns>
+    public static List<ValidationError> ValidateReport(Report report, bool checkIntersectObj = true, CancellationToken token = default)
+    {
+        if (report == null)
+            return null;
+        List<ValidationError> listError = new List<ValidationError>();
+
+        try
         {
-            if (report == null)
-                return null;
-            List<ValidationError> listError = new List<ValidationError>();
-
-            try
+            foreach (PageBase page in report.Pages)
             {
-                foreach (PageBase page in report.Pages)
+                foreach (Base c in page.AllObjects)
                 {
-                    foreach (Base c in page.AllObjects)
+                    if (token.IsCancellationRequested)
+                        return null;
+
+                    if (c is BandBase band && checkIntersectObj)
                     {
-                        if (token.IsCancellationRequested)
-                            return null;
-
-                        if (c is BandBase band && checkIntersectObj)
+                        List<ReportComponentBase> intersectingObjects = new List<ReportComponentBase>();
+                        GetIntersectingObjects(intersectingObjects, band);
+                        foreach (var obj in intersectingObjects)
                         {
-                            List<ReportComponentBase> intersectingObjects = new List<ReportComponentBase>();
-                            GetIntersectingObjects(intersectingObjects, band);
-                            foreach (var obj in intersectingObjects)
-                            {
-                                listError.Add(new ValidationError(obj.Name, ValidationError.ErrorLevel.Warning, Res.Get("Messages,Validator,IntersectedObjects"), obj));
-                            }
-                        }
-
-                        if (c is ReportComponentBase comp)
-                            listError.AddRange(comp.Validate());
-                    }
-                }
-
-                bool duplicateName;
-                var objects = report.AllObjects;
-                for (int i = 0; i < objects.Count - 1; i++)
-                {
-                    duplicateName = false;
-                    for (int j = i + 1; j < objects.Count; j++)
-                    {
-                        if (token.IsCancellationRequested)
-                            return null;
-
-                        if (objects[j] is ReportComponentBase && objects[i].Name == objects[j].Name)
-                        {
-                            listError.Add(new ValidationError(objects[j].Name, ValidationError.ErrorLevel.Error, Res.Get("Messages,Validator,DuplicateName"), (ReportComponentBase)objects[j]));
-                            duplicateName = true;
+                            listError.Add(new ValidationError(obj.Name, ValidationError.ErrorLevel.Warning, Res.Get("Messages,Validator,IntersectedObjects"), obj));
                         }
                     }
-                    if (objects[i] is ReportComponentBase && duplicateName)
-                        listError.Add(new ValidationError(objects[i].Name, ValidationError.ErrorLevel.Error, Res.Get("Messages,Validator,DuplicateName"), (ReportComponentBase)objects[i]));
+
+                    if (c is ReportComponentBase comp)
+                        listError.AddRange(comp.Validate());
                 }
             }
-            catch
+
+            bool duplicateName;
+            var objects = report.AllObjects;
+            for (int i = 0; i < objects.Count - 1; i++)
             {
-                // validator should not crash the app
-                return null;
+                duplicateName = false;
+                for (int j = i + 1; j < objects.Count; j++)
+                {
+                    if (token.IsCancellationRequested)
+                        return null;
+
+                    if (objects[j] is ReportComponentBase && objects[i].Name == objects[j].Name)
+                    {
+                        listError.Add(new ValidationError(objects[j].Name, ValidationError.ErrorLevel.Error, Res.Get("Messages,Validator,DuplicateName"), (ReportComponentBase)objects[j]));
+                        duplicateName = true;
+                    }
+                }
+                if (objects[i] is ReportComponentBase && duplicateName)
+                    listError.Add(new ValidationError(objects[i].Name, ValidationError.ErrorLevel.Error, Res.Get("Messages,Validator,DuplicateName"), (ReportComponentBase)objects[i]));
             }
-            return listError.Distinct().ToList();
         }
+        catch
+        {
+            // validator should not crash the app
+            return null;
+        }
+        return listError.Distinct().ToList();
     }
 }

@@ -1,22 +1,24 @@
-﻿using FastReport.Utils;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Web;
+
+using FastReport.Utils;
+using FastReport.Web.Application;
 using FastReport.Web.Application.Localizations;
 
-namespace FastReport.Web
+namespace FastReport.Web;
+
+partial class WebReport
 {
-     partial class WebReport
-     {
 
-        internal string template_XmlExportSettings()
-        {
-            var localizationXml = new XmlExportSettingsLocalization(Res);
-            var localizationPageSelector = new PageSelectorLocalization(Res);
+    internal string template_XmlExportSettings()
+    {
+        var localizationXml = new XmlExportSettingsLocalization(Res);
+        var localizationPageSelector = new PageSelectorLocalization(Res);
 
-            return $@"
+        return $@"
  <div class=""modalcontainer modalcontainer--8"" data-target=""xml"">
 	<div class=""fr-popup-content-export-parameters"">
         <div class=""fr-popup-content-title"">
@@ -59,6 +61,5 @@ namespace FastReport.Web
         <button class=""fr-popup-content-btn-submit"" {CreateOnClickEvent("frActions", "XMLExport")} id=""okButton"">OK</button>
     </div>
 </div>";
-        }
     }
 }

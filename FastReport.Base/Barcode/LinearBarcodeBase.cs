@@ -1,703 +1,704 @@
-﻿using FastReport.Utils;
-using SkiaSharp;
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Text;
 
-namespace FastReport.Barcode
+using FastReport.Utils;
+
+using SkiaSharp;
+
+namespace FastReport.Barcode;
+
+internal enum BarLineType
 {
-    internal enum BarLineType
+    White,
+    Black,
+
+    // line with 2/5 height (used for PostNet)
+    BlackHalf,
+
+    // start/stop/middle lines in EAN, UPC codes
+    BlackLong,
+
+    // for Intelligent Mail Barcode
+    // see https://upload.wikimedia.org/wikipedia/commons/7/7a/Four_State_Barcode.svg
+    BlackTracker,
+    BlackAscender,
+    BlackDescender,
+}
+
+/// <summary>
+/// The base class for linear (1D) barcodes.
+/// </summary>
+public class LinearBarcodeBase : BarcodeBase
+{
+    #region Fields
+    private float wideBarRatio;
+    private float[] modules;
+    private bool calcCheckSum;
+    private bool trim;
+    private bool fitDevicePixels;
+    private float oneBarWidth;
+    internal SKRect drawArea;
+    internal SKRect barArea;
+    internal bool textUp;
+    internal float ratioMin;
+    internal float ratioMax;
+    internal float extra1;
+    internal float extra2;
+    internal string pattern;
+    #endregion
+
+    #region Properties
+    /// <summary>
+    /// Gets or sets a value that determines if the barcode object should calculate
+    /// the check digit automatically.
+    /// </summary>
+    [DefaultValue(true)]
+    public bool CalcCheckSum
     {
-        White,
-        Black,
-
-        // line with 2/5 height (used for PostNet)
-        BlackHalf,
-
-        // start/stop/middle lines in EAN, UPC codes
-        BlackLong,
-
-        // for Intelligent Mail Barcode
-        // see https://upload.wikimedia.org/wikipedia/commons/7/7a/Four_State_Barcode.svg
-        BlackTracker,
-        BlackAscender,
-        BlackDescender,
+        get { return calcCheckSum; }
+        set { calcCheckSum = value; }
     }
 
     /// <summary>
-    /// The base class for linear (1D) barcodes.
+    /// Gets or sets a relative width of wide bars in the barcode.
     /// </summary>
-    public class LinearBarcodeBase : BarcodeBase
+    [DefaultValue(2f)]
+    public float WideBarRatio
     {
-        #region Fields
-        private float wideBarRatio;
-        private float[] modules;
-        private bool calcCheckSum;
-        private bool trim;
-        private bool fitDevicePixels;
-        private float oneBarWidth;
-        internal SKRect drawArea;
-        internal SKRect barArea;
-        internal bool textUp;
-        internal float ratioMin;
-        internal float ratioMax;
-        internal float extra1;
-        internal float extra2;
-        internal string pattern;
-        #endregion
-
-        #region Properties
-        /// <summary>
-        /// Gets or sets a value that determines if the barcode object should calculate
-        /// the check digit automatically.
-        /// </summary>
-        [DefaultValue(true)]
-        public bool CalcCheckSum
+        get { return wideBarRatio; }
+        set
         {
-            get { return calcCheckSum; }
-            set { calcCheckSum = value; }
+            wideBarRatio = value;
+            if (ratioMin != 0 && wideBarRatio < ratioMin)
+                wideBarRatio = ratioMin;
+            if (ratioMax != 0 && wideBarRatio > ratioMax)
+                wideBarRatio = ratioMax;
         }
+    }
 
-        /// <summary>
-        /// Gets or sets a relative width of wide bars in the barcode.
-        /// </summary>
-        [DefaultValue(2f)]
-        public float WideBarRatio
+    /// <summary>
+    /// Gets the value indicating that the barcode is numeric.
+    /// </summary>
+    [Browsable(false)]
+    public virtual bool IsNumeric
+    {
+        get { return true; }
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating that leading/trailing whitespaces must be trimmed.
+    /// </summary>
+    /// <value>
+    ///   <c>true</c> if trim; otherwise, <c>false</c>.
+    /// </value>
+    [DefaultValue(true)]
+    public bool Trim
+    {
+        get { return trim; }
+        set { trim = value; }
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating that bars must fit device pixels when rendering/printing.
+    /// </summary>
+    [DefaultValue(false)]
+    public bool FitDevicePixels
+    {
+        get { return fitDevicePixels; }
+        set { fitDevicePixels = value; }
+    }
+
+    /// <summary>
+    /// Gets or sets narrow bar width.
+    /// </summary>
+    /// <remarks>
+    /// This property value is measured in the screen pixels. Use <see cref="Units"/> class to
+    /// convert a value to desired units.
+    /// </remarks>
+    [DefaultValue(1.25f)]
+    [TypeConverter("FastReport.TypeConverters.HighPrecisionUnitsConverter, FastReport")]
+    public float OneBarWidth
+    {
+        get { return oneBarWidth; }
+        set
         {
-            get { return wideBarRatio; }
-            set
+            if (value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(value), "Value must be greater than 0");
+
+            oneBarWidth = value;
+        }
+    }
+
+    internal string Code
+    {
+        get
+        {
+            MakeModules();
+            pattern = GetPattern();
+            if (pattern == null)
             {
-                wideBarRatio = value;
-                if (ratioMin != 0 && wideBarRatio < ratioMin)
-                    wideBarRatio = ratioMin;
-                if (ratioMax != 0 && wideBarRatio > ratioMax)
-                    wideBarRatio = ratioMax;
+                MyRes res = new MyRes("Messages");
+                throw new FormatException(res.Get("BarcodeManyError"));
             }
+            return pattern;
         }
+    }
 
-        /// <summary>
-        /// Gets the value indicating that the barcode is numeric.
-        /// </summary>
-        [Browsable(false)]
-        public virtual bool IsNumeric
+    internal bool IsBarcodeRussianPost
+    {
+        get
         {
-            get { return true; }
+            return text.Length == 15 && text.StartsWith("RP", StringComparison.OrdinalIgnoreCase);
         }
+    }
+    #endregion
 
-        /// <summary>
-        /// Gets or sets a value indicating that leading/trailing whitespaces must be trimmed.
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if trim; otherwise, <c>false</c>.
-        /// </value>
-        [DefaultValue(true)]
-        public bool Trim
+    #region Private Methods
+    private void CheckText(string text)
+    {
+        foreach (char i in text)
         {
-            get { return trim; }
-            set { trim = value; }
+            if (i < '0' || i > '9')
+                throw new Exception(Res.Get("Messages,InvalidBarcode2"));
         }
+    }
 
-        /// <summary>
-        /// Gets or sets a value indicating that bars must fit device pixels when rendering/printing.
-        /// </summary>
-        [DefaultValue(false)]
-        public bool FitDevicePixels
-        {
-            get { return fitDevicePixels; }
-            set { fitDevicePixels = value; }
-        }
+    private void MakeModules()
+    {
+        modules[0] = 1;
+        modules[1] = modules[0] * WideBarRatio;
+        modules[2] = modules[1] * 1.5f;
+        modules[3] = modules[1] * 2;
+    }
 
-        /// <summary>
-        /// Gets or sets narrow bar width.
-        /// </summary>
-        /// <remarks>
-        /// This property value is measured in the screen pixels. Use <see cref="Units"/> class to
-        /// convert a value to desired units.
-        /// </remarks>
-        [DefaultValue(1.25f)]
-        [TypeConverter("FastReport.TypeConverters.HighPrecisionUnitsConverter, FastReport")]
-        public float OneBarWidth
+    internal virtual void DoLines(string data, IGraphics g, float zoom)
+    {
+        using (SKPaint pen = new SKPaint { Color = Color, StrokeWidth = 1, Style = SKPaintStyle.Stroke })
         {
-            get { return oneBarWidth; }
-            set
+            float currentWidth = 0;
+            foreach (char c in data)
             {
-                if (value <= 0)
-                    throw new ArgumentOutOfRangeException(nameof(value), "Value must be greater than 0");
+                float width;
+                BarLineType lt;
+                OneBarProps(c, out width, out lt);
 
-                oneBarWidth = value;
-            }
-        }
+                float heightStart = 0;
+                float heightEnd = barArea.Height;
 
-        internal string Code
-        {
-            get
-            {
-                MakeModules();
-                pattern = GetPattern();
-                if (pattern == null)
+                if (lt == BarLineType.BlackHalf)
                 {
-                    MyRes res = new MyRes("Messages");
-                    throw new FormatException(res.Get("BarcodeManyError"));
+                    heightEnd = barArea.Height * 2 / 5;
                 }
-                return pattern;
-            }
-        }
-
-        internal bool IsBarcodeRussianPost
-        {
-            get
-            {
-                return text.Length == 15 && text.StartsWith("RP", StringComparison.OrdinalIgnoreCase);
-            }
-        }
-        #endregion
-
-        #region Private Methods
-        private void CheckText(string text)
-        {
-            foreach (char i in text)
-            {
-                if (i < '0' || i > '9')
-                    throw new Exception(Res.Get("Messages,InvalidBarcode2"));
-            }
-        }
-
-        private void MakeModules()
-        {
-            modules[0] = 1;
-            modules[1] = modules[0] * WideBarRatio;
-            modules[2] = modules[1] * 1.5f;
-            modules[3] = modules[1] * 2;
-        }
-
-        internal virtual void DoLines(string data, IGraphics g, float zoom)
-        {
-            using (SKPaint pen = new SKPaint { Color = Color, StrokeWidth = 1, Style = SKPaintStyle.Stroke })
-            {
-                float currentWidth = 0;
-                foreach (char c in data)
+                else if (lt == BarLineType.BlackLong && showText)
                 {
-                    float width;
-                    BarLineType lt;
-                    OneBarProps(c, out width, out lt);
-
-                    float heightStart = 0;
-                    float heightEnd = barArea.Height;
-
-                    if (lt == BarLineType.BlackHalf)
-                    {
-                        heightEnd = barArea.Height * 2 / 5;
-                    }
-                    else if (lt == BarLineType.BlackLong && showText)
-                    {
-                        heightEnd += 7;
-                    }
-                    else if (lt == BarLineType.BlackTracker)
-                    {
-                        heightStart = barArea.Height * 1 / 3;
-                        heightEnd = barArea.Height * 2 / 3;
-                    }
-                    else if (lt == BarLineType.BlackAscender)
-                    {
-                        heightEnd = barArea.Height * 2 / 3;
-                    }
-                    else if (lt == BarLineType.BlackDescender)
-                    {
-                        heightStart = barArea.Height * 1 / 3;
-                    }
-
-                    width *= zoom;
-                    heightStart *= zoom;
-                    heightEnd *= zoom;
-                    pen.StrokeWidth = width;
-
-                    if (lt == BarLineType.BlackHalf)
-                    {
-                        g.DrawLine(pen,
-                            currentWidth + width / 2,
-                            barArea.Bottom * zoom,
-                            currentWidth + width / 2,
-                            barArea.Bottom * zoom - heightEnd);
-                    }
-                    else if (lt != BarLineType.White)
-                    {
-                        g.DrawLine(pen,
-                            currentWidth + width / 2,
-                            barArea.Top * zoom + heightStart,
-                            currentWidth + width / 2,
-                            barArea.Top * zoom + heightEnd);
-                    }
-
-                    currentWidth += width;
+                    heightEnd += 7;
                 }
+                else if (lt == BarLineType.BlackTracker)
+                {
+                    heightStart = barArea.Height * 1 / 3;
+                    heightEnd = barArea.Height * 2 / 3;
+                }
+                else if (lt == BarLineType.BlackAscender)
+                {
+                    heightEnd = barArea.Height * 2 / 3;
+                }
+                else if (lt == BarLineType.BlackDescender)
+                {
+                    heightStart = barArea.Height * 1 / 3;
+                }
+
+                width *= zoom;
+                heightStart *= zoom;
+                heightEnd *= zoom;
+                pen.StrokeWidth = width;
+
+                if (lt == BarLineType.BlackHalf)
+                {
+                    g.DrawLine(pen,
+                        currentWidth + width / 2,
+                        barArea.Bottom * zoom,
+                        currentWidth + width / 2,
+                        barArea.Bottom * zoom - heightEnd);
+                }
+                else if (lt != BarLineType.White)
+                {
+                    g.DrawLine(pen,
+                        currentWidth + width / 2,
+                        barArea.Top * zoom + heightStart,
+                        currentWidth + width / 2,
+                        barArea.Top * zoom + heightEnd);
+                }
+
+                currentWidth += width;
             }
         }
+    }
 
-        /// <summary>
-        /// Calculates the modulo 10 checksum and appends it to the data.
-        /// </summary>
-        /// <param name="data">A string of numeric data.</param>
-        /// <returns>The string with the appended checksum.</returns>
-        public static string CheckSumModulo10(string data)
+    /// <summary>
+    /// Calculates the modulo 10 checksum and appends it to the data.
+    /// </summary>
+    /// <param name="data">A string of numeric data.</param>
+    /// <returns>The string with the appended checksum.</returns>
+    public static string CheckSumModulo10(string data)
+    {
+        int sum = 0;
+        int fak = data.Length;
+
+        for (int i = 0; i < data.Length; i++)
         {
-            int sum = 0;
-            int fak = data.Length;
-
-            for (int i = 0; i < data.Length; i++)
-            {
-                if ((fak % 2) == 0)
-                    sum += int.Parse(data[i].ToString());
-                else
-                    sum += int.Parse(data[i].ToString()) * 3;
-                fak--;
-            }
-
-            if ((sum % 10) == 0)
-                return data + "0";
+            if ((fak % 2) == 0)
+                sum += int.Parse(data[i].ToString());
             else
-                return data + (10 - (sum % 10)).ToString();
+                sum += int.Parse(data[i].ToString()) * 3;
+            fak--;
         }
 
-        private void OneBarProps(char code, out float width, out BarLineType lt)
+        if ((sum % 10) == 0)
+            return data + "0";
+        else
+            return data + (10 - (sum % 10)).ToString();
+    }
+
+    private void OneBarProps(char code, out float width, out BarLineType lt)
+    {
+        switch (code)
         {
-            switch (code)
-            {
-                case '0':
-                    width = modules[0];
-                    lt = BarLineType.White;
-                    break;
-                case '1':
-                    width = modules[1];
-                    lt = BarLineType.White;
-                    break;
-                case '2':
-                    width = modules[2];
-                    lt = BarLineType.White;
-                    break;
-                case '3':
-                    width = modules[3];
-                    lt = BarLineType.White;
-                    break;
-                case '5':
-                    width = modules[0];
-                    lt = BarLineType.Black;
-                    break;
-                case '6':
-                    width = modules[1];
-                    lt = BarLineType.Black;
-                    break;
-                case '7':
-                    width = modules[2];
-                    lt = BarLineType.Black;
-                    break;
-                case '8':
-                    width = modules[3];
-                    lt = BarLineType.Black;
-                    break;
-                case '9':
-                    width = modules[0];
-                    lt = BarLineType.BlackHalf;
-                    break;
-                case 'A':
-                    width = modules[0];
-                    lt = BarLineType.BlackLong;
-                    break;
-                case 'B':
-                    width = modules[1];
-                    lt = BarLineType.BlackLong;
-                    break;
-                case 'C':
-                    width = modules[2];
-                    lt = BarLineType.BlackLong;
-                    break;
-                case 'D':
-                    width = modules[3];
-                    lt = BarLineType.BlackLong;
-                    break;
+            case '0':
+                width = modules[0];
+                lt = BarLineType.White;
+                break;
+            case '1':
+                width = modules[1];
+                lt = BarLineType.White;
+                break;
+            case '2':
+                width = modules[2];
+                lt = BarLineType.White;
+                break;
+            case '3':
+                width = modules[3];
+                lt = BarLineType.White;
+                break;
+            case '5':
+                width = modules[0];
+                lt = BarLineType.Black;
+                break;
+            case '6':
+                width = modules[1];
+                lt = BarLineType.Black;
+                break;
+            case '7':
+                width = modules[2];
+                lt = BarLineType.Black;
+                break;
+            case '8':
+                width = modules[3];
+                lt = BarLineType.Black;
+                break;
+            case '9':
+                width = modules[0];
+                lt = BarLineType.BlackHalf;
+                break;
+            case 'A':
+                width = modules[0];
+                lt = BarLineType.BlackLong;
+                break;
+            case 'B':
+                width = modules[1];
+                lt = BarLineType.BlackLong;
+                break;
+            case 'C':
+                width = modules[2];
+                lt = BarLineType.BlackLong;
+                break;
+            case 'D':
+                width = modules[3];
+                lt = BarLineType.BlackLong;
+                break;
 
-                // E,F,G for Intelligent Mail Barcode
-                case 'E':
-                    width = modules[1];
-                    lt = BarLineType.BlackTracker;
-                    break;
-                case 'F':
-                    width = modules[1];
-                    lt = BarLineType.BlackAscender;
-                    break;
-                case 'G':
-                    width = modules[1];
-                    lt = BarLineType.BlackDescender;
-                    break;
+            // E,F,G for Intelligent Mail Barcode
+            case 'E':
+                width = modules[1];
+                lt = BarLineType.BlackTracker;
+                break;
+            case 'F':
+                width = modules[1];
+                lt = BarLineType.BlackAscender;
+                break;
+            case 'G':
+                width = modules[1];
+                lt = BarLineType.BlackDescender;
+                break;
 
-                default:
-                    // something went wrong  :-(
-                    // mistyped pattern table
-                    throw new Exception("Incorrect barcode pattern code: " + code);
-            }
+            default:
+                // something went wrong  :-(
+                // mistyped pattern table
+                throw new Exception("Incorrect barcode pattern code: " + code);
         }
-        #endregion
+    }
+    #endregion
 
-        #region Protected Methods
-        internal float FontHeight => Font.Size * DrawUtils.ScreenDpiFX * 14 / 13; // 14/13 to be more or less compatible with old behavior (Arial,8 with hardcoded 14px height)
+    #region Protected Methods
+    internal float FontHeight => Font.Size * DrawUtils.ScreenDpiFX * 14 / 13; // 14/13 to be more or less compatible with old behavior (Arial,8 with hardcoded 14px height)
 
-        internal int CharToInt(char c)
+    internal int CharToInt(char c)
+    {
+        return int.Parse(Convert.ToString(c));
+    }
+
+    internal string SetLen(int len)
+    {
+        string result = "";
+
+        for (int i = 0; i < len - text.Length; i++)
         {
-            return int.Parse(Convert.ToString(c));
-        }
-
-        internal string SetLen(int len)
-        {
-            string result = "";
-
-            for (int i = 0; i < len - text.Length; i++)
-            {
-                result = "0" + result;
-            }
-
-            result += text;
-            return result.Substring(0, len);
-        }
-
-        internal string DoCheckSumming(string data)
-        {
-            return CheckSumModulo10(data);
+            result = "0" + result;
         }
 
-        internal string DoCheckSumming(string data, int len)
+        result += text;
+        return result.Substring(0, len);
+    }
+
+    internal string DoCheckSumming(string data)
+    {
+        return CheckSumModulo10(data);
+    }
+
+    internal string DoCheckSumming(string data, int len)
+    {
+        if (CalcCheckSum)
+            return DoCheckSumming(SetLen(len - 1));
+        return SetLen(len);
+    }
+
+    internal string DoConvert(string s)
+    {
+        StringBuilder builder = new StringBuilder(s);
+
+        for (int i = 0; i < s.Length; i++)
         {
-            if (CalcCheckSum)
-                return DoCheckSumming(SetLen(len - 1));
-            return SetLen(len);
+            int v = s[i] - 1;
+
+            if ((i % 2) == 0)
+                v += 5;
+
+            builder[i] = (char)v;
         }
 
-        internal string DoConvert(string s)
+        return builder.ToString();
+    }
+
+    internal string MakeLong(string data)
+    {
+        StringBuilder builder = new StringBuilder(data);
+
+        for (int i = 0; i < data.Length; i++)
         {
-            StringBuilder builder = new StringBuilder(s);
-
-            for (int i = 0; i < s.Length; i++)
-            {
-                int v = s[i] - 1;
-
-                if ((i % 2) == 0)
-                    v += 5;
-
-                builder[i] = (char)v;
-            }
-
-            return builder.ToString();
+            char c = builder[i];
+            if (c >= '5' && c <= '8')
+                c = (char)((int)c - (int)'5' + (int)'A');
+            builder[i] = c;
         }
 
-        internal string MakeLong(string data)
+        return builder.ToString();
+    }
+
+    internal virtual float GetWidth(string code)
+    {
+        float result = 0;
+        float w;
+        BarLineType lt;
+
+        foreach (char c in code)
         {
-            StringBuilder builder = new StringBuilder(data);
+            OneBarProps(c, out w, out lt);
+            result += w;
+        }
+        return result;
+    }
 
-            for (int i = 0; i < data.Length; i++)
-            {
-                char c = builder[i];
-                if (c >= '5' && c <= '8')
-                    c = (char)((int)c - (int)'5' + (int)'A');
-                builder[i] = c;
-            }
+    internal virtual string GetPattern()
+    {
+        return "";
+    }
+    #endregion
 
-            return builder.ToString();
+    #region Public Methods
+    /// <inheritdoc/>
+    public override void Assign(BarcodeBase source)
+    {
+        base.Assign(source);
+
+        LinearBarcodeBase src = source as LinearBarcodeBase;
+        WideBarRatio = src.WideBarRatio;
+        CalcCheckSum = src.CalcCheckSum;
+        Trim = src.Trim;
+        FitDevicePixels = src.FitDevicePixels;
+        OneBarWidth = src.OneBarWidth;
+    }
+
+    internal override void Serialize(FRWriter writer, string prefix, BarcodeBase diff)
+    {
+        base.Serialize(writer, prefix, diff);
+        LinearBarcodeBase c = diff as LinearBarcodeBase;
+
+        if (c == null || WideBarRatio != c.WideBarRatio)
+            writer.WriteValue(prefix + "WideBarRatio", WideBarRatio);
+        if (c == null || CalcCheckSum != c.CalcCheckSum)
+            writer.WriteBool(prefix + "CalcCheckSum", CalcCheckSum);
+        if (c == null || Trim != c.Trim)
+            writer.WriteBool(prefix + "Trim", Trim);
+        if (c == null || FitDevicePixels != c.FitDevicePixels)
+            writer.WriteBool(prefix + "FitDevicePixels", FitDevicePixels);
+        if (c == null || OneBarWidth != c.OneBarWidth)
+            writer.WriteValue(prefix + "OneBarWidth", OneBarWidth);
+    }
+
+    internal override void Initialize(string text, bool showText, int angle, float zoom)
+    {
+        if (trim)
+            text = text.Trim();
+        base.Initialize(text, showText, angle, zoom);
+    }
+
+    internal override SKSize CalcBounds()
+    {
+        float barWidth = GetWidth(Code);
+        if (IsBarcodeRussianPost)
+        {
+            barWidth += 21.15f; // Increase the width of the object
         }
 
-        internal virtual float GetWidth(string code)
+        float extra1 = IsBarcodeRussianPost ? 18 : 0; // Left margin 6 mm
+        float extra2 = 0;
+
+        if (showText)
         {
-            float result = 0;
-            float w;
-            BarLineType lt;
-
-            foreach (char c in code)
-            {
-                OneBarProps(c, out w, out lt);
-                result += w;
-            }
-            return result;
-        }
-
-        internal virtual string GetPattern()
-        {
-            return "";
-        }
-        #endregion
-
-        #region Public Methods
-        /// <inheritdoc/>
-        public override void Assign(BarcodeBase source)
-        {
-            base.Assign(source);
-
-            LinearBarcodeBase src = source as LinearBarcodeBase;
-            WideBarRatio = src.WideBarRatio;
-            CalcCheckSum = src.CalcCheckSum;
-            Trim = src.Trim;
-            FitDevicePixels = src.FitDevicePixels;
-            OneBarWidth = src.OneBarWidth;
-        }
-
-        internal override void Serialize(FRWriter writer, string prefix, BarcodeBase diff)
-        {
-            base.Serialize(writer, prefix, diff);
-            LinearBarcodeBase c = diff as LinearBarcodeBase;
-
-            if (c == null || WideBarRatio != c.WideBarRatio)
-                writer.WriteValue(prefix + "WideBarRatio", WideBarRatio);
-            if (c == null || CalcCheckSum != c.CalcCheckSum)
-                writer.WriteBool(prefix + "CalcCheckSum", CalcCheckSum);
-            if (c == null || Trim != c.Trim)
-                writer.WriteBool(prefix + "Trim", Trim);
-            if (c == null || FitDevicePixels != c.FitDevicePixels)
-                writer.WriteBool(prefix + "FitDevicePixels", FitDevicePixels);
-            if (c == null || OneBarWidth != c.OneBarWidth)
-                writer.WriteValue(prefix + "OneBarWidth", OneBarWidth);
-        }
-
-        internal override void Initialize(string text, bool showText, int angle, float zoom)
-        {
-            if (trim)
-                text = text.Trim();
-            base.Initialize(text, showText, angle, zoom);
-        }
-
-        internal override SKSize CalcBounds()
-        {
-            float barWidth = GetWidth(Code);
-            if (IsBarcodeRussianPost)
-            {
-                barWidth += 21.15f; // Increase the width of the object
-            }
-
-            float extra1 = IsBarcodeRussianPost ? 18 : 0; // Left margin 6 mm
-            float extra2 = 0;
-
-            if (showText)
-            {
-                float txtWidth = 0;
-                // Use SkiaSharp to measure text
-                using (SKPaint paint = new SKPaint { IsAntialias = true })
-                {
-                    txtWidth = Font.MeasureText(text, paint);
-                }
-
-                if (barWidth < txtWidth)
-                {
-                    extra1 = (txtWidth - barWidth) / 2 + 2;
-                    extra2 = extra1;
-                }
-            }
-
-            if (this.extra1 != 0)
-                extra1 = this.extra1;
-            if (this.extra2 != 0)
-                extra2 = this.extra2;
-
-            drawArea = new SKRect(0, 0, barWidth + extra1 + extra2, 0);
-            float barTopOffset = IsBarcodeRussianPost ? 9 : 0; // The indentation at the top of the barcode
-            barArea = new SKRect(extra1, barTopOffset, extra1 + barWidth, barTopOffset);
-
-            float width = drawArea.Width * OneBarWidth;
-            float height = IsBarcodeRussianPost ? 56.7f : 0; // The height of the object at the AutoSize
-            return new SKSize(width, height);
-        }
-
-        /// <inheritdoc/>
-        public override void DrawBarcode(IGraphics g, SKRect displayRect)
-        {
-            float originalWidth = CalcBounds().Width / OneBarWidth;
-
-            if (IsBarcodeRussianPost)
-            {
-                originalWidth -= 3f; // Increasing the barcode width to meet the specification
-            }
-
-            float width = angle == 90 || angle == 270 ? displayRect.Height : displayRect.Width;
-            float height = angle == 90 || angle == 270 ? displayRect.Width : displayRect.Height;
-            zoom = width / originalWidth;
-
-            if (FitDevicePixels)
-            {
-                var devicePx = g.Transform.ScaleX * zoom;
-
-                if (devicePx < 1)
-                    devicePx = 1;
-
-                // fix the zoom to fit to device pixels
-                zoom *= (int)devicePx / devicePx;
-            }
-
-            // SKRect is immutable, so create new instances
-            float barAreaHeight = height / zoom;
-            float barAreaTop = barArea.Top;
-            if (showText && !IsBarcodeRussianPost)
-            {
-                barAreaHeight -= FontHeight;
-                if (textUp)
-                    barAreaTop = FontHeight;
-            }
-            barArea = new SKRect(barArea.Left, barAreaTop, barArea.Right, barAreaTop + barAreaHeight);
-            drawArea = new SKRect(drawArea.Left, drawArea.Top, drawArea.Right, drawArea.Top + height / zoom);
-
-            IGraphicsState state = g.Save();
-            try
-            {
-                // rotate
-                g.TranslateTransform(displayRect.Left, displayRect.Top);
-                g.RotateTransform(angle);
-                switch (angle)
-                {
-                    case 90:
-                        g.TranslateTransform(0, -displayRect.Width);
-                        break;
-                    case 180:
-                        g.TranslateTransform(-displayRect.Width, -displayRect.Height);
-                        break;
-                    case 270:
-                        g.TranslateTransform(-displayRect.Height, 0);
-                        break;
-                }
-
-                if (IsBarcodeRussianPost)
-                {
-                    using (SKPaint rectPaint = new SKPaint { Color = SKColors.Black, StrokeWidth = 1f, Style = SKPaintStyle.Stroke })
-                    {
-                        g.DrawRectangle(rectPaint, drawArea.Left, drawArea.Top, displayRect.Width, displayRect.Height);
-                    }
-                    DrawTopLabel(g, zoom);
-                    // For barArea height reduction, create a new SKRect
-                    barArea = new SKRect(barArea.Left, barArea.Top, barArea.Right, barArea.Bottom - 18);
-                }
-
-                g.TranslateTransform(barArea.Left * zoom, 0);
-                DoLines(pattern, g, zoom);
-
-                if (IsBarcodeRussianPost)
-                {
-                    DrawBottomLabel(g, zoom, barArea, drawArea);
-                }
-                else if (showText)
-                {
-                    DrawText(g, text);
-                }
-            }
-            finally
-            {
-                g.Restore(state);
-            }
-        }
-
-        /// <summary>
-        /// Draws a top label for the barcode, adjusting its size and position based on the zoom level.
-        /// </summary>
-        private static void DrawTopLabel(IGraphics g, float zoom)
-        {
-            string label = "ПОЧТА РОССИИ";
-            float labelHeight = 1.3f * Units.Millimeters * zoom;
-
-            // Ensure the font size is valid (greater than 0) to avoid exceptions when creating the font
-            float labelFontSize = labelHeight > 0 ? labelHeight : 0.1f;
-            using (SKFont labelFont = new SKFont(SKTypeface.FromFamilyName("Arial"), labelFontSize))
-            using (SKPaint labelPaint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Fill })
-            {
-                g.DrawString(label, labelFont, labelPaint, new SKRect(16.5f * zoom, 2f * zoom, 0, 0), null);
-            }
-        }
-
-        /// <summary>
-        /// Draws the bottom label text below the barcode, splitting it into parts and applying specific formatting. <br/>
-        /// Adjusts positioning and spacing based on the zoom level and barcode area dimensions.
-        /// </summary>
-        private void DrawBottomLabel(IGraphics g, float zoom, SKRect barArea, SKRect drawArea)
-        {
-            string text = base.text;
-
-            text = CheckSumModulo10(text.Substring(2));
-
-            float fontSize = 1.8f * Units.Millimeters * zoom;
-
-            using (SKFont regularFont = new SKFont(SKTypeface.FromFamilyName("Arial"), fontSize > 0 ? fontSize : 0.1f))
-            using (SKFont boldFont = new SKFont(SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright), fontSize > 0 ? fontSize : 0.1f))
-            using (SKPaint paint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Fill })
-            {
-                // Split the processed text into parts for separate rendering
-                string[] parts = new string[]
-                {
-                    text.Substring(0, 6),
-                    text.Substring(6, 2),
-                    text.Substring(8, 5),
-                    text.Substring(13, 1)
-                };
-
-                // Calculate the total width of all text parts, including spacing between them
-                float totalWidth = 0;
-                foreach (var part in parts)
-                {
-                    float partWidth = regularFont.MeasureText(part, paint);
-                    totalWidth += partWidth + 2f; // Add fixed spacing between parts
-                }
-
-                float currentX = (barArea.Left - 17) * zoom; // Offset by 17 to move text closer to the left edge
-                float textY = (barArea.Bottom - 1) * zoom; // Offset by 1 to move text closer to the barcode
-
-                for (int i = 0; i < parts.Length; i++)
-                {
-                    SKFont partFont = (i == 2) ? boldFont : regularFont;
-                    float partWidth = partFont.MeasureText(parts[i], paint);
-
-                    g.DrawString(parts[i], partFont, paint, new SKRect(currentX, textY, 0, 0), null);
-                    currentX += partWidth + (7f * zoom); // Add spacing (7 units scaled by zoom) between parts
-                }
-            }
-        }
-
-        internal void DrawString(IGraphics g, float x1, float x2, string s)
-        {
-            DrawString(g, x1, x2, s, false);
-        }
-
-        internal void DrawString(IGraphics g, float x1, float x2, string s, bool small)
-        {
-            if (String.IsNullOrEmpty(s))
-                return;
-
-            // when we print, .Net automatically scales the font. However, we need to handle this process.
-            // Downscale the font to the screen resolution, then scale by required value (Zoom)
+            float txtWidth = 0;
+            // Use SkiaSharp to measure text
             using (SKPaint paint = new SKPaint { IsAntialias = true })
             {
-                float textHeight = Font.MeasureText(s, paint);
-                float fontZoom = FontHeight / textHeight * zoom;
+                txtWidth = Font.MeasureText(text, paint);
+            }
 
-                float fontSize = (Font.Size - (small ? 2 : 0)) * fontZoom;
-                using (SKFont drawFont = new SKFont(Font.Typeface, fontSize))
-                using (SKPaint drawPaint = new SKPaint { Color = Color, Style = SKPaintStyle.Fill, IsAntialias = true })
-                {
-                    float sizeWidth = drawFont.MeasureText(s, drawPaint) / zoom;
-                    float sizeHeight = fontSize / zoom;
-
-                    g.DrawString(s, drawFont, drawPaint,
-                      new SKRect((x1 + (x2 - x1 - sizeWidth) / 2) * zoom,
-                      (textUp ? 0 : drawArea.Height - sizeHeight) * zoom, 0, 0), null);
-                }
+            if (barWidth < txtWidth)
+            {
+                extra1 = (txtWidth - barWidth) / 2 + 2;
+                extra2 = extra1;
             }
         }
 
-        internal virtual void DrawText(IGraphics g, string data)
-        {
-            data = StripControlCodes(data);
-            DrawString(g, 0, drawArea.Width, data);
-        }
-        #endregion
+        if (this.extra1 != 0)
+            extra1 = this.extra1;
+        if (this.extra2 != 0)
+            extra2 = this.extra2;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="LinearBarcodeBase"/> class with default settings.
-        /// </summary>
-        public LinearBarcodeBase()
+        drawArea = new SKRect(0, 0, barWidth + extra1 + extra2, 0);
+        float barTopOffset = IsBarcodeRussianPost ? 9 : 0; // The indentation at the top of the barcode
+        barArea = new SKRect(extra1, barTopOffset, extra1 + barWidth, barTopOffset);
+
+        float width = drawArea.Width * OneBarWidth;
+        float height = IsBarcodeRussianPost ? 56.7f : 0; // The height of the object at the AutoSize
+        return new SKSize(width, height);
+    }
+
+    /// <inheritdoc/>
+    public override void DrawBarcode(IGraphics g, SKRect displayRect)
+    {
+        float originalWidth = CalcBounds().Width / OneBarWidth;
+
+        if (IsBarcodeRussianPost)
         {
-            modules = new float[4];
-            WideBarRatio = 2;
-            calcCheckSum = true;
-            trim = true;
-            oneBarWidth = 1.25f;
+            originalWidth -= 3f; // Increasing the barcode width to meet the specification
         }
+
+        float width = angle == 90 || angle == 270 ? displayRect.Height : displayRect.Width;
+        float height = angle == 90 || angle == 270 ? displayRect.Width : displayRect.Height;
+        zoom = width / originalWidth;
+
+        if (FitDevicePixels)
+        {
+            var devicePx = g.Transform.ScaleX * zoom;
+
+            if (devicePx < 1)
+                devicePx = 1;
+
+            // fix the zoom to fit to device pixels
+            zoom *= (int)devicePx / devicePx;
+        }
+
+        // SKRect is immutable, so create new instances
+        float barAreaHeight = height / zoom;
+        float barAreaTop = barArea.Top;
+        if (showText && !IsBarcodeRussianPost)
+        {
+            barAreaHeight -= FontHeight;
+            if (textUp)
+                barAreaTop = FontHeight;
+        }
+        barArea = new SKRect(barArea.Left, barAreaTop, barArea.Right, barAreaTop + barAreaHeight);
+        drawArea = new SKRect(drawArea.Left, drawArea.Top, drawArea.Right, drawArea.Top + height / zoom);
+
+        IGraphicsState state = g.Save();
+        try
+        {
+            // rotate
+            g.TranslateTransform(displayRect.Left, displayRect.Top);
+            g.RotateTransform(angle);
+            switch (angle)
+            {
+                case 90:
+                    g.TranslateTransform(0, -displayRect.Width);
+                    break;
+                case 180:
+                    g.TranslateTransform(-displayRect.Width, -displayRect.Height);
+                    break;
+                case 270:
+                    g.TranslateTransform(-displayRect.Height, 0);
+                    break;
+            }
+
+            if (IsBarcodeRussianPost)
+            {
+                using (SKPaint rectPaint = new SKPaint { Color = SKColors.Black, StrokeWidth = 1f, Style = SKPaintStyle.Stroke })
+                {
+                    g.DrawRectangle(rectPaint, drawArea.Left, drawArea.Top, displayRect.Width, displayRect.Height);
+                }
+                DrawTopLabel(g, zoom);
+                // For barArea height reduction, create a new SKRect
+                barArea = new SKRect(barArea.Left, barArea.Top, barArea.Right, barArea.Bottom - 18);
+            }
+
+            g.TranslateTransform(barArea.Left * zoom, 0);
+            DoLines(pattern, g, zoom);
+
+            if (IsBarcodeRussianPost)
+            {
+                DrawBottomLabel(g, zoom, barArea, drawArea);
+            }
+            else if (showText)
+            {
+                DrawText(g, text);
+            }
+        }
+        finally
+        {
+            g.Restore(state);
+        }
+    }
+
+    /// <summary>
+    /// Draws a top label for the barcode, adjusting its size and position based on the zoom level.
+    /// </summary>
+    private static void DrawTopLabel(IGraphics g, float zoom)
+    {
+        string label = "ПОЧТА РОССИИ";
+        float labelHeight = 1.3f * Units.Millimeters * zoom;
+
+        // Ensure the font size is valid (greater than 0) to avoid exceptions when creating the font
+        float labelFontSize = labelHeight > 0 ? labelHeight : 0.1f;
+        using (SKFont labelFont = new SKFont(SKTypeface.FromFamilyName("Arial"), labelFontSize))
+        using (SKPaint labelPaint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Fill })
+        {
+            g.DrawString(label, labelFont, labelPaint, new SKRect(16.5f * zoom, 2f * zoom, 0, 0), null);
+        }
+    }
+
+    /// <summary>
+    /// Draws the bottom label text below the barcode, splitting it into parts and applying specific formatting. <br/>
+    /// Adjusts positioning and spacing based on the zoom level and barcode area dimensions.
+    /// </summary>
+    private void DrawBottomLabel(IGraphics g, float zoom, SKRect barArea, SKRect drawArea)
+    {
+        string text = base.text;
+
+        text = CheckSumModulo10(text.Substring(2));
+
+        float fontSize = 1.8f * Units.Millimeters * zoom;
+
+        using (SKFont regularFont = new SKFont(SKTypeface.FromFamilyName("Arial"), fontSize > 0 ? fontSize : 0.1f))
+        using (SKFont boldFont = new SKFont(SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright), fontSize > 0 ? fontSize : 0.1f))
+        using (SKPaint paint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Fill })
+        {
+            // Split the processed text into parts for separate rendering
+            string[] parts = new string[]
+            {
+                text.Substring(0, 6),
+                text.Substring(6, 2),
+                text.Substring(8, 5),
+                text.Substring(13, 1)
+            };
+
+            // Calculate the total width of all text parts, including spacing between them
+            float totalWidth = 0;
+            foreach (var part in parts)
+            {
+                float partWidth = regularFont.MeasureText(part, paint);
+                totalWidth += partWidth + 2f; // Add fixed spacing between parts
+            }
+
+            float currentX = (barArea.Left - 17) * zoom; // Offset by 17 to move text closer to the left edge
+            float textY = (barArea.Bottom - 1) * zoom; // Offset by 1 to move text closer to the barcode
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                SKFont partFont = (i == 2) ? boldFont : regularFont;
+                float partWidth = partFont.MeasureText(parts[i], paint);
+
+                g.DrawString(parts[i], partFont, paint, new SKRect(currentX, textY, 0, 0), null);
+                currentX += partWidth + (7f * zoom); // Add spacing (7 units scaled by zoom) between parts
+            }
+        }
+    }
+
+    internal void DrawString(IGraphics g, float x1, float x2, string s)
+    {
+        DrawString(g, x1, x2, s, false);
+    }
+
+    internal void DrawString(IGraphics g, float x1, float x2, string s, bool small)
+    {
+        if (String.IsNullOrEmpty(s))
+            return;
+
+        // when we print, .Net automatically scales the font. However, we need to handle this process.
+        // Downscale the font to the screen resolution, then scale by required value (Zoom)
+        using (SKPaint paint = new SKPaint { IsAntialias = true })
+        {
+            float textHeight = Font.MeasureText(s, paint);
+            float fontZoom = FontHeight / textHeight * zoom;
+
+            float fontSize = (Font.Size - (small ? 2 : 0)) * fontZoom;
+            using (SKFont drawFont = new SKFont(Font.Typeface, fontSize))
+            using (SKPaint drawPaint = new SKPaint { Color = Color, Style = SKPaintStyle.Fill, IsAntialias = true })
+            {
+                float sizeWidth = drawFont.MeasureText(s, drawPaint) / zoom;
+                float sizeHeight = fontSize / zoom;
+
+                g.DrawString(s, drawFont, drawPaint,
+                  new SKRect((x1 + (x2 - x1 - sizeWidth) / 2) * zoom,
+                  (textUp ? 0 : drawArea.Height - sizeHeight) * zoom, 0, 0), null);
+            }
+        }
+    }
+
+    internal virtual void DrawText(IGraphics g, string data)
+    {
+        data = StripControlCodes(data);
+        DrawString(g, 0, drawArea.Width, data);
+    }
+    #endregion
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="LinearBarcodeBase"/> class with default settings.
+    /// </summary>
+    public LinearBarcodeBase()
+    {
+        modules = new float[4];
+        WideBarRatio = 2;
+        calcCheckSum = true;
+        trim = true;
+        oneBarWidth = 1.25f;
     }
 }

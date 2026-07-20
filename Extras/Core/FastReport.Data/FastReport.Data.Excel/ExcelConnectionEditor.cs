@@ -5,7 +5,7 @@ using FastReport.Utils;
 
 
 namespace FastReport.Data
-{
+
     public partial class ExcelConnectionEditor : ConnectionEditorBase
     {
 
@@ -53,4 +53,4 @@ namespace FastReport.Data
             Localize();
         }
     }
-}
+

@@ -1,13 +1,12 @@
 using FastReport.Utils;
 
-namespace FastReport.Plugins
+namespace FastReport.Plugins;
+
+public class WebPAssemblyInitializer : AssemblyInitializerBase
 {
-    public class WebPAssemblyInitializer : AssemblyInitializerBase
+    public static WebPCustomLoader DefaultLoader { get; } = new WebPCustomLoader();
+    public WebPAssemblyInitializer()
     {
-        public static WebPCustomLoader DefaultLoader { get; } = new WebPCustomLoader();
-        public WebPAssemblyInitializer()
-        {
-            ImageHelper.Register(DefaultLoader);
-        }
+        ImageHelper.Register(DefaultLoader);
     }
 }

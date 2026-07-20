@@ -1,24 +1,24 @@
-using FastReport.Dialog;
 using System.Threading.Tasks;
 
+using FastReport.Dialog;
 
-namespace FastReport.Engine
+
+namespace FastReport.Engine;
+
+public partial class ReportEngine
 {
-    public partial class ReportEngine
+    #region Private Methods
+
+
+    private bool RunDialogs()
     {
-        #region Private Methods
-
-
-        private bool RunDialogs()
-        {
-            return true;
-        }
-
-        private Task<bool> RunDialogsAsync()
-        {
-            return Task.FromResult(true);
-        }
-
-        #endregion Private Methods
+        return true;
     }
+
+    private Task<bool> RunDialogsAsync()
+    {
+        return Task.FromResult(true);
+    }
+
+    #endregion Private Methods
 }

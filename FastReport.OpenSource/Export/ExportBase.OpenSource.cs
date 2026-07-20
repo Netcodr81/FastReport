@@ -1,32 +1,31 @@
 ﻿using System.Collections.Generic;
 
-namespace FastReport.Export
+namespace FastReport.Export;
+
+partial class ExportBase
 {
-    partial class ExportBase
+    #region Private Methods
+
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    /// <param name="int0"></param>
+    partial void ShowPerformance(int int0);
+
+    /// <summary>
+    /// Not applicable to this edition.
+    /// </summary>
+    protected ReportPage GetOverlayPage(ReportPage page)
     {
-        #region Private Methods
-
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        /// <param name="int0"></param>
-        partial void ShowPerformance(int int0);
-
-        /// <summary>
-        /// Not applicable to this edition.
-        /// </summary>
-        protected ReportPage GetOverlayPage(ReportPage page)
-        {
-            return page;
-        }
-
-        private int GetPagesCount(List<int> pages)
-        {
-            return pages.Count;
-        }
-
-        internal const bool HAVE_TO_WORK_WITH_OVERLAY = false;
-
-        #endregion Private Methods
+        return page;
     }
+
+    private int GetPagesCount(List<int> pages)
+    {
+        return pages.Count;
+    }
+
+    internal const bool HAVE_TO_WORK_WITH_OVERLAY = false;
+
+    #endregion Private Methods
 }

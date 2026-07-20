@@ -1,79 +1,80 @@
 using System;
-using FastReport.Utils;
-using SkiaSharp;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
 
-namespace FastReport
+using FastReport.Utils;
+
+using SkiaSharp;
+
+namespace FastReport;
+
+public partial class PictureObject
 {
-    public partial class PictureObject
+    #region Public Methods
+
+    /// <inheritdoc/>
+    public override async Task LoadImageAsync(CancellationToken cancellationToken)
     {
-        #region Public Methods
-
-        /// <inheritdoc/>
-        public override async Task LoadImageAsync(CancellationToken cancellationToken)
+        if (!String.IsNullOrEmpty(ImageLocation))
         {
-            if (!String.IsNullOrEmpty(ImageLocation))
+            try
             {
-                try
-                {
-                    Uri uri = CalculateUri();
-                    byte[] bytes;
-                    if (uri.IsFile)
-                        bytes = await ImageHelper.LoadAsync(uri.LocalPath, cancellationToken);
-                    else
-                        bytes = await ImageHelper.LoadURLAsync(uri, cancellationToken);
-                    SetImageData(bytes);
-                }
-                catch
-                {
-                    Image = null;
-                }
-
-                ShouldDisposeImage = true;
+                Uri uri = CalculateUri();
+                byte[] bytes;
+                if (uri.IsFile)
+                    bytes = await ImageHelper.LoadAsync(uri.LocalPath, cancellationToken);
+                else
+                    bytes = await ImageHelper.LoadURLAsync(uri, cancellationToken);
+                SetImageData(bytes);
             }
-        }
-
-        #endregion
-
-        #region Report Engine
-
-        /// <inheritdoc/>
-        public override async Task GetDataAsync(CancellationToken cancellationToken)
-        {
-            await base.GetDataAsync(cancellationToken);
-
-            if (!String.IsNullOrEmpty(DataColumn))
+            catch
             {
-                // reset the image
                 Image = null;
-                imageData = null;
-
-                object data = Report.GetColumnValueNullable(DataColumn);
-                if (data is byte[])
-                {
-                    SetImageData((byte[])data);
-                }
-                else if (data is SKBitmap bitmap)
-                {
-                    Image = bitmap;
-                }
-                else if (data is SKImage image)
-                {
-                    Image = SKBitmap.FromImage(image);
-                }
-                else if (data is string dataStr)
-                {
-                    await SetImageLocationAsync(dataStr, true, cancellationToken);
-                }
             }
-            else
+
+            ShouldDisposeImage = true;
+        }
+    }
+
+    #endregion
+
+    #region Report Engine
+
+    /// <inheritdoc/>
+    public override async Task GetDataAsync(CancellationToken cancellationToken)
+    {
+        await base.GetDataAsync(cancellationToken);
+
+        if (!String.IsNullOrEmpty(DataColumn))
+        {
+            // reset the image
+            Image = null;
+            imageData = null;
+
+            object data = Report.GetColumnValueNullable(DataColumn);
+            if (data is byte[])
             {
-                // no other data received
-                await UpdateImageLocationAsync(cancellationToken);
+                SetImageData((byte[])data);
+            }
+            else if (data is SKBitmap bitmap)
+            {
+                Image = bitmap;
+            }
+            else if (data is SKImage image)
+            {
+                Image = SKBitmap.FromImage(image);
+            }
+            else if (data is string dataStr)
+            {
+                await SetImageLocationAsync(dataStr, true, cancellationToken);
             }
         }
-
-        #endregion
+        else
+        {
+            // no other data received
+            await UpdateImageLocationAsync(cancellationToken);
+        }
     }
+
+    #endregion
 }

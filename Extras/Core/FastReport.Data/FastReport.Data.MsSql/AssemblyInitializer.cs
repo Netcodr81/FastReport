@@ -1,12 +1,11 @@
 using FastReport.Utils;
 
-namespace FastReport.Data
+namespace FastReport.Data;
+
+public class MsSqlAssemblyInitializer : AssemblyInitializerBase
 {
-    public class MsSqlAssemblyInitializer : AssemblyInitializerBase
-  {
     public MsSqlAssemblyInitializer()
     {
-      RegisteredObjects.AddConnection(typeof(MsSqlDataConnection));
+        RegisteredObjects.AddConnection(typeof(MsSqlDataConnection));
     }
-  }
 }

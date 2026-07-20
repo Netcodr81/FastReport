@@ -2,168 +2,167 @@ using System;
 using System.Collections.Generic;
 
 
-namespace FastReport.Engine
+namespace FastReport.Engine;
+
+public partial class ReportEngine
 {
-    public partial class ReportEngine
+    #region Private Methods
+
+    private void BreakBand(BandBase band)
     {
-        #region Private Methods
+        BandBase cloneBand = Activator.CreateInstance(band.GetType()) as BandBase;
+        cloneBand.Assign(band);
+        cloneBand.SetRunning(true);
+        cloneBand.FlagMustBreak = band.FlagMustBreak;
 
-        private void BreakBand(BandBase band)
+        // clone band objects:
+        // - remove bands that can break, convert them to Text objects if necessary
+        // - skip subreports
+        foreach (Base c in band.Objects)
         {
-            BandBase cloneBand = Activator.CreateInstance(band.GetType()) as BandBase;
-            cloneBand.Assign(band);
-            cloneBand.SetRunning(true);
-            cloneBand.FlagMustBreak = band.FlagMustBreak;
-
-            // clone band objects:
-            // - remove bands that can break, convert them to Text objects if necessary
-            // - skip subreports
-            foreach (Base c in band.Objects)
+            if (c is BandBase && (c as BandBase).CanBreak)
             {
-                if (c is BandBase && (c as BandBase).CanBreak)
+                BandBase b = c as BandBase;
+                if (b.HasBorder || b.HasFill)
                 {
-                    BandBase b = c as BandBase;
-                    if (b.HasBorder || b.HasFill)
-                    {
-                        TextObject textObj = new TextObject();
-                        textObj.Bounds = b.Bounds;
-                        textObj.Border = b.Border.Clone();
-                        textObj.Fill = b.Fill.Clone();
-                        cloneBand.Objects.Add(textObj);
-                    }
-
-                    foreach (ReportComponentBase obj in b.Objects)
-                    {
-                        if (!(obj is BandBase))
-                        {
-                            ReportComponentBase cloneObj = Activator.CreateInstance(obj.GetType()) as ReportComponentBase;
-                            cloneObj.AssignAll(obj);
-                            // Explicitly set position to override any anchoring/docking behavior during break
-                            // Note: Anchor and Dock properties are inherited from AssignAll
-                            cloneObj.Left = obj.AbsLeft - band.AbsLeft;
-                            cloneObj.Top = obj.AbsTop - band.AbsTop;
-                            if (cloneObj is TextObject)
-                                (cloneObj as TextObject).Highlight.Clear();
-                            cloneBand.Objects.Add(cloneObj);
-                        }
-                    }
+                    TextObject textObj = new TextObject();
+                    textObj.Bounds = b.Bounds;
+                    textObj.Border = b.Border.Clone();
+                    textObj.Fill = b.Fill.Clone();
+                    cloneBand.Objects.Add(textObj);
                 }
-                else if (!(c is SubreportObject))
+
+                foreach (ReportComponentBase obj in b.Objects)
                 {
-                    Base cloneObj = Activator.CreateInstance(c.GetType()) as Base;
-                    cloneObj.AssignAll(c);
-                    cloneObj.Parent = cloneBand;
+                    if (!(obj is BandBase))
+                    {
+                        ReportComponentBase cloneObj = Activator.CreateInstance(obj.GetType()) as ReportComponentBase;
+                        cloneObj.AssignAll(obj);
+                        // Explicitly set position to override any anchoring/docking behavior during break
+                        // Note: Anchor and Dock properties are inherited from AssignAll
+                        cloneObj.Left = obj.AbsLeft - band.AbsLeft;
+                        cloneObj.Top = obj.AbsTop - band.AbsTop;
+                        if (cloneObj is TextObject)
+                            (cloneObj as TextObject).Highlight.Clear();
+                        cloneBand.Objects.Add(cloneObj);
+                    }
                 }
             }
-
-            BandBase breakTo = Activator.CreateInstance(band.GetType()) as BandBase;
-            breakTo.Assign(band);
-            breakTo.SetRunning(true);
-            breakTo.Child = null;
-            breakTo.CanGrow = true;
-            breakTo.StartNewPage = false;
-            breakTo.OutlineExpression = "";
-            breakTo.BeforePrintEvent = "";
-            breakTo.BeforeLayoutEvent = "";
-            breakTo.AfterPrintEvent = "";
-            breakTo.AfterLayoutEvent = "";
-            // breakTo must be breaked because it will print on a new page.
-            breakTo.FlagMustBreak = true;
-
-            // to allow clone and breaked bands to access Report
-            cloneBand.SetReport(Report);
-            breakTo.SetReport(Report);
-
-            try
+            else if (!(c is SubreportObject))
             {
-                // (case: object with Anchor = bottom on a breakable band)
-                // disable re-layout
-                cloneBand.SetUpdatingLayout(true);
-                cloneBand.Height = FreeSpace;
-                cloneBand.SetUpdatingLayout(false);
+                Base cloneObj = Activator.CreateInstance(c.GetType()) as Base;
+                cloneObj.AssignAll(c);
+                cloneObj.Parent = cloneBand;
+            }
+        }
 
-                if (cloneBand.Break(breakTo))
+        BandBase breakTo = Activator.CreateInstance(band.GetType()) as BandBase;
+        breakTo.Assign(band);
+        breakTo.SetRunning(true);
+        breakTo.Child = null;
+        breakTo.CanGrow = true;
+        breakTo.StartNewPage = false;
+        breakTo.OutlineExpression = "";
+        breakTo.BeforePrintEvent = "";
+        breakTo.BeforeLayoutEvent = "";
+        breakTo.AfterPrintEvent = "";
+        breakTo.AfterLayoutEvent = "";
+        // breakTo must be breaked because it will print on a new page.
+        breakTo.FlagMustBreak = true;
+
+        // to allow clone and breaked bands to access Report
+        cloneBand.SetReport(Report);
+        breakTo.SetReport(Report);
+
+        try
+        {
+            // (case: object with Anchor = bottom on a breakable band)
+            // disable re-layout
+            cloneBand.SetUpdatingLayout(true);
+            cloneBand.Height = FreeSpace;
+            cloneBand.SetUpdatingLayout(false);
+
+            if (cloneBand.Break(breakTo))
+            {
+                AddToPreparedPages(cloneBand);
+                EndColumn();
+                // CalcHeight fixes the height of objects in the remaining part
+                breakTo.CalcHeight();
+                AddToPreparedPages(breakTo);
+            }
+            else
+            {
+                if (cloneBand.FlagMustBreak)
                 {
-                    AddToPreparedPages(cloneBand);
-                    EndColumn();
-                    // CalcHeight fixes the height of objects in the remaining part
-                    breakTo.CalcHeight();
+                    // show band as is
+                    breakTo.FlagCheckFreeSpace = false;
                     AddToPreparedPages(breakTo);
                 }
                 else
                 {
-                    if (cloneBand.FlagMustBreak)
-                    {
-                        // show band as is
-                        breakTo.FlagCheckFreeSpace = false;
-                        AddToPreparedPages(breakTo);
-                    }
-                    else
-                    {
-                        EndColumn();
-                        breakTo.CalcHeight();
-                        AddToPreparedPages(breakTo);
-                    }
+                    EndColumn();
+                    breakTo.CalcHeight();
+                    AddToPreparedPages(breakTo);
                 }
             }
-            finally
-            {
-                cloneBand.Dispose();
-                breakTo.Dispose();
-            }
         }
-
-        private bool BandHasHardPageBreaks(BandBase band)
+        finally
         {
-            foreach (var obj in band.Objects)
-            {
-                if ((obj as ReportComponentBase).PageBreak)
-                    return true;
-            }
-            return false;
+            cloneBand.Dispose();
+            breakTo.Dispose();
         }
+    }
 
-        private BandBase[] SplitHardPageBreaks(BandBase band)
+    private bool BandHasHardPageBreaks(BandBase band)
+    {
+        foreach (var obj in band.Objects)
         {
-            List<BandBase> parts = new List<BandBase>();
+            if ((obj as ReportComponentBase).PageBreak)
+                return true;
+        }
+        return false;
+    }
 
-            BandBase cloneBand = null;
-            float offsetY = 0;
+    private BandBase[] SplitHardPageBreaks(BandBase band)
+    {
+        List<BandBase> parts = new List<BandBase>();
 
-            foreach (ReportComponentBase c in band.Objects)
+        BandBase cloneBand = null;
+        float offsetY = 0;
+
+        foreach (ReportComponentBase c in band.Objects)
+        {
+            if (c.PageBreak)
             {
+                if (cloneBand != null)
+                    cloneBand.Height = c.Top - offsetY;
+                cloneBand = null;
+                offsetY = c.Top;
+            }
+
+            if (cloneBand == null)
+            {
+                cloneBand = Activator.CreateInstance(band.GetType()) as BandBase;
+                cloneBand.Assign(band);
+                cloneBand.SetRunning(true);
                 if (c.PageBreak)
                 {
-                    if (cloneBand != null)
-                        cloneBand.Height = c.Top - offsetY;
-                    cloneBand = null;
-                    offsetY = c.Top;
+                    cloneBand.StartNewPage = true;
+                    cloneBand.FirstRowStartsNewPage = true;
                 }
-
-                if (cloneBand == null)
-                {
-                    cloneBand = Activator.CreateInstance(band.GetType()) as BandBase;
-                    cloneBand.Assign(band);
-                    cloneBand.SetRunning(true);
-                    if (c.PageBreak)
-                    {
-                        cloneBand.StartNewPage = true;
-                        cloneBand.FirstRowStartsNewPage = true;
-                    }
-                    parts.Add(cloneBand);
-                }
-
-                ReportComponentBase cloneObj = Activator.CreateInstance(c.GetType()) as ReportComponentBase;
-                cloneObj.AssignAll(c);
-                cloneObj.Top = c.Top - offsetY;
-                cloneObj.Parent = cloneBand;
+                parts.Add(cloneBand);
             }
 
-            if (cloneBand != null)
-                cloneBand.Height = band.Height - offsetY;
-            return parts.ToArray();
+            ReportComponentBase cloneObj = Activator.CreateInstance(c.GetType()) as ReportComponentBase;
+            cloneObj.AssignAll(c);
+            cloneObj.Top = c.Top - offsetY;
+            cloneObj.Parent = cloneBand;
         }
 
-        #endregion Private Methods
+        if (cloneBand != null)
+            cloneBand.Height = band.Height - offsetY;
+        return parts.ToArray();
     }
+
+    #endregion Private Methods
 }

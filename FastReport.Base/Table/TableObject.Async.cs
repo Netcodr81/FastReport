@@ -1,20 +1,19 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace FastReport.Table
+namespace FastReport.Table;
+
+public partial class TableObject
 {
-    public partial class TableObject
+    #region Report Engine
+
+    /// <inheritdoc/>
+    public override async Task GetDataAsync(CancellationToken cancellationToken)
     {
-        #region Report Engine
+        await base.GetDataAsync(cancellationToken);
 
-        /// <inheritdoc/>
-        public override async Task GetDataAsync(CancellationToken cancellationToken)
-        {
-            await base.GetDataAsync(cancellationToken);
-
-            GetDataShared();
-        }
-
-        #endregion
+        GetDataShared();
     }
+
+    #endregion
 }

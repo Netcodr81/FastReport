@@ -1,14 +1,13 @@
-﻿namespace FastReport.Dialog
+﻿namespace FastReport.Dialog;
+
+partial class DialogPage : PageBase
 {
-    partial class DialogPage : PageBase
-    {
-        #region Private Methods
+    #region Private Methods
 
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        partial void ResetFormBitmap();
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    partial void ResetFormBitmap();
 
-        #endregion Private Methods
-    }
+    #endregion Private Methods
 }

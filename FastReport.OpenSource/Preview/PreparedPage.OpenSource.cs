@@ -1,9 +1,8 @@
 using System.ComponentModel;
 
-namespace FastReport.Preview
+namespace FastReport.Preview;
+
+partial class PreparedPage
 {
-    partial class PreparedPage
-    {
-        partial void ProcessText(TextObject txt);
-    }
+    partial void ProcessText(TextObject txt);
 }

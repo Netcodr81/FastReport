@@ -6,28 +6,27 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace FastReport.JsonClassGenerator
+namespace FastReport.Data.JsonClassGenerator;
+
+public enum JsonTypeEnum
 {
-    public enum JsonTypeEnum
-    {
-        Anything,
-        String,
-        Boolean,
-        Integer,
-        Long,
-        Float,
-        Date,
-        NullableInteger,
-        NullableLong,
-        NullableFloat,
-        NullableBoolean,
-        NullableDate,
-        Object,
-        Array,
-        Dictionary,
-        NullableSomething,
-        NonConstrained
+    Anything,
+    String,
+    Boolean,
+    Integer,
+    Long,
+    Float,
+    Date,
+    NullableInteger,
+    NullableLong,
+    NullableFloat,
+    NullableBoolean,
+    NullableDate,
+    Object,
+    Array,
+    Dictionary,
+    NullableSomething,
+    NonConstrained
 
 
-    }
 }

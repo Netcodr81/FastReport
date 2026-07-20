@@ -1,18 +1,17 @@
 ﻿
-namespace FastReport.Web.Application.Localizations
+namespace FastReport.Web.Application.Localizations;
+
+internal class PptxExportSettingsLocalization
 {
-    internal class PptxExportSettingsLocalization
+    internal readonly string Title;
+    internal readonly string Pictures;
+
+    public PptxExportSettingsLocalization(IWebRes res)
     {
-        internal readonly string Title;
-        internal readonly string Pictures;
+        res.Root("Export,Pptx");
+        Title = res.Get("");
 
-        public PptxExportSettingsLocalization(IWebRes res)
-        {
-            res.Root("Export,Pptx");
-            Title = res.Get("");
-
-            res.Root("Export,Misc");
-            Pictures = res.Get("Pictures");
-        }
+        res.Root("Export,Misc");
+        Pictures = res.Get("Pictures");
     }
 }

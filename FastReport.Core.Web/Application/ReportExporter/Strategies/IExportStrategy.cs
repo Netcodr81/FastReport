@@ -1,10 +1,10 @@
-﻿using FastReport.Export;
-using System.IO;
+﻿using System.IO;
 
-namespace FastReport.Web
+using FastReport.Export;
+
+namespace FastReport.Web.Application.ReportExporter.Strategies;
+
+internal interface IExportStrategy
 {
-    internal interface IExportStrategy
-    {
-        void Export(Stream stream, Report report, ExportBase export);
-    }
+    void Export(Stream stream, Report report, ExportBase export);
 }

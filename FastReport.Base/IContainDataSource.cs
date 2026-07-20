@@ -1,9 +1,8 @@
 ﻿using FastReport.Data;
 
-namespace FastReport
+namespace FastReport;
+
+internal interface IContainDataSource
 {
-    internal interface IContainDataSource
-    {
-         void UpdateDataSourceRef(DataSourceBase newRefDatasource);
-    }
+    void UpdateDataSourceRef(DataSourceBase newRefDatasource);
 }

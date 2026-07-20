@@ -1,87 +1,86 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Data.Common;
+using System.Text;
 
-namespace FastReport.Data
+namespace FastReport.Data;
+
+/// <summary>
+/// Represents the XmlDataConnection connection string builder.
+/// </summary>
+/// <remarks>
+/// Use this class to parse connection string returned by the <b>XmlDataConnection</b> class.
+/// </remarks>
+public class XmlConnectionStringBuilder : DbConnectionStringBuilder
 {
     /// <summary>
-    /// Represents the XmlDataConnection connection string builder.
+    /// Gets or sets the path to .xml file.
     /// </summary>
-    /// <remarks>
-    /// Use this class to parse connection string returned by the <b>XmlDataConnection</b> class.
-    /// </remarks>
-    public class XmlConnectionStringBuilder : DbConnectionStringBuilder
+    public string XmlFile
     {
-        /// <summary>
-        /// Gets or sets the path to .xml file.
-        /// </summary>
-        public string XmlFile
+        get
         {
-            get
-            {
-                object xmlFile;
-                if (TryGetValue("XmlFile", out xmlFile))
-                    return (string)xmlFile;
-                return "";
-            }
-            set
-            {
-                base["XmlFile"] = value;
-            }
+            object xmlFile;
+            if (TryGetValue("XmlFile", out xmlFile))
+                return (string)xmlFile;
+            return "";
         }
+        set
+        {
+            base["XmlFile"] = value;
+        }
+    }
 
-        /// <summary>
-        /// Gets or sets the path to .xsd file.
-        /// </summary>
-        public string XsdFile
+    /// <summary>
+    /// Gets or sets the path to .xsd file.
+    /// </summary>
+    public string XsdFile
+    {
+        get
         {
-            get
-            {
-                object xsdFile;
-                if (TryGetValue("XsdFile", out xsdFile))
-                    return (string)xsdFile;
-                return "";
-            }
-            set
-            {
-                base["XsdFile"] = value;
-            }
+            object xsdFile;
+            if (TryGetValue("XsdFile", out xsdFile))
+                return (string)xsdFile;
+            return "";
         }
+        set
+        {
+            base["XsdFile"] = value;
+        }
+    }
 
-        /// <summary>
-        /// Gets or sets the codepage of .xml file.
-        /// </summary>
-        public int Codepage
+    /// <summary>
+    /// Gets or sets the codepage of .xml file.
+    /// </summary>
+    public int Codepage
+    {
+        get
         {
-            get
+            object codepage;
+            if (TryGetValue("Codepage", out codepage))
             {
-                object codepage;
-                if (TryGetValue("Codepage", out codepage))
-                {
-                    return int.Parse((string)codepage);
-                }
-                return Encoding.Default.CodePage;
+                return int.Parse((string)codepage);
             }
-            set { base["Codepage"] = value; }
+            return Encoding.Default.CodePage;
         }
+        set { base["Codepage"] = value; }
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="XmlConnectionStringBuilder"/> class with default settings.
-        /// </summary>
-        public XmlConnectionStringBuilder()
-        {
-            ConnectionString = "";
-        }
+    /// <summary>
+    /// Initializes a new instance of the <see cref="XmlConnectionStringBuilder"/> class with default settings.
+    /// </summary>
+    public XmlConnectionStringBuilder()
+    {
+        ConnectionString = "";
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="XmlConnectionStringBuilder"/> class with 
-        /// specified connection string.
-        /// </summary>
-        /// <param name="connectionString">The connection string.</param>
-        public XmlConnectionStringBuilder(string connectionString) : base()
-        {
-            ConnectionString = connectionString;
-        }
+    /// <summary>
+    /// Initializes a new instance of the <see cref="XmlConnectionStringBuilder"/> class with 
+    /// specified connection string.
+    /// </summary>
+    /// <param name="connectionString">The connection string.</param>
+    public XmlConnectionStringBuilder(string connectionString) : base()
+    {
+        ConnectionString = connectionString;
     }
 }

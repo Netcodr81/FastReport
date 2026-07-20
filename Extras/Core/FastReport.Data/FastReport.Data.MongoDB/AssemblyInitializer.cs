@@ -1,15 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+
 using FastReport.Utils;
 
-namespace FastReport.Data
+namespace FastReport.Data;
+
+public class MongoDBAssemblyInitializer : AssemblyInitializerBase
 {
-    public class MongoDBAssemblyInitializer : AssemblyInitializerBase
+    public MongoDBAssemblyInitializer()
     {
-        public MongoDBAssemblyInitializer()
-        {
-            RegisteredObjects.AddConnection(typeof(MongoDBDataConnection));
-        }
+        RegisteredObjects.AddConnection(typeof(MongoDBDataConnection));
     }
 }

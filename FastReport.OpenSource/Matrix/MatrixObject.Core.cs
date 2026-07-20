@@ -1,20 +1,19 @@
-﻿namespace FastReport.Matrix
+﻿namespace FastReport.Matrix;
+
+partial class MatrixObject
 {
-    partial class MatrixObject
-    {
-        #region Private Methods
+    #region Private Methods
 
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        partial void InitDesign();
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    partial void InitDesign();
 
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        /// <param name="flag"></param>
-        partial void RefreshTemplate(bool flag);
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    /// <param name="flag"></param>
+    partial void RefreshTemplate(bool flag);
 
-        #endregion Private Methods
-    }
+    #endregion Private Methods
 }

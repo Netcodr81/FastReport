@@ -1,15 +1,15 @@
 ﻿using FastReport.Utils;
+
 using SkiaSharp;
 
-namespace FastReport
+namespace FastReport;
+
+partial class BandBase
 {
-    partial class BandBase
+    /// <inheritdoc/>
+    public override void Draw(FRPaintEventArgs e)
     {
-        /// <inheritdoc/>
-        public override void Draw(FRPaintEventArgs e)
-        {
-            DrawBackground(e);
-            Border.Draw(e, new SKRect(AbsLeft, AbsTop, AbsLeft + Width, AbsTop + Height));
-        }
+        DrawBackground(e);
+        Border.Draw(e, new SKRect(AbsLeft, AbsTop, AbsLeft + Width, AbsTop + Height));
     }
 }

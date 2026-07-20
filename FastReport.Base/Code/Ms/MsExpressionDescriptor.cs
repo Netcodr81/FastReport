@@ -1,30 +1,29 @@
 using System.Reflection;
 
-namespace FastReport.Code.Ms
+namespace FastReport.Code.Ms;
+
+internal class MsExpressionDescriptor : ExpressionDescriptor
 {
-    internal class MsExpressionDescriptor : ExpressionDescriptor
+    private MethodInfo methodInfo;
+
+    public override object Invoke(object[] parameters)
     {
-        private MethodInfo methodInfo;
+        if (Assembly == null || Assembly.Instance == null)
+            return null;
 
-        public override object Invoke(object[] parameters)
+        if (methodInfo == null)
         {
-            if (Assembly == null || Assembly.Instance == null)
-                return null;
-
-            if (methodInfo == null)
-            {
-                methodInfo = Assembly.Instance.GetType().GetMethod(MethodName,
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            }
-
-            if (methodInfo == null)
-                return null;
-
-return methodInfo.Invoke(Assembly.Instance, parameters);
+            methodInfo = Assembly.Instance.GetType().GetMethod(MethodName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         }
 
-        public MsExpressionDescriptor(MsAssemblyDescriptor assembly, string methodName) : base(assembly, methodName)
-        {
-        }
+        if (methodInfo == null)
+            return null;
+
+        return methodInfo.Invoke(Assembly.Instance, parameters);
+    }
+
+    public MsExpressionDescriptor(MsAssemblyDescriptor assembly, string methodName) : base(assembly, methodName)
+    {
     }
 }

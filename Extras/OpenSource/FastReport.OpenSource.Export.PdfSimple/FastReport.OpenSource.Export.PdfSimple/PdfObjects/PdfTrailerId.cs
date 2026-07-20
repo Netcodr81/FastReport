@@ -1,58 +1,58 @@
-﻿using FastReport.Export.PdfSimple.PdfCore;
-using System;
+﻿using System;
 
-namespace FastReport.Export.PdfSimple.PdfObjects
+using FastReport.OpenSource.Export.PdfSimple.PdfCore;
+
+namespace FastReport.OpenSource.Export.PdfSimple.PdfObjects;
+
+/// <summary>
+/// Id object of trailer of pdf file
+/// </summary>
+public class PdfTrailerId : PdfArray
 {
+    #region Public Constructors
+
     /// <summary>
-    /// Id object of trailer of pdf file
+    /// Initialize a new ID with random value
     /// </summary>
-    public class PdfTrailerId : PdfArray
+    public PdfTrailerId()
     {
+        string fileID = Guid.NewGuid().ToString().Replace("-", "");
+        Add(new PdfGUID(fileID));
+        Add(new PdfGUID(fileID));
+    }
+
+    #endregion Public Constructors
+
+    #region Private Classes
+
+    private class PdfGUID : PdfObjectBase
+    {
+        #region Private Fields
+
+        private readonly string guid;
+
+        #endregion Private Fields
+
         #region Public Constructors
 
-        /// <summary>
-        /// Initialize a new ID with random value
-        /// </summary>
-        public PdfTrailerId()
+        public PdfGUID(string guid)
         {
-            string fileID = Guid.NewGuid().ToString().Replace("-", "");
-            Add(new PdfGUID(fileID));
-            Add(new PdfGUID(fileID));
+            this.guid = guid;
         }
 
         #endregion Public Constructors
 
-        #region Private Classes
+        #region Public Methods
 
-        private class PdfGUID : PdfObjectBase
+        public override void Write(PdfWriter writer)
         {
-            #region Private Fields
-
-            private readonly string guid;
-
-            #endregion Private Fields
-
-            #region Public Constructors
-
-            public PdfGUID(string guid)
-            {
-                this.guid = guid;
-            }
-
-            #endregion Public Constructors
-
-            #region Public Methods
-
-            public override void Write(PdfWriter writer)
-            {
-                writer.Write("<");
-                writer.Write(guid);
-                writer.Write(">");
-            }
-
-            #endregion Public Methods
+            writer.Write("<");
+            writer.Write(guid);
+            writer.Write(">");
         }
 
-        #endregion Private Classes
+        #endregion Public Methods
     }
+
+    #endregion Private Classes
 }

@@ -1,39 +1,38 @@
 using FastReport.Utils;
 
-namespace FastReport.Table
+namespace FastReport.Table;
+
+internal class TableStyleCollection : FRCollectionBase
 {
-    internal class TableStyleCollection : FRCollectionBase
+    private TableCell defaultStyle;
+
+    public TableCell DefaultStyle
     {
-        private TableCell defaultStyle;
+        get { return defaultStyle; }
+    }
 
-        public TableCell DefaultStyle
+    public TableCell this[int index]
+    {
+        get { return List[index] as TableCell; }
+        set { List[index] = value; }
+    }
+
+    public TableCell Add(TableCell style)
+    {
+        for (int i = 0; i < Count; i++)
         {
-            get { return defaultStyle; }
+            if (this[i].Equals(style))
+                return this[i];
         }
 
-        public TableCell this[int index]
-        {
-            get { return List[index] as TableCell; }
-            set { List[index] = value; }
-        }
+        TableCell newStyle = new TableCell();
+        newStyle.Assign(style);
+        List.Add(newStyle);
+        return newStyle;
+    }
 
-        public TableCell Add(TableCell style)
-        {
-            for (int i = 0; i < Count; i++)
-            {
-                if (this[i].Equals(style))
-                    return this[i];
-            }
-
-            TableCell newStyle = new TableCell();
-            newStyle.Assign(style);
-            List.Add(newStyle);
-            return newStyle;
-        }
-
-        public TableStyleCollection() : base(null)
-        {
-            defaultStyle = new TableCell();
-        }
+    public TableStyleCollection() : base(null)
+    {
+        defaultStyle = new TableCell();
     }
 }

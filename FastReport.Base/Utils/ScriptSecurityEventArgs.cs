@@ -1,95 +1,94 @@
 using System;
 
-namespace FastReport.Utils
+namespace FastReport.Utils;
+
+/// <summary>
+/// Script security event arguments.
+/// </summary>
+public class ScriptSecurityEventArgs : EventArgs
 {
     /// <summary>
-    /// Script security event arguments.
+    /// Gets the report language.
     /// </summary>
-    public class ScriptSecurityEventArgs : EventArgs
+    /// <value>The report language.</value>
+    public Language ReportLanguage
     {
-        /// <summary>
-        /// Gets the report language.
-        /// </summary>
-        /// <value>The report language.</value>
-        public Language ReportLanguage
+        get
         {
-            get
-            {
-                return Report.ScriptLanguage;
-            }
+            return Report.ScriptLanguage;
         }
+    }
 
-        private readonly Report _report;
+    private readonly Report _report;
 
-        /// <summary>
-        /// Gets the report.
-        /// </summary>
-        /// <value>The report.</value>
-        public Report Report
+    /// <summary>
+    /// Gets the report.
+    /// </summary>
+    /// <value>The report.</value>
+    public Report Report
+    {
+        get
         {
-            get
-            {
-                return _report;
-            }
+            return _report;
         }
+    }
 
-        private readonly string _reportScript;
+    private readonly string _reportScript;
 
-        /// <summary>
-        /// Gets the report script.
-        /// </summary>
-        /// <value>The report script.</value>
-        public string ReportScript
+    /// <summary>
+    /// Gets the report script.
+    /// </summary>
+    /// <value>The report script.</value>
+    public string ReportScript
+    {
+        get
         {
-            get
-            {
-                return _reportScript;
-            }
+            return _reportScript;
         }
+    }
 
-        private readonly string[] _references;
+    private readonly string[] _references;
 
-        /// <summary>
-        /// Gets the references of script.
-        /// </summary>
-        /// <value>Script references</value>
-        public string[] References
+    /// <summary>
+    /// Gets the references of script.
+    /// </summary>
+    /// <value>Script references</value>
+    public string[] References
+    {
+        get
         {
-            get
-            {
-                return _references;
-            }
+            return _references;
         }
+    }
 
-        private bool _isValid = true;
+    private bool _isValid = true;
 
-        /// <summary>
-        /// Gets or sets value if script is allowed to compile
-        /// </summary>
-        /// <value><c>true</c> if is valid; otherwise, <c>false</c>.</value>
-        public bool IsValid
+    /// <summary>
+    /// Gets or sets value if script is allowed to compile
+    /// </summary>
+    /// <value><c>true</c> if is valid; otherwise, <c>false</c>.</value>
+    public bool IsValid
+    {
+        get
         {
-            get
-            {
-                return _isValid;
-            }
-            set
-            {
-                _isValid = value;
-            }
+            return _isValid;
         }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="T:FastReport.Utils.ScriptSecurityEventArgs"/> class.
-        /// </summary>
-        /// <param name="report">Report.</param>
-        /// <param name="script">Report's script.</param>
-        /// <param name="refs">Report's references.</param>
-        public ScriptSecurityEventArgs(Report report, string script, string[] refs)
+        set
         {
-            _report = report;
-            _reportScript = script;
-            _references = refs;
+            _isValid = value;
         }
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="T:FastReport.Utils.ScriptSecurityEventArgs"/> class.
+    /// </summary>
+    /// <param name="report">Report.</param>
+    /// <param name="script">Report's script.</param>
+    /// <param name="refs">Report's references.</param>
+    public ScriptSecurityEventArgs(Report report, string script, string[] refs)
+    {
+        _report = report;
+        _reportScript = script;
+        _references = refs;
     }
 }

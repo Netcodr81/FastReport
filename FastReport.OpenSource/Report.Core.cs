@@ -1,46 +1,45 @@
-﻿using FastReport.Utils;
+﻿using System;
 
-using System;
+using FastReport.Utils;
 
-namespace FastReport
+namespace FastReport;
+
+partial class Report
 {
-    partial class Report
+    #region Private Methods
+
+    private void DisposePreparedPages()
     {
-        #region Private Methods
-
-        private void DisposePreparedPages()
-        {
-            if (preparedPages != null)
-                preparedPages.Dispose();
-        }
-
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        /// <param name="writer"></param>
-        /// <param name="report"></param>
-        partial void SerializeDesign(FRWriter writer, Report report);
-
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        partial void InitDesign();
-
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        partial void ClearDesign();
-
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        partial void DisposeDesign();
-
-        partial void StartPerformanceCounter();
-
-        partial void StopPerformanceCounter();
-
-
-        #endregion Private Methods
+        if (preparedPages != null)
+            preparedPages.Dispose();
     }
+
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    /// <param name="writer"></param>
+    /// <param name="report"></param>
+    partial void SerializeDesign(FRWriter writer, Report report);
+
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    partial void InitDesign();
+
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    partial void ClearDesign();
+
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    partial void DisposeDesign();
+
+    partial void StartPerformanceCounter();
+
+    partial void StopPerformanceCounter();
+
+
+    #endregion Private Methods
 }

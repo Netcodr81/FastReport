@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+
 using FastReport.Utils;
 
-namespace FastReport.Data
+namespace FastReport.Data;
+
+public class AssemblyInitializer : AssemblyInitializerBase
 {
-    public class AssemblyInitializer : AssemblyInitializerBase
+    public AssemblyInitializer()
     {
-        public AssemblyInitializer()
-        {
-            RegisteredObjects.AddConnection(typeof(ExcelDataConnection));
-        }
+        RegisteredObjects.AddConnection(typeof(ExcelDataConnection));
     }
 }

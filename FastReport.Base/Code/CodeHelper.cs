@@ -3,93 +3,92 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Reflection;
+
 using FastReport.Data;
 using FastReport.Engine;
 using FastReport.Utils;
 
 
 
-namespace FastReport.Code
+namespace FastReport.Code;
+
+internal abstract partial class CodeHelperBase
 {
-    internal abstract partial class CodeHelperBase
+    #region Fields
+    private Report report;
+    #endregion
+
+    #region Properties
+    public Report Report
     {
-        #region Fields
-        private Report report;
-        #endregion
+        get { return report; }
+    }
+    #endregion
 
-        #region Properties
-        public Report Report
+    #region Protected Methods
+    protected string StripEventHandlers(Hashtable events)
+    {
+        using (Report report = new Report())
         {
-            get { return report; }
-        }
-        #endregion
+            report.LoadFromString(Report.SaveToString());
+            report.ScriptText = EmptyScript();
 
-        #region Protected Methods
-        protected string StripEventHandlers(Hashtable events)
-        {
-            using (Report report = new Report())
+            List<Base> list = new List<Base>();
+            foreach (Base c in report.AllObjects)
             {
-                report.LoadFromString(Report.SaveToString());
-                report.ScriptText = EmptyScript();
+                list.Add(c);
+            }
+            list.Add(report);
 
-                List<Base> list = new List<Base>();
-                foreach (Base c in report.AllObjects)
+            foreach (Base c in list)
+            {
+                PropertyInfo[] props = c.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
+                foreach (PropertyInfo info in props)
                 {
-                    list.Add(c);
-                }
-                list.Add(report);
-
-                foreach (Base c in list)
-                {
-                    PropertyInfo[] props = c.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
-                    foreach (PropertyInfo info in props)
+                    if (info.PropertyType == typeof(string) && info.Name.EndsWith("Event"))
                     {
-                        if (info.PropertyType == typeof(string) && info.Name.EndsWith("Event"))
+                        string value = (string)info.GetValue(c, null);
+                        if (!String.IsNullOrEmpty(value))
                         {
-                            string value = (string)info.GetValue(c, null);
-                            if (!String.IsNullOrEmpty(value))
-                            {
-                                string cName = c.Name + ".";
-                                if (c is Report)
-                                    cName = "";
-                                events.Add(cName + info.Name.Replace("Event", ""), value);
-                                info.SetValue(c, "", null);
-                            }
+                            string cName = c.Name + ".";
+                            if (c is Report)
+                                cName = "";
+                            events.Add(cName + info.Name.Replace("Event", ""), value);
+                            info.SetValue(c, "", null);
                         }
                     }
                 }
-
-                return report.SaveToString();
             }
+
+            return report.SaveToString();
         }
+    }
 
-        protected abstract string GetTypeDeclaration(Type type);
-        #endregion
+    protected abstract string GetTypeDeclaration(Type type);
+    #endregion
 
 
-        #region Public Methods
-        public abstract string EmptyScript();
-        public abstract int GetPositionToInsertOwnItems(string scriptText);
-        public abstract string AddField(Type type, string name);
-        public abstract string BeginCalcExpression();
-        public abstract string AddExpression(string expr, string value);
-        public abstract string EndCalcExpression();
-        public abstract string ReplaceColumnName(string name, Type type);
-        public abstract string ReplaceParameterName(Parameter parameter);
-        public abstract string ReplaceVariableName(Parameter parameter);
-        public abstract string ReplaceTotalName(string name);
-        public abstract string GenerateInitializeMethod();
-        public abstract string ReplaceClassName(string scriptText, string className);
-        public abstract string GetMethodSignature(MethodInfo info, bool fullForm);
-        public abstract string GetMethodSignatureAndBody(MethodInfo info);
-        public abstract string GetPropertySignature(PropertyInfo info, bool fullForm);
-        #endregion
+    #region Public Methods
+    public abstract string EmptyScript();
+    public abstract int GetPositionToInsertOwnItems(string scriptText);
+    public abstract string AddField(Type type, string name);
+    public abstract string BeginCalcExpression();
+    public abstract string AddExpression(string expr, string value);
+    public abstract string EndCalcExpression();
+    public abstract string ReplaceColumnName(string name, Type type);
+    public abstract string ReplaceParameterName(Parameter parameter);
+    public abstract string ReplaceVariableName(Parameter parameter);
+    public abstract string ReplaceTotalName(string name);
+    public abstract string GenerateInitializeMethod();
+    public abstract string ReplaceClassName(string scriptText, string className);
+    public abstract string GetMethodSignature(MethodInfo info, bool fullForm);
+    public abstract string GetMethodSignatureAndBody(MethodInfo info);
+    public abstract string GetPropertySignature(PropertyInfo info, bool fullForm);
+    #endregion
 
-        public CodeHelperBase(Report report)
-        {
-            this.report = report;
-        }
-
+    public CodeHelperBase(Report report)
+    {
+        this.report = report;
     }
 
 }

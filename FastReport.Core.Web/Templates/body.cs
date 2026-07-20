@@ -1,18 +1,18 @@
 ﻿using System;
 
-namespace FastReport.Web
+namespace FastReport.Web;
+
+partial class WebReport
 {
-    partial class WebReport
+    string template_body(bool renderBody)
     {
-        string template_body(bool renderBody)
-        {
-            if (!renderBody)
-                return $@"
+        if (!renderBody)
+            return $@"
 <div class=""fr-report-body"">
     <script type=""module"" class=""webreport-script"" data-config='{GetScriptProps()}' src=""/_content/FastReport.Web/js/webreport-script.bundle.min.js"" defer></script>
 </div>";
-                    
-            return $@"
+
+        return $@"
 <div class=""fr-report-body"">
     {template_outline()}
 
@@ -21,6 +21,5 @@ namespace FastReport.Web
     </div>
  <script type=""module"" class=""webreport-script"" data-config='{GetScriptProps()}' src=""/_content/FastReport.Web/js/webreport-script.bundle.min.js"" defer></script>   
 ";
-        }
     }
 }

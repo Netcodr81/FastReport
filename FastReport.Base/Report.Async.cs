@@ -1,160 +1,160 @@
-using FastReport.Code;
-using FastReport.Data;
-using FastReport.Engine;
-using FastReport.Utils;
 using System;
 using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace FastReport
+using FastReport.Code;
+using FastReport.Data;
+using FastReport.Engine;
+using FastReport.Utils;
+
+namespace FastReport;
+
+public partial class Report
 {
-    public partial class Report
+
+    #region Script related
+
+    internal async Task CompileAsync(CancellationToken token)
     {
+        FillDataSourceCache();
+        await CodeProvider.CompileAsync(token);
+    }
 
-        #region Script related
+    /// <summary>
+    /// Returns an expression value.
+    /// </summary>
+    /// <param name="expression">The expression.</param>
+    /// <param name="token">Cancellation token.</param>
+    /// <returns>Returns the result of calculation.</returns>
+    /// <remarks>
+    /// This method is for internal use only, do not call it directly.
+    /// </remarks>
+    public Task<object> CalcAsync(string expression, CancellationToken token)
+    {
+        return CalcAsync(expression, 0, token);
+    }
 
-        internal async Task CompileAsync(CancellationToken token)
+    /// <summary>
+    /// Returns an expression value.
+    /// </summary>
+    /// <param name="expression">The expression.</param>
+    /// <param name="value">The value of currently printing object.</param>
+    /// <param name="token">Cancellation token.</param>
+    /// <returns>Returns the result of calculation.</returns>
+    /// <remarks>
+    /// This method is for internal use only, do not call it directly.
+    /// </remarks>
+    public async Task<object> CalcAsync(string expression, Variant value, CancellationToken token)
+    {
+        if (TryCalc(expression, value, out var result))
+            return result;
+
+        return await CalcExpressionAsync(expression, value, token);
+    }
+
+    /// <summary>
+    /// Returns an expression value.
+    /// </summary>
+    /// <param name="expression">The expression.</param>
+    /// <param name="value">The value of currently printing object.</param>
+    /// <param name="token">Cancellation token.</param>
+    /// <returns>Returns the result of calculation.</returns>
+    /// <remarks>
+    /// This method is for internal use only, do not call it directly.
+    /// </remarks>
+    protected virtual async Task<object> CalcExpressionAsync(string expression, Variant value, CancellationToken token)
+    {
+        var expressionToLower = expression.ToLower();
+
+        if (expressionToLower == "true" || expressionToLower == "false")
         {
-            FillDataSourceCache();
-            await CodeProvider.CompileAsync(token);
+            expression = expressionToLower;
         }
 
-        /// <summary>
-        /// Returns an expression value.
-        /// </summary>
-        /// <param name="expression">The expression.</param>
-        /// <param name="token">Cancellation token.</param>
-        /// <returns>Returns the result of calculation.</returns>
-        /// <remarks>
-        /// This method is for internal use only, do not call it directly.
-        /// </remarks>
-        public Task<object> CalcAsync(string expression, CancellationToken token)
+        return await CodeProvider.CalcExpressionAsync(expression, value, token);
+    }
+
+    /// <summary>
+    /// Prepares the report asynchronously.
+    /// </summary>
+    /// <param name="token">Cancellation token</param>
+    /// <returns><b>true</b> if report was prepared successfully.</returns>
+    public Task<bool> PrepareAsync(CancellationToken token = default)
+    {
+        return PrepareAsync(false, token);
+    }
+
+    /// <summary>
+    /// Prepares the report asynchronously.
+    /// </summary>
+    /// <param name="append">Whether to append a prepared report to existing one.</param>
+    /// <param name="token">Cancellation token</param>
+    /// <returns><b>true</b> if report was prepared successfully.</returns>
+    public Task<bool> PrepareAsync(bool append, CancellationToken token = default)
+    {
+        return PrepareAsync(append, true, token);
+    }
+
+    /// <summary>
+    /// Prepares the report asynchronously.
+    /// </summary>
+    /// <param name="append">Whether to append a prepared report to existing one.</param>
+    /// <param name="resetDataState">Whether to reset data state.</param>
+    /// <param name="token">Cancellation token</param>
+    /// <returns><b>true</b> if report was prepared successfully.</returns>
+    public async Task<bool> PrepareAsync(bool append, bool resetDataState, CancellationToken token = default)
+    {
+        SetRunning(true);
+        try
         {
-            return CalcAsync(expression, 0, token);
-        }
-
-        /// <summary>
-        /// Returns an expression value.
-        /// </summary>
-        /// <param name="expression">The expression.</param>
-        /// <param name="value">The value of currently printing object.</param>
-        /// <param name="token">Cancellation token.</param>
-        /// <returns>Returns the result of calculation.</returns>
-        /// <remarks>
-        /// This method is for internal use only, do not call it directly.
-        /// </remarks>
-        public async Task<object> CalcAsync(string expression, Variant value, CancellationToken token)
-        {
-            if (TryCalc(expression, value, out var result))
-                return result;
-
-            return await CalcExpressionAsync(expression, value, token);
-        }
-
-        /// <summary>
-        /// Returns an expression value.
-        /// </summary>
-        /// <param name="expression">The expression.</param>
-        /// <param name="value">The value of currently printing object.</param>
-        /// <param name="token">Cancellation token.</param>
-        /// <returns>Returns the result of calculation.</returns>
-        /// <remarks>
-        /// This method is for internal use only, do not call it directly.
-        /// </remarks>
-        protected virtual async Task<object> CalcExpressionAsync(string expression, Variant value, CancellationToken token)
-        {
-            var expressionToLower = expression.ToLower();
-
-            if (expressionToLower == "true" || expressionToLower == "false")
+            if (PreparedPages == null || !append)
             {
-                expression = expressionToLower;
+                ResetPreparedPages();
             }
+            engine = new ReportEngine(this);
 
-            return await CodeProvider.CalcExpressionAsync(expression, value, token);
-        }
+            if (!Config.WebMode)
+                StartPerformanceCounter();
 
-        /// <summary>
-        /// Prepares the report asynchronously.
-        /// </summary>
-        /// <param name="token">Cancellation token</param>
-        /// <returns><b>true</b> if report was prepared successfully.</returns>
-        public Task<bool> PrepareAsync(CancellationToken token = default)
-        {
-            return PrepareAsync(false, token);
-        }
-
-        /// <summary>
-        /// Prepares the report asynchronously.
-        /// </summary>
-        /// <param name="append">Whether to append a prepared report to existing one.</param>
-        /// <param name="token">Cancellation token</param>
-        /// <returns><b>true</b> if report was prepared successfully.</returns>
-        public Task<bool> PrepareAsync(bool append, CancellationToken token = default)
-        {
-            return PrepareAsync(append, true, token);
-        }
-
-        /// <summary>
-        /// Prepares the report asynchronously.
-        /// </summary>
-        /// <param name="append">Whether to append a prepared report to existing one.</param>
-        /// <param name="resetDataState">Whether to reset data state.</param>
-        /// <param name="token">Cancellation token</param>
-        /// <returns><b>true</b> if report was prepared successfully.</returns>
-        public async Task<bool> PrepareAsync(bool append, bool resetDataState, CancellationToken token = default)
-        {
-            SetRunning(true);
             try
             {
-                if (PreparedPages == null || !append)
-                {
-                    ResetPreparedPages();
-                }
-                engine = new ReportEngine(this);
-
-                if (!Config.WebMode)
-                    StartPerformanceCounter();
-
-                try
-                {
-                    await CompileAsync(token).ConfigureAwait(false);
-                    return await Engine.RunAsync(true, append, resetDataState, token);
-                }
-                finally
-                {
-                    isParameterChanged = false;
-                    if (!Config.WebMode)
-                        StopPerformanceCounter();
-                }
+                await CompileAsync(token).ConfigureAwait(false);
+                return await Engine.RunAsync(true, append, resetDataState, token);
             }
             finally
             {
-                SetRunning(false);
+                isParameterChanged = false;
+                if (!Config.WebMode)
+                    StopPerformanceCounter();
             }
         }
-
-
-        /// <summary>
-        /// For internal use only.
-        /// </summary>
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public async Task PreparePhase1Async(CancellationToken cancellationToken)
+        finally
         {
-            bool webDialog = false;
-            SetRunning(true);
-            if (preparedPages != null)
-            {
-                // if prepared pages are set before => it's call method again => it's web dialog
-                webDialog = true;
-                preparedPages.Clear();
-            }
-            SetPreparedPages(new Preview.PreparedPages(this));
-            engine = new ReportEngine(this);
-            await CompileAsync(cancellationToken);
-            Engine.RunPhase1(true, webDialog);
+            SetRunning(false);
         }
-
-        #endregion Public Methods
     }
+
+
+    /// <summary>
+    /// For internal use only.
+    /// </summary>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public async Task PreparePhase1Async(CancellationToken cancellationToken)
+    {
+        bool webDialog = false;
+        SetRunning(true);
+        if (preparedPages != null)
+        {
+            // if prepared pages are set before => it's call method again => it's web dialog
+            webDialog = true;
+            preparedPages.Clear();
+        }
+        SetPreparedPages(new Preview.PreparedPages(this));
+        engine = new ReportEngine(this);
+        await CompileAsync(cancellationToken);
+        Engine.RunPhase1(true, webDialog);
+    }
+
+    #endregion Public Methods
 }

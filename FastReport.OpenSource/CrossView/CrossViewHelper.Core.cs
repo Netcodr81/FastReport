@@ -1,10 +1,9 @@
-﻿namespace FastReport.CrossView
+﻿namespace FastReport.CrossView;
+
+partial class CrossViewHelper
 {
-    partial class CrossViewHelper
-    {
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        partial void OnProgressInternal();
-    }
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    partial void OnProgressInternal();
 }

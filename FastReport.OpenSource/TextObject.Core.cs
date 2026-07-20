@@ -1,13 +1,12 @@
 ﻿using FastReport.Utils;
 
-namespace FastReport
+namespace FastReport;
+
+partial class TextObject
 {
-    partial class TextObject
-    {
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        /// <param name="e"></param>
-        partial void DrawDesign(FRPaintEventArgs e);
-    }
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    /// <param name="e"></param>
+    partial void DrawDesign(FRPaintEventArgs e);
 }

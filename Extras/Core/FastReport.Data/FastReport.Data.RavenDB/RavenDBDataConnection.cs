@@ -1,376 +1,378 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
-using Raven.Client;
-using Raven.Client.Documents;
 using System.Net;
-using System.ComponentModel;
-using Raven.Client.Documents.Session;
-using Sparrow.Json;
-using Newtonsoft.Json.Linq;
-using Raven.Client.Documents.Operations.Indexes;
-using Raven.Client.Documents.Operations;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace FastReport.Data
+using Newtonsoft.Json.Linq;
+
+using Raven.Client;
+using Raven.Client.Documents;
+using Raven.Client.Documents.Operations;
+using Raven.Client.Documents.Operations.Indexes;
+using Raven.Client.Documents.Session;
+
+using Sparrow.Json;
+
+namespace FastReport.Data;
+
+/// <summary>
+/// Represents a connection to RavenDB database.
+/// </summary>
+public partial class RavenDBDataConnection : DataConnectionBase
 {
-    /// <summary>
-    /// Represents a connection to RavenDB database.
-    /// </summary>
-    public partial class RavenDBDataConnection : DataConnectionBase
+    private X509Certificate2 certificate;
+
+    //public string CertificatePath { get; set; } //= @"C:\Users\alexe\Downloads\RavenDB-4.0.2-windows-x64\raven1337.Cluster.Settings\admin.client.certificate.raven1337.pfx";
+
+
+    #region Properties
+    public X509Certificate2 Certificate
     {
-        private X509Certificate2 certificate;
-
-        //public string CertificatePath { get; set; } //= @"C:\Users\alexe\Downloads\RavenDB-4.0.2-windows-x64\raven1337.Cluster.Settings\admin.client.certificate.raven1337.pfx";
-
-
-        #region Properties
-        public X509Certificate2 Certificate
+        get
         {
-            get
+            if (!string.IsNullOrEmpty(CertificatePath))
             {
-                if (!string.IsNullOrEmpty(CertificatePath))
+                if (!string.IsNullOrEmpty(this.Password))
+                    certificate = new X509Certificate2(CertificatePath, Password);
+                else
+                    certificate = new X509Certificate2(CertificatePath);
+            }
+            return certificate;
+        }
+        set
+        {
+            certificate = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the certificate path.
+    /// </summary>
+    [Category("Data")]
+    public string CertificatePath
+    {
+        get
+        {
+            RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
+            return builder.CertificatePath;
+        }
+        set
+        {
+            RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
+            builder.CertificatePath = value;
+            ConnectionString = builder.ToString();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the certificate password.
+    /// </summary>
+    [Category("Data")]
+    [PasswordPropertyText(true)]
+    public string Password
+    {
+        get
+        {
+            RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
+            return builder.Password;
+        }
+        set
+        {
+            RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
+            builder.Password = value;
+            ConnectionString = builder.ToString();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the database name.
+    /// </summary>
+    [Category("Data")]
+    public string DatabaseName
+    {
+        get
+        {
+            RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
+            return builder.DatabaseName;
+        }
+        set
+        {
+            RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
+            builder.DatabaseName = value;
+            ConnectionString = builder.ToString();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the host url.
+    /// </summary>
+    [Category("Data")]
+    public string Host
+    {
+        get
+        {
+            RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
+            return builder.Host;
+        }
+        set
+        {
+            RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
+            builder.Host = value;
+            ConnectionString = builder.ToString();
+        }
+    }
+
+    #endregion Properties
+
+    #region Protected Methods
+
+    /// <inheritdoc/>
+    protected override DataSet CreateDataSet()
+    {
+        DataSet dataset = base.CreateDataSet();
+
+        IDocumentStore store = this.Certificate == null ? new DocumentStore()
+        {
+            Urls = new string[] { Host },
+            Database = DatabaseName
+        }
+        : new DocumentStore()
+        {
+            Urls = new string[] { Host },
+            Database = DatabaseName,
+            Certificate = this.Certificate
+        };
+
+        //using strt  {
+        store.Initialize();
+        using (IDocumentSession session = store.OpenSession())
+        {
+            var operation = new GetCollectionStatisticsOperation();
+            var ress = store.Maintenance.Send(operation);
+            List<string> entityNames = ress.Collections.Select(c => c.Key).ToList();
+            foreach (string name in entityNames)
+            {
+                DataTable table = new DataTable(name);
+
+                // get all rows of the table
+                BlittableJsonReaderObject[] objects = session.Advanced.LoadStartingWith<BlittableJsonReaderObject>(name, null, 0, Int32.MaxValue);
+                CreateDataSetShared(dataset, table, objects);
+            }
+
+        }
+        store.Dispose();
+        return dataset;
+        //using end }
+    }
+
+    protected override async Task<DataSet> CreateDataSetAsync(CancellationToken cancellationToken)
+    {
+        DataSet dataset = await base.CreateDataSetAsync(cancellationToken);
+
+        IDocumentStore store = this.Certificate == null ? new DocumentStore()
+        {
+            Urls = new string[] { Host },
+            Database = DatabaseName
+        }
+        : new DocumentStore()
+        {
+            Urls = new string[] { Host },
+            Database = DatabaseName,
+            Certificate = this.Certificate
+        };
+
+        //using strt  {
+        store.Initialize();
+        using (var session = store.OpenAsyncSession())
+        {
+            var operation = new GetCollectionStatisticsOperation();
+            var ress = await store.Maintenance.SendAsync(operation, cancellationToken);
+            List<string> entityNames = ress.Collections.Select(c => c.Key).ToList();
+            foreach (string name in entityNames)
+            {
+                DataTable table = new DataTable(name);
+
+                // get all rows of the table
+                BlittableJsonReaderObject[] objects = (await session.Advanced
+                    .LoadStartingWithAsync<BlittableJsonReaderObject>(name, null, 0, Int32.MaxValue, token: cancellationToken))
+                    .ToArray();
+                CreateDataSetShared(dataset, table, objects);
+            }
+
+        }
+        store.Dispose();
+        return dataset;
+        //using end }
+    }
+
+    private static void CreateDataSetShared(DataSet dataset, DataTable table, BlittableJsonReaderObject[] objects)
+    {
+        if (objects.Length > 0)
+        {
+            //create table columns
+            var properties = objects[0].GetPropertyNames();
+            foreach (var prop in properties)
+            {
+                try
                 {
-                    if (!string.IsNullOrEmpty(this.Password))
-                        certificate = new X509Certificate2(CertificatePath, Password);
+                    var item = objects[0][prop];
+                    Type columnType = item?.GetType() ?? typeof(string);
+                    //columns
+                    if (columnType != typeof(BlittableJsonReaderObject))
+                    {
+                        columnType = GetSimpleType(columnType);
+                        AddColumn(table, prop, columnType);
+                    }
+                    //subcolumns
+                    else if (columnType == typeof(BlittableJsonReaderArray))
+                    {
+
+                    }
                     else
-                        certificate = new X509Certificate2(CertificatePath);
-                }
-                return certificate;
-            }
-            set
-            {
-                certificate = value;
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the certificate path.
-        /// </summary>
-        [Category("Data")]
-        public string CertificatePath
-        {
-            get
-            {
-                RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
-                return builder.CertificatePath;
-            }
-            set
-            {
-                RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
-                builder.CertificatePath = value;
-                ConnectionString = builder.ToString();
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the certificate password.
-        /// </summary>
-        [Category("Data")]
-        [PasswordPropertyText(true)]
-        public string Password
-        {
-            get
-            {
-                RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
-                return builder.Password;
-            }
-            set
-            {
-                RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
-                builder.Password = value;
-                ConnectionString = builder.ToString();
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the database name.
-        /// </summary>
-        [Category("Data")]
-        public string DatabaseName
-        {
-            get
-            {
-                RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
-                return builder.DatabaseName;
-            }
-            set
-            {
-                RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
-                builder.DatabaseName = value;
-                ConnectionString = builder.ToString();
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the host url.
-        /// </summary>
-        [Category("Data")]
-        public string Host
-        {
-            get
-            {
-                RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
-                return builder.Host;
-            }
-            set
-            {
-                RavenDBConnectionStringBuilder builder = new RavenDBConnectionStringBuilder(ConnectionString);
-                builder.Host = value;
-                ConnectionString = builder.ToString();
-            }
-        }
-
-        #endregion Properties
-
-        #region Protected Methods
-
-        /// <inheritdoc/>
-        protected override DataSet CreateDataSet()
-        {
-            DataSet dataset = base.CreateDataSet();
-
-            IDocumentStore store = this.Certificate == null ? new DocumentStore()
-            {
-                Urls = new string[] { Host },
-                Database = DatabaseName
-            }
-            : new DocumentStore()
-            {
-                Urls = new string[] { Host },
-                Database = DatabaseName,
-                Certificate = this.Certificate
-            };
-
-            //using strt  {
-            store.Initialize();
-            using (IDocumentSession session = store.OpenSession())
-            {
-                var operation = new GetCollectionStatisticsOperation();
-                var ress = store.Maintenance.Send(operation);
-                List<string> entityNames = ress.Collections.Select(c => c.Key).ToList();
-                foreach (string name in entityNames)
-                {
-                    DataTable table = new DataTable(name);
-
-                    // get all rows of the table
-                    BlittableJsonReaderObject[] objects = session.Advanced.LoadStartingWith<BlittableJsonReaderObject>(name, null, 0, Int32.MaxValue);
-                    CreateDataSetShared(dataset, table, objects);
-                }
-
-            }
-            store.Dispose();
-            return dataset;
-            //using end }
-        }
-
-        protected override async Task<DataSet> CreateDataSetAsync(CancellationToken cancellationToken)
-        {
-            DataSet dataset = await base.CreateDataSetAsync(cancellationToken);
-
-            IDocumentStore store = this.Certificate == null ? new DocumentStore()
-            {
-                Urls = new string[] { Host },
-                Database = DatabaseName
-            }
-            : new DocumentStore()
-            {
-                Urls = new string[] { Host },
-                Database = DatabaseName,
-                Certificate = this.Certificate
-            };
-
-            //using strt  {
-            store.Initialize();
-            using (var session = store.OpenAsyncSession())
-            {
-                var operation = new GetCollectionStatisticsOperation();
-                var ress = await store.Maintenance.SendAsync(operation, cancellationToken);
-                List<string> entityNames = ress.Collections.Select(c => c.Key).ToList();
-                foreach (string name in entityNames)
-                {
-                    DataTable table = new DataTable(name);
-
-                    // get all rows of the table
-                    BlittableJsonReaderObject[] objects = (await session.Advanced
-                        .LoadStartingWithAsync<BlittableJsonReaderObject>(name, null, 0, Int32.MaxValue, token: cancellationToken))
-                        .ToArray();
-                    CreateDataSetShared(dataset, table, objects);
-                }
-
-            }
-            store.Dispose();
-            return dataset;
-            //using end }
-        }
-
-        private static void CreateDataSetShared(DataSet dataset, DataTable table, BlittableJsonReaderObject[] objects)
-        {
-            if (objects.Length > 0)
-            {
-                //create table columns
-                var properties = objects[0].GetPropertyNames();
-                foreach (var prop in properties)
-                {
-                    try
                     {
-                        var item = objects[0][prop];
-                        Type columnType = item?.GetType() ?? typeof(string);
-                        //columns
-                        if (columnType != typeof(BlittableJsonReaderObject))
+                        var complexItem = (item as BlittableJsonReaderObject);
+                        var subproperties = complexItem.GetPropertyNames();
+                        foreach (var subprop in subproperties)
                         {
-                            columnType = GetSimpleType(columnType);
-                            AddColumn(table, prop, columnType);
-                        }
-                        //subcolumns
-                        else if (columnType == typeof(BlittableJsonReaderArray))
-                        {
-
-                        }
-                        else
-                        {
-                            var complexItem = (item as BlittableJsonReaderObject);
-                            var subproperties = complexItem.GetPropertyNames();
-                            foreach (var subprop in subproperties)
-                            {
-                                var subitem = complexItem[subprop];
-                                columnType = GetSimpleType(subprop.GetType() ?? typeof(string));
-                                AddColumn(table, $"{prop}.{subprop}", columnType);
-                            }
+                            var subitem = complexItem[subprop];
+                            columnType = GetSimpleType(subprop.GetType() ?? typeof(string));
+                            AddColumn(table, $"{prop}.{subprop}", columnType);
                         }
                     }
-                    catch
-                    {
-                    }
                 }
-                // add table rows
-                foreach (var obj in objects)
+                catch
                 {
-                    DataRow row = table.NewRow();
-                    // add row cells
-                    for (int i = 0; i < table.Columns.Count; i++)
+                }
+            }
+            // add table rows
+            foreach (var obj in objects)
+            {
+                DataRow row = table.NewRow();
+                // add row cells
+                for (int i = 0; i < table.Columns.Count; i++)
+                {
+                    if (table.Columns[i].ColumnName.Contains('.'))
                     {
-                        if (table.Columns[i].ColumnName.Contains('.'))
-                        {
-                            string[] parts = table.Columns[i].ColumnName.Split('.');
-                            var value = obj[parts[0]];
+                        string[] parts = table.Columns[i].ColumnName.Split('.');
+                        var value = obj[parts[0]];
 
-                            if (value is BlittableJsonReaderObject)
-                            {
-                                var subvalue = (value as BlittableJsonReaderObject)[parts[1]];
-                                row[i] = subvalue;
-                            }
-                        }
-                        else
+                        if (value is BlittableJsonReaderObject)
                         {
-                            var value = obj[table.Columns[i].ColumnName];
-                            row[i] = value;
+                            var subvalue = (value as BlittableJsonReaderObject)[parts[1]];
+                            row[i] = subvalue;
                         }
                     }
-                    table.Rows.Add(row);
+                    else
+                    {
+                        var value = obj[table.Columns[i].ColumnName];
+                        row[i] = value;
+                    }
                 }
-                dataset.Tables.Add(table);
+                table.Rows.Add(row);
             }
-
+            dataset.Tables.Add(table);
         }
 
-        #endregion Protected Methods
+    }
 
-        #region Public Methods
+    #endregion Protected Methods
 
-        /// <inheritdoc/>
-        public override void CreateTable(TableDataSource source)
+    #region Public Methods
+
+    /// <inheritdoc/>
+    public override void CreateTable(TableDataSource source)
+    {
+        if (DataSet.Tables.Contains(source.TableName))
         {
-            if (DataSet.Tables.Contains(source.TableName))
-            {
-                source.Table = DataSet.Tables[source.TableName];
-                base.CreateTable(source);
-            }
-            else
-            {
-                source.Table = null;
-            }
+            source.Table = DataSet.Tables[source.TableName];
+            base.CreateTable(source);
         }
-
-        public override async Task CreateTableAsync(TableDataSource source, CancellationToken cancellationToken)
+        else
         {
-            var dataSet = await GetDataSetAsync(cancellationToken);
-            if (dataSet.Tables.Contains(source.TableName))
-            {
-                source.Table = dataSet.Tables[source.TableName];
-                base.CreateTable(source);
-            }
-            else
-            {
-                source.Table = null;
-            }
+            source.Table = null;
         }
+    }
 
-        /// <inheritdoc/>
-        public override string[] GetTableNames()
+    public override async Task CreateTableAsync(TableDataSource source, CancellationToken cancellationToken)
+    {
+        var dataSet = await GetDataSetAsync(cancellationToken);
+        if (dataSet.Tables.Contains(source.TableName))
         {
-            string[] result = new string[DataSet.Tables.Count];
-            for (int i = 0; i < DataSet.Tables.Count; i++)
-            {
-                result[i] = DataSet.Tables[i].TableName;
-            }
-            return result;
+            source.Table = dataSet.Tables[source.TableName];
+            base.CreateTable(source);
         }
-
-        public override async Task<string[]> GetTableNamesAsync(CancellationToken cancellationToken)
+        else
         {
-            var dataSet = await GetDataSetAsync(cancellationToken);
-            string[] result = new string[dataSet.Tables.Count];
-            for (int i = 0; i < dataSet.Tables.Count; i++)
-            {
-                result[i] = dataSet.Tables[i].TableName;
-            }
-            return result;
+            source.Table = null;
         }
+    }
 
-        /// <inheritdoc/>
-        public override string QuoteIdentifier(string value, DbConnection connection)
+    /// <inheritdoc/>
+    public override string[] GetTableNames()
+    {
+        string[] result = new string[DataSet.Tables.Count];
+        for (int i = 0; i < DataSet.Tables.Count; i++)
         {
-            return value;
+            result[i] = DataSet.Tables[i].TableName;
         }
+        return result;
+    }
 
-        #endregion Public Methods
-
-        static void AddColumn(DataTable table, string colName, Type colType)
+    public override async Task<string[]> GetTableNamesAsync(CancellationToken cancellationToken)
+    {
+        var dataSet = await GetDataSetAsync(cancellationToken);
+        string[] result = new string[dataSet.Tables.Count];
+        for (int i = 0; i < dataSet.Tables.Count; i++)
         {
-            try
-            {
-
-                DataColumn column = new DataColumn();
-                column.ColumnName = colName;
-                column.DataType = colType ?? typeof(string);
-                table.Columns.Add(column);
-            }
-            catch
-            {
-            }
+            result[i] = dataSet.Tables[i].TableName;
         }
+        return result;
+    }
 
-        static Type GetSimpleType(Type columnType)
+    /// <inheritdoc/>
+    public override string QuoteIdentifier(string value, DbConnection connection)
+    {
+        return value;
+    }
+
+    #endregion Public Methods
+
+    static void AddColumn(DataTable table, string colName, Type colType)
+    {
+        try
         {
-            try
-            {
-                if (columnType == typeof(LazyStringValue))
-                    columnType = typeof(string);
-                else if (columnType == typeof(LazyNumberValue))
-                {
 
-                }
-                return columnType;
-            }
-            catch
-            {
-            }
-            return typeof(string);
+            DataColumn column = new DataColumn();
+            column.ColumnName = colName;
+            column.DataType = colType ?? typeof(string);
+            table.Columns.Add(column);
         }
+        catch
+        {
+        }
+    }
+
+    static Type GetSimpleType(Type columnType)
+    {
+        try
+        {
+            if (columnType == typeof(LazyStringValue))
+                columnType = typeof(string);
+            else if (columnType == typeof(LazyNumberValue))
+            {
+
+            }
+            return columnType;
+        }
+        catch
+        {
+        }
+        return typeof(string);
     }
 }

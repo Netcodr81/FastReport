@@ -1,231 +1,232 @@
-using FastReport.Utils;
-using SkiaSharp;
 using System.Collections.Generic;
 
-namespace FastReport.Engine
+using FastReport.Utils;
+
+using SkiaSharp;
+
+namespace FastReport.Engine;
+
+internal enum EngineState
 {
-    internal enum EngineState
+    ReportStarted,
+    ReportFinished,
+    ReportPageStarted,
+    ReportPageFinished,
+    PageStarted,
+    PageFinished,
+    ColumnStarted,
+    ColumnFinished,
+    BlockStarted,
+    BlockFinished,
+    GroupStarted,
+    GroupFinished
+}
+
+internal class EngineStateChangedEventArgs
+{
+    #region Fields
+
+    private ReportEngine engine;
+    private EngineState state;
+
+    #endregion Fields
+
+    #region Properties
+
+    public ReportEngine Engine
     {
-        ReportStarted,
-        ReportFinished,
-        ReportPageStarted,
-        ReportPageFinished,
-        PageStarted,
-        PageFinished,
-        ColumnStarted,
-        ColumnFinished,
-        BlockStarted,
-        BlockFinished,
-        GroupStarted,
-        GroupFinished
+        get { return engine; }
     }
 
-    internal class EngineStateChangedEventArgs
+    public EngineState State
     {
-        #region Fields
-
-        private ReportEngine engine;
-        private EngineState state;
-
-        #endregion Fields
-
-        #region Properties
-
-        public ReportEngine Engine
-        {
-            get { return engine; }
-        }
-
-        public EngineState State
-        {
-            get { return state; }
-        }
-
-        #endregion Properties
-
-        #region Constructors
-
-        internal EngineStateChangedEventArgs(ReportEngine engine, EngineState state)
-        {
-            this.engine = engine;
-            this.state = state;
-        }
-
-        #endregion Constructors
+        get { return state; }
     }
 
-    internal delegate void EngineStateChangedEventHandler(object sender, EngineStateChangedEventArgs e);
+    #endregion Properties
 
-    internal class ProcessInfo
+    #region Constructors
+
+    internal EngineStateChangedEventArgs(ReportEngine engine, EngineState state)
     {
-        #region Fields
+        this.engine = engine;
+        this.state = state;
+    }
 
-        private TextObject textObject;
-        private XmlItem xmlItem;
+    #endregion Constructors
+}
 
-        #endregion Fields
+internal delegate void EngineStateChangedEventHandler(object sender, EngineStateChangedEventArgs e);
 
-        #region Properties
+internal class ProcessInfo
+{
+    #region Fields
 
-        public TextObjectBase TextObject
+    private TextObject textObject;
+    private XmlItem xmlItem;
+
+    #endregion Fields
+
+    #region Properties
+
+    public TextObjectBase TextObject
+    {
+        get { return textObject; }
+    }
+
+    #endregion Properties
+
+    #region Constructors
+
+    public ProcessInfo(TextObject obj, XmlItem item)
+    {
+        textObject = obj;
+        xmlItem = item;
+    }
+
+    #endregion Constructors
+
+    #region Public Methods
+
+    public void Process()
+    {
+        textObject.SaveState();
+        try
         {
-            get { return textObject; }
+            textObject.GetData();
+            string fill_clr = $"#{textObject.FillColor.Red:X2}{textObject.FillColor.Green:X2}{textObject.FillColor.Blue:X2}";
+            string txt_clr = $"#{textObject.TextColor.Red:X2}{textObject.TextColor.Green:X2}{textObject.TextColor.Blue:X2}";
+
+            xmlItem.SetProp("x", textObject.Text);
+            xmlItem.SetProp("Fill.Color", fill_clr);
+            xmlItem.SetProp("TextFill.Color", txt_clr);
+            xmlItem.SetProp("Font.Name", textObject.Font.Typeface?.FamilyName ?? SKTypeface.Default.FamilyName);
         }
-
-        #endregion Properties
-
-        #region Constructors
-
-        public ProcessInfo(TextObject obj, XmlItem item)
+        finally
         {
-            textObject = obj;
-            xmlItem = item;
+            textObject.RestoreState();
         }
+    }
 
-        #endregion Constructors
+    public bool Process(object sender, EngineState state)
+    {
+        ProcessAt processAt = textObject.ProcessAt;
+        bool canProcess = false;
 
-        #region Public Methods
-
-        public void Process()
+        if ((processAt == ProcessAt.DataFinished && state == EngineState.BlockFinished) ||
+            (processAt == ProcessAt.GroupFinished && state == EngineState.GroupFinished))
         {
-            textObject.SaveState();
-            try
+            // check which data is finished
+            BandBase topParentBand = textObject.Band;
+            if (topParentBand is ChildBand)
+                topParentBand = (topParentBand as ChildBand).GetTopParentBand;
+
+            if (processAt == ProcessAt.DataFinished && state == EngineState.BlockFinished)
             {
-                textObject.GetData();
-                string fill_clr = $"#{textObject.FillColor.Red:X2}{textObject.FillColor.Green:X2}{textObject.FillColor.Blue:X2}";
-                string txt_clr = $"#{textObject.TextColor.Red:X2}{textObject.TextColor.Green:X2}{textObject.TextColor.Blue:X2}";
-
-                xmlItem.SetProp("x", textObject.Text);
-                xmlItem.SetProp("Fill.Color", fill_clr);
-                xmlItem.SetProp("TextFill.Color", txt_clr);
-                xmlItem.SetProp("Font.Name", textObject.Font.Typeface?.FamilyName ?? SKTypeface.Default.FamilyName);
-            }
-            finally
-            {
-                textObject.RestoreState();
-            }
-        }
-
-        public bool Process(object sender, EngineState state)
-        {
-            ProcessAt processAt = textObject.ProcessAt;
-            bool canProcess = false;
-
-            if ((processAt == ProcessAt.DataFinished && state == EngineState.BlockFinished) ||
-                (processAt == ProcessAt.GroupFinished && state == EngineState.GroupFinished))
-            {
-                // check which data is finished
-                BandBase topParentBand = textObject.Band;
-                if (topParentBand is ChildBand)
-                    topParentBand = (topParentBand as ChildBand).GetTopParentBand;
-
-                if (processAt == ProcessAt.DataFinished && state == EngineState.BlockFinished)
-                {
-                    // total can be printed on the same data header, or on its parent data band
-                    DataBand senderBand = sender as DataBand;
-                    canProcess = true;
-                    if (topParentBand is DataHeaderBand && (topParentBand.Parent != sender))
-                        canProcess = false;
-                    if (topParentBand is DataBand && senderBand.Parent != topParentBand)
-                        canProcess = false;
-                }
-                else
-                {
-                    // total can be printed on the same group header
-                    canProcess = sender == topParentBand;
-                }
+                // total can be printed on the same data header, or on its parent data band
+                DataBand senderBand = sender as DataBand;
+                canProcess = true;
+                if (topParentBand is DataHeaderBand && (topParentBand.Parent != sender))
+                    canProcess = false;
+                if (topParentBand is DataBand && senderBand.Parent != topParentBand)
+                    canProcess = false;
             }
             else
             {
-                canProcess = (processAt == ProcessAt.ReportFinished && state == EngineState.ReportFinished) ||
-                    (processAt == ProcessAt.ReportPageFinished && state == EngineState.ReportPageFinished) ||
-                    (processAt == ProcessAt.PageFinished && state == EngineState.PageFinished) ||
-                    (processAt == ProcessAt.ColumnFinished && state == EngineState.ColumnFinished);
+                // total can be printed on the same group header
+                canProcess = sender == topParentBand;
             }
-
-            if (canProcess)
-            {
-                Process();
-                return true;
-            }
-            else
-                return false;
+        }
+        else
+        {
+            canProcess = (processAt == ProcessAt.ReportFinished && state == EngineState.ReportFinished) ||
+                (processAt == ProcessAt.ReportPageFinished && state == EngineState.ReportPageFinished) ||
+                (processAt == ProcessAt.PageFinished && state == EngineState.PageFinished) ||
+                (processAt == ProcessAt.ColumnFinished && state == EngineState.ColumnFinished);
         }
 
-        #endregion Public Methods
+        if (canProcess)
+        {
+            Process();
+            return true;
+        }
+        else
+            return false;
     }
 
-    public partial class ReportEngine
+    #endregion Public Methods
+}
+
+public partial class ReportEngine
+{
+    #region Fields
+
+    private List<ProcessInfo> objectsToProcess;
+
+    #endregion Fields
+
+    #region Events
+
+    internal event EngineStateChangedEventHandler StateChanged;
+
+    #endregion Events
+
+    #region Private Methods
+
+    private void ProcessObjects(object sender, EngineState state)
     {
-        #region Fields
-
-        private List<ProcessInfo> objectsToProcess;
-
-        #endregion Fields
-
-        #region Events
-
-        internal event EngineStateChangedEventHandler StateChanged;
-
-        #endregion Events
-
-        #region Private Methods
-
-        private void ProcessObjects(object sender, EngineState state)
+        for (int i = 0; i < objectsToProcess.Count; i++)
         {
-            for (int i = 0; i < objectsToProcess.Count; i++)
+            ProcessInfo info = objectsToProcess[i];
+            if (info.Process(sender, state))
             {
-                ProcessInfo info = objectsToProcess[i];
-                if (info.Process(sender, state))
-                {
-                    objectsToProcess.RemoveAt(i);
-                    i--;
-                }
+                objectsToProcess.RemoveAt(i);
+                i--;
             }
         }
-
-        private void OnStateChanged(object sender, EngineState state)
-        {
-            ProcessObjects(sender, state);
-            if (StateChanged != null)
-                StateChanged(sender, new EngineStateChangedEventArgs(this, state));
-        }
-
-        #endregion Private Methods
-
-        #region Internal Methods
-
-        internal void AddObjectToProcess(Base obj, XmlItem item)
-        {
-            TextObject textObj = obj as TextObject;
-            if (textObj == null || textObj.ProcessAt == ProcessAt.Default)
-                return;
-
-            objectsToProcess.Add(new ProcessInfo(textObj, item));
-        }
-
-        #endregion Internal Methods
-
-        #region Public Methods
-
-        /// <summary>
-        /// Processes the specified text object which <b>ProcessAt</b> property is set to <b>Custom</b>.
-        /// </summary>
-        /// <param name="obj">The text object to process.</param>
-        public void ProcessObject(TextObjectBase obj)
-        {
-            for (int i = 0; i < objectsToProcess.Count; i++)
-            {
-                ProcessInfo info = objectsToProcess[i];
-                if (info.TextObject == obj)
-                {
-                    info.Process();
-                    objectsToProcess.RemoveAt(i);
-                    break;
-                }
-            }
-        }
-
-        #endregion Public Methods
     }
+
+    private void OnStateChanged(object sender, EngineState state)
+    {
+        ProcessObjects(sender, state);
+        if (StateChanged != null)
+            StateChanged(sender, new EngineStateChangedEventArgs(this, state));
+    }
+
+    #endregion Private Methods
+
+    #region Internal Methods
+
+    internal void AddObjectToProcess(Base obj, XmlItem item)
+    {
+        TextObject textObj = obj as TextObject;
+        if (textObj == null || textObj.ProcessAt == ProcessAt.Default)
+            return;
+
+        objectsToProcess.Add(new ProcessInfo(textObj, item));
+    }
+
+    #endregion Internal Methods
+
+    #region Public Methods
+
+    /// <summary>
+    /// Processes the specified text object which <b>ProcessAt</b> property is set to <b>Custom</b>.
+    /// </summary>
+    /// <param name="obj">The text object to process.</param>
+    public void ProcessObject(TextObjectBase obj)
+    {
+        for (int i = 0; i < objectsToProcess.Count; i++)
+        {
+            ProcessInfo info = objectsToProcess[i];
+            if (info.TextObject == obj)
+            {
+                info.Process();
+                objectsToProcess.RemoveAt(i);
+                break;
+            }
+        }
+    }
+
+    #endregion Public Methods
 }

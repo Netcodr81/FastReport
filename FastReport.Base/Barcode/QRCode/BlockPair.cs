@@ -14,36 +14,35 @@
 * limitations under the License.
 */
 using System;
-namespace FastReport.Barcode.QRCode
+namespace FastReport.Barcode.QRCode;
+
+internal sealed class BlockPair
 {
-    internal sealed class BlockPair
+    public ByteArray DataBytes
     {
-        public ByteArray DataBytes
+        get
         {
-            get
-            {
-                return dataBytes;
-            }
-
-        }
-        public ByteArray ErrorCorrectionBytes
-        {
-            get
-            {
-                return errorCorrectionBytes;
-            }
-
+            return dataBytes;
         }
 
-        //UPGRADE_NOTE: Final was removed from the declaration of 'dataBytes '. "ms-help://MS.VSCC.v80/dv_commoner/local/redirect.htm?index='!DefaultContextWindowIndex'&keyword='jlca1003'"
-        private ByteArray dataBytes;
-        //UPGRADE_NOTE: Final was removed from the declaration of 'errorCorrectionBytes '. "ms-help://MS.VSCC.v80/dv_commoner/local/redirect.htm?index='!DefaultContextWindowIndex'&keyword='jlca1003'"
-        private ByteArray errorCorrectionBytes;
-
-        internal BlockPair(ByteArray data, ByteArray errorCorrection)
+    }
+    public ByteArray ErrorCorrectionBytes
+    {
+        get
         {
-            dataBytes = data;
-            errorCorrectionBytes = errorCorrection;
+            return errorCorrectionBytes;
         }
+
+    }
+
+    //UPGRADE_NOTE: Final was removed from the declaration of 'dataBytes '. "ms-help://MS.VSCC.v80/dv_commoner/local/redirect.htm?index='!DefaultContextWindowIndex'&keyword='jlca1003'"
+    private ByteArray dataBytes;
+    //UPGRADE_NOTE: Final was removed from the declaration of 'errorCorrectionBytes '. "ms-help://MS.VSCC.v80/dv_commoner/local/redirect.htm?index='!DefaultContextWindowIndex'&keyword='jlca1003'"
+    private ByteArray errorCorrectionBytes;
+
+    internal BlockPair(ByteArray data, ByteArray errorCorrection)
+    {
+        dataBytes = data;
+        errorCorrectionBytes = errorCorrection;
     }
 }

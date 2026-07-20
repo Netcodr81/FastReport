@@ -1,53 +1,53 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+
 using Xunit;
 
 
-namespace FastReport.Tests.Core
+namespace FastReport.Tests.OpenSource;
+
+public class TextObjectBaseTests
 {
-    public class TextObjectBaseTests
+    private TextObjectBase textObject;
+
+    public TextObjectBaseTests()
     {
-        private TextObjectBase textObject;
-
-        public TextObjectBaseTests()
-        {
-            textObject = new TextObjectBase();
-        }
+        textObject = new TextObjectBase();
+    }
 
 
-        [Theory]
-        [InlineData("[,]")]
-        [InlineData("(,)")]
-        [InlineData("{,}")]
-        [InlineData("(,]")]
-        [InlineData("(,}")]
-        public void GetTextWithBracketsTest(string brackets)
-        {     
-            textObject = new TextObjectBase();
-            textObject.Brackets = brackets;
-            string text = "testTest";
+    [Theory]
+    [InlineData("[,]")]
+    [InlineData("(,)")]
+    [InlineData("{,}")]
+    [InlineData("(,]")]
+    [InlineData("(,}")]
+    public void GetTextWithBracketsTest(string brackets)
+    {
+        textObject = new TextObjectBase();
+        textObject.Brackets = brackets;
+        string text = "testTest";
 
-            string[] bracketsArr = textObject.Brackets.Split(',');
-            string expected = bracketsArr[0] + text + bracketsArr[1];
+        string[] bracketsArr = textObject.Brackets.Split(',');
+        string expected = bracketsArr[0] + text + bracketsArr[1];
 
-            string textWithBrackets = textObject.GetTextWithBrackets(text);
+        string textWithBrackets = textObject.GetTextWithBrackets(text);
 
-            Assert.Equal(expected, textWithBrackets);
-        }
+        Assert.Equal(expected, textWithBrackets);
+    }
 
-        [Fact]
-        public void GetTextWithoutBracketsTest()
-        {
-            textObject = new TextObjectBase();
-            textObject.Brackets = "[,]";
-            string text = "[testTest]";
+    [Fact]
+    public void GetTextWithoutBracketsTest()
+    {
+        textObject = new TextObjectBase();
+        textObject.Brackets = "[,]";
+        string text = "[testTest]";
 
-            string expected = "testTest";
+        string expected = "testTest";
 
-            string textWithoutBrackets = textObject.GetTextWithoutBrackets(text);
+        string textWithoutBrackets = textObject.GetTextWithoutBrackets(text);
 
-            Assert.Equal(expected, textWithoutBrackets);
-        }
+        Assert.Equal(expected, textWithoutBrackets);
     }
 }

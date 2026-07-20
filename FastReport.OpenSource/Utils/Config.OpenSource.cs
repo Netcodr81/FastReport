@@ -1,13 +1,12 @@
 ﻿
-namespace FastReport.Utils
+namespace FastReport.Utils;
+
+
+public static partial class Config
 {
-
-    public static partial class Config
+    private static void ProcessMainAssembly()
     {
-        private static void ProcessMainAssembly()
-        {
-            new AssemblyInitializer();
-        }
-
+        new AssemblyInitializer();
     }
+
 }

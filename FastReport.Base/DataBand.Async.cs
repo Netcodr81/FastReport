@@ -1,64 +1,64 @@
-using FastReport.Data;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace FastReport
+using FastReport.Data;
+
+namespace FastReport;
+
+public partial class DataBand
 {
-    public partial class DataBand
+    #region Public Methods
+
+    /// <summary>
+    /// Initializes the data source connected to this band.
+    /// </summary>
+    public async Task InitDataSourceAsync(CancellationToken cancellationToken = default)
     {
-        #region Public Methods
-
-        /// <summary>
-        /// Initializes the data source connected to this band.
-        /// </summary>
-        public async Task InitDataSourceAsync(CancellationToken cancellationToken = default)
+        if (DataSource == null)
         {
-            if (DataSource == null)
-            {
-                DataSource = new VirtualDataSource();
-                DataSource.SetReport(Report);
-            }
-
-            if (DataSource is VirtualDataSource)
-                (DataSource as VirtualDataSource).VirtualRowsCount = RowCount;
-
-            DataSourceBase parentDataSource = ParentDataBand == null ? null : ParentDataBand.DataSource;
-            bool collectChildRows = ParentDataBand == null ? false : ParentDataBand.CollectChildRows;
-            if (Relation != null)
-                await DataSource.InitAsync(Relation, Filter, Sort, collectChildRows, cancellationToken);
-            else
-                await DataSource.InitAsync(parentDataSource, Filter, Sort, collectChildRows, cancellationToken);
+            DataSource = new VirtualDataSource();
+            DataSource.SetReport(Report);
         }
 
-        internal override async Task<bool> IsEmptyAsync(CancellationToken cancellationToken)
-        {
-            await InitDataSourceAsync(cancellationToken);
-            if (IsDatasourceEmpty)
-                return !PrintIfDatasourceEmpty;
+        if (DataSource is VirtualDataSource)
+            (DataSource as VirtualDataSource).VirtualRowsCount = RowCount;
 
-            DataSource.First();
-            while (DataSource.HasMoreRows)
-            {
-                if (!await IsDetailEmptyAsync(cancellationToken))
-                    return false;
-                DataSource.Next();
-            }
-            return true;
-        }
-
-        internal async Task<bool> IsDetailEmptyAsync(CancellationToken cancellationToken)
-        {
-            if (PrintIfDetailEmpty || Bands.Count == 0)
-                return false;
-
-            foreach (BandBase band in Bands)
-            {
-                if (!await band.IsEmptyAsync(cancellationToken))
-                    return false;
-            }
-            return true;
-        }
-
-        #endregion
+        DataSourceBase parentDataSource = ParentDataBand == null ? null : ParentDataBand.DataSource;
+        bool collectChildRows = ParentDataBand == null ? false : ParentDataBand.CollectChildRows;
+        if (Relation != null)
+            await DataSource.InitAsync(Relation, Filter, Sort, collectChildRows, cancellationToken);
+        else
+            await DataSource.InitAsync(parentDataSource, Filter, Sort, collectChildRows, cancellationToken);
     }
+
+    internal override async Task<bool> IsEmptyAsync(CancellationToken cancellationToken)
+    {
+        await InitDataSourceAsync(cancellationToken);
+        if (IsDatasourceEmpty)
+            return !PrintIfDatasourceEmpty;
+
+        DataSource.First();
+        while (DataSource.HasMoreRows)
+        {
+            if (!await IsDetailEmptyAsync(cancellationToken))
+                return false;
+            DataSource.Next();
+        }
+        return true;
+    }
+
+    internal async Task<bool> IsDetailEmptyAsync(CancellationToken cancellationToken)
+    {
+        if (PrintIfDetailEmpty || Bands.Count == 0)
+            return false;
+
+        foreach (BandBase band in Bands)
+        {
+            if (!await band.IsEmptyAsync(cancellationToken))
+                return false;
+        }
+        return true;
+    }
+
+    #endregion
 }

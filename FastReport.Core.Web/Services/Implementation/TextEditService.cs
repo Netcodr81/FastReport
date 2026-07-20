@@ -4,42 +4,45 @@ using System.Net;
 using System.Text;
 using System.Web;
 
-namespace FastReport.Web.Services
+using FastReport.Web.Application;
+using FastReport.Web.Services.Abstract;
+
+namespace FastReport.Web.Services.Implementation;
+
+internal sealed class TextEditService : ITextEditService
 {
-    internal sealed class TextEditService : ITextEditService
+
+    public string GetTemplateTextEditForm(string click, WebReport webReport)
     {
-
-        public string GetTemplateTextEditForm(string click, WebReport webReport)
+        if (!click.IsNullOrWhiteSpace())
         {
-            if (!click.IsNullOrWhiteSpace())
+            var @params = click.Split(',');
+            if (@params.Length == 4)
             {
-                var @params = click.Split(',');
-                if (@params.Length == 4)
+                if (int.TryParse(@params[1], out var pageN) &&
+                    float.TryParse(@params[2], out var left) &&
+                    float.TryParse(@params[3], out var top))
                 {
-                    if (int.TryParse(@params[1], out var pageN) &&
-                        float.TryParse(@params[2], out var left) &&
-                        float.TryParse(@params[3], out var top))
-                    {
-                        string result = null;
+                    string result = null;
 
-                        webReport.Report.FindClickedObject<TextObject>(@params[0], pageN, left, top,
-                            (textObject, reportPage, _pageN) =>
-                            {
-                                webReport.Res.Root("Buttons");
-                                string okText = webReport.Res.Get("Ok");
-                                string cancelText = webReport.Res.Get("Cancel");
-                                result = Template_textedit_form(webReport, textObject.Text, okText, cancelText);
-                            });
+                    webReport.Report.FindClickedObject<TextObject>(@params[0], pageN, left, top,
+                        (textObject, reportPage, _pageN) =>
+                        {
+                            webReport.Res.Root("Buttons");
+                            string okText = webReport.Res.Get("Ok");
+                            string cancelText = webReport.Res.Get("Cancel");
+                            result = Template_textedit_form(webReport, textObject.Text, okText, cancelText);
+                        });
 
-                        return result;
-                    }
+                    return result;
                 }
             }
-
-            return null;
         }
 
-        private static string Template_textedit_form(WebReport webReport, string text, string okText, string cancelText) => $@"
+        return null;
+    }
+
+    private static string Template_textedit_form(WebReport webReport, string text, string okText, string cancelText) => $@"
 <!DOCTYPE html>
 <html>
 <head>
@@ -72,5 +75,4 @@ button {{
 </body>
 </html>
 ";
-    }
 }

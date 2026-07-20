@@ -1,28 +1,26 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 
-namespace FastReport.Web.Cache
+namespace FastReport.Web.Application.Cache;
+
+/// <summary>
+/// For backward compatibility
+/// </summary>
+internal static class WebReportCache
 {
-    /// <summary>
-    /// For backward compatibility
-    /// </summary>
-    internal static class WebReportCache
+    private static IWebReportCache _instance;
+
+    public static IWebReportCache Instance
     {
-        private static IWebReportCache _instance;
-
-        public static IWebReportCache Instance
+        get
         {
-            get
-            {
-                return _instance;
-            }
-            internal set
-            {
-                _instance = value;
-            }
+            return _instance;
         }
-
-        internal static MemoryCache GetDefaultMemoryCache() => new MemoryCache(new MemoryCacheOptions());
-
+        internal set
+        {
+            _instance = value;
+        }
     }
+
+    internal static MemoryCache GetDefaultMemoryCache() => new MemoryCache(new MemoryCacheOptions());
 
 }

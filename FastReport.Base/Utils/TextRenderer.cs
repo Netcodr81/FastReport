@@ -1,9 +1,11 @@
-﻿using SkiaSharp;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
+
+using SkiaSharp;
+
 using Bitmap = SkiaSharp.SKBitmap;
 using Color = SkiaSharp.SKColor;
 using Font = SkiaSharp.SKFont;
@@ -11,1180 +13,833 @@ using Image = SkiaSharp.SKBitmap;
 using RectangleF = SkiaSharp.SKRect;
 using SizeF = SkiaSharp.SKSize;
 
-namespace FastReport.Utils
+namespace FastReport.Utils;
+
+/// <summary>
+/// Advanced text renderer is used to perform the following tasks:
+/// - draw justified text, text with custom line height, text containing html tags;
+/// - calculate text height, get part of text that does not fit in the display rectangle;
+/// - get paragraphs, lines, words and char sequence to perform accurate export to such
+/// formats as PDF, TXT, RTF
+/// </summary>
+/// <example>Here is how one may operate the renderer items:
+/// <code>
+/// foreach (AdvancedTextRenderer.Paragraph paragraph in renderer.Paragraphs)
+/// {
+///   foreach (AdvancedTextRenderer.Line line in paragraph.Lines)
+///   {
+///     foreach (AdvancedTextRenderer.Word word in line.Words)
+///     {
+///       if (renderer.HtmlTags)
+///       {
+///         foreach (AdvancedTextRenderer.Run run in word.Runs)
+///         {
+///           using (Font f = run.GetFont())
+///           using (Brush b = run.GetBrush())
+///           {
+///             g.DrawString(run.Text, f, b, run.Left, run.Top, renderer.Format);
+///           }  
+///         }
+///       }
+///       else
+///       {
+///         g.DrawString(word.Text, renderer.Font, renderer.Brush, word.Left, word.Top, renderer.Format);
+///       }
+///     }
+///   }
+/// }
+/// </code>
+/// </example>
+public class AdvancedTextRenderer
 {
+    #region Fields
+    private readonly List<Paragraph> paragraphs;
+    private readonly string text;
+    private readonly IGraphics graphics;
+    private readonly Font font;
+    private readonly Brush brush;
+    private readonly FastReport.Pen outlinePen;
+    private readonly RectangleF displayRect;
+    private readonly StringFormat format;
+    private readonly HorzAlign horzAlign;
+    private readonly VertAlign vertAlign;
+    private readonly float lineHeight;
+    private readonly float fontLineHeight;
+    private readonly int angle;
+    private readonly float widthRatio;
+    private readonly bool forceJustify;
+    private readonly bool wysiwyg;
+    private readonly bool htmlTags;
+    private readonly bool pDFMode;
+    private float spaceWidth;
+    private float scale;
+    private InlineImageCache cache;
+    private float fontScale;
+    private bool hasLineHeight;
+    #endregion
+
+    #region Properties
     /// <summary>
-    /// Advanced text renderer is used to perform the following tasks:
-    /// - draw justified text, text with custom line height, text containing html tags;
-    /// - calculate text height, get part of text that does not fit in the display rectangle;
-    /// - get paragraphs, lines, words and char sequence to perform accurate export to such
-    /// formats as PDF, TXT, RTF
+    /// Gets a list of paragraphs.
     /// </summary>
-    /// <example>Here is how one may operate the renderer items:
-    /// <code>
-    /// foreach (AdvancedTextRenderer.Paragraph paragraph in renderer.Paragraphs)
-    /// {
-    ///   foreach (AdvancedTextRenderer.Line line in paragraph.Lines)
-    ///   {
-    ///     foreach (AdvancedTextRenderer.Word word in line.Words)
-    ///     {
-    ///       if (renderer.HtmlTags)
-    ///       {
-    ///         foreach (AdvancedTextRenderer.Run run in word.Runs)
-    ///         {
-    ///           using (Font f = run.GetFont())
-    ///           using (Brush b = run.GetBrush())
-    ///           {
-    ///             g.DrawString(run.Text, f, b, run.Left, run.Top, renderer.Format);
-    ///           }  
-    ///         }
-    ///       }
-    ///       else
-    ///       {
-    ///         g.DrawString(word.Text, renderer.Font, renderer.Brush, word.Left, word.Top, renderer.Format);
-    ///       }
-    ///     }
-    ///   }
-    /// }
-    /// </code>
-    /// </example>
-    public class AdvancedTextRenderer
+    public List<Paragraph> Paragraphs
+    {
+        get { return paragraphs; }
+    }
+
+    /// <summary>
+    /// Gets graphics context.
+    /// </summary>
+    public IGraphics Graphics
+    {
+        get { return graphics; }
+    }
+
+    /// <summary>
+    /// Gets initial font.
+    /// </summary>
+    public Font Font
+    {
+        get { return font; }
+    }
+
+    /// <summary>
+    /// Gets brush.
+    /// </summary>
+    public Brush Brush
+    {
+        get { return brush; }
+    }
+
+    /// <summary>
+    /// Gets outline pen.
+    /// </summary>
+    public FastReport.Pen OutlinePen
+    {
+        get { return outlinePen; }
+    }
+
+    /// <summary>
+    /// Gets a brush color.
+    /// </summary>
+    public Color BrushColor
+    {
+        get { return brush is SolidBrush solidBrush ? solidBrush.Color : SKColors.Black; }
+    }
+
+    /// <summary>
+    /// Gets display rect.
+    /// </summary>
+    public RectangleF DisplayRect
+    {
+        get { return displayRect; }
+    }
+
+    /// <summary>
+    /// Gets string format.
+    /// </summary>
+    public StringFormat Format
+    {
+        get { return format; }
+    }
+
+    /// <summary>
+    /// Gets horizontal text align.
+    /// </summary>
+    public HorzAlign HorzAlign
+    {
+        get { return horzAlign; }
+    }
+
+    /// <summary>
+    /// Gets vertical text align.
+    /// </summary>
+    public VertAlign VertAlign
+    {
+        get { return vertAlign; }
+    }
+
+    /// <summary>
+    /// Gets line height.
+    /// </summary>
+    public float LineHeight
+    {
+        get { return lineHeight; }
+    }
+
+    /// <summary>
+    /// Gets defaul font line height.
+    /// </summary>
+    public float FontLineHeight
+    {
+        get { return fontLineHeight; }
+    }
+
+    /// <summary>
+    /// Gets text angle.
+    /// </summary>
+    public int Angle
+    {
+        get { return angle; }
+    }
+
+    /// <summary>
+    /// Gets font width ratio.
+    /// </summary>
+    public float WidthRatio
+    {
+        get { return widthRatio; }
+    }
+
+    /// <summary>
+    /// Determines if horizontal justification should be forced.
+    /// </summary>
+    public bool ForceJustify
+    {
+        get { return forceJustify; }
+    }
+
+    /// <summary>
+    /// Gets wysiwyg value.
+    /// </summary>
+    public bool Wysiwyg
+    {
+        get { return wysiwyg; }
+    }
+
+    /// <summary>
+    /// Gets html tags value.
+    /// </summary>
+    public bool HtmlTags
+    {
+        get { return htmlTags; }
+    }
+
+    /// <summary>
+    /// Determines if line height was set explicitly.
+    /// </summary>
+    public bool HasLineHeight
+    {
+        get { return hasLineHeight; }
+    }
+
+    /// <summary>
+    /// Gets tab size.
+    /// </summary>
+    public float TabSize
+    {
+        get
+        {
+            // re fix tab offset #2823 sorry linux users, on linux firstTab is firstTab not tabSizes[0]
+            float firstTab = 0;
+            float[] tabSizes = Format.GetTabStops(out firstTab);
+            if (tabSizes.Length > 1)
+                return tabSizes[1];
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Gets tab offset.
+    /// </summary>
+    public float TabOffset
+    {
+        get
+        {
+            // re fix tab offset #2823 sorry linux users, on linux firstTab is firstTab not tabSizes[0]
+            float firstTab = 0;
+            float[] tabSizes = Format.GetTabStops(out firstTab);
+            if (tabSizes.Length > 0)
+                return tabSizes[0];
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Gets word wrap.
+    /// </summary>
+    public bool WordWrap
+    {
+        get { return (Format.FormatFlags & StringFormatFlags.NoWrap) == 0; }
+    }
+
+    /// <summary>
+    /// Gets RTL value.
+    /// </summary>
+    public bool RightToLeft
+    {
+        get { return (Format.FormatFlags & StringFormatFlags.DirectionRightToLeft) != 0; }
+    }
+
+    /// <summary>
+    /// Gets PDF mode.
+    /// </summary>
+    public bool PDFMode
+    {
+        get { return pDFMode; }
+    }
+
+    internal float SpaceWidth
+    {
+        get
+        {
+            if (spaceWidth < 0)
+            {
+                spaceWidth = CalculateSpaceSize(graphics, font);
+            }
+            return spaceWidth;
+        }
+    }
+
+    /// <summary>
+    /// The scale for font tag
+    /// </summary>
+    public float FontScale { get { return fontScale; } set { fontScale = value; } }
+
+    /// <summary>
+    /// Gets scale ratio.
+    /// </summary>
+    public float Scale { get { return scale; } set { scale = value; } }
+
+    /// <summary>
+    /// Gets image cache.
+    /// </summary>
+    public InlineImageCache Cache
+    {
+        get
+        {
+            if (cache == null)
+                cache = new InlineImageCache();
+            return cache;
+        }
+    }
+    #endregion
+
+    #region Private Methods
+
+    const string ab = "abcdefabcdef";
+    const string a40b = "abcdef                                        abcdef";
+
+    internal static float CalculateSpaceSize(IGraphics g, Font f)
+    {
+        float w_ab = g.MeasureString(ab, f).Width;
+        float w_a40b = g.MeasureString(a40b, f).Width;
+        return (w_a40b - w_ab) / 40;
+    }
+
+    private static FontStyle GetFontStyle(Font font)
+    {
+        if (font == null)
+            return FontStyle.Regular;
+
+        FontStyle style = FontStyle.Regular;
+        SKFontStyle skStyle = font.Typeface?.FontStyle ?? SKFontStyle.Normal;
+        if (skStyle.Weight >= (int)SKFontStyleWeight.SemiBold)
+            style |= FontStyle.Bold;
+        if (skStyle.Slant != SKFontStyleSlant.Upright)
+            style |= FontStyle.Italic;
+        return style;
+    }
+
+    private static float GetFontLineHeight(Font font)
+    {
+        if (font == null)
+            return 0;
+        SKFontMetrics metrics = font.Metrics;
+        return metrics.Descent - metrics.Ascent + metrics.Leading;
+    }
+
+    private static Font CreateFont(string familyName, float size, FontStyle style)
+    {
+        return DrawUtils.CreateFont(familyName, size, style);
+    }
+
+    private static Font CreateFont(Font source, FontStyle style)
+    {
+        string familyName = source?.Typeface?.FamilyName ?? SKTypeface.Default.FamilyName;
+        float size = source?.Size ?? DrawUtils.DefaultTextObjectFont.Size;
+        return DrawUtils.CreateFont(familyName, size, style);
+    }
+
+    private static SKPaint CreateTextPaint(SKColor color)
+    {
+        return new SKPaint { Color = color, IsAntialias = true, Style = SKPaintStyle.Fill };
+    }
+
+    private static SKPaint CreateStrokePaint(SKColor color, float width)
+    {
+        return new SKPaint { Color = color, StrokeWidth = width, IsAntialias = true, Style = SKPaintStyle.Stroke };
+    }
+
+    private void SplitToParagraphs(string text)
+    {
+        StyleDescriptor style = new StyleDescriptor(GetFontStyle(Font), BrushColor, BaseLine.Normal);
+        if (HtmlTags)
+            text = text.Replace("<br>", "\r\n").Replace("<br/>", "\r\n").Replace("<br />", "\r\n");
+        string[] lines = text.Split('\n', '\v');
+        int originalCharIndex = 0;
+
+        foreach (string line in lines)
+        {
+            string s = line;
+            if (s.Length > 0 && s[s.Length - 1] == '\r')
+                s = s.Remove(s.Length - 1);
+
+            Paragraph paragraph = new Paragraph(s, this, originalCharIndex);
+            paragraphs.Add(paragraph);
+            if (HtmlTags)
+                style = paragraph.WrapHtmlLines(style);
+            else
+                paragraph.WrapLines();
+
+            originalCharIndex += line.Length + 1;
+        }
+
+        // skip empty paragraphs at the end
+        for (int i = paragraphs.Count - 1; i >= 0; i--)
+        {
+            if (paragraphs[i].IsEmpty && paragraphs.Count != 1)
+                paragraphs.RemoveAt(i);
+            else
+                break;
+        }
+    }
+
+    private void AdjustParagraphLines()
+    {
+        // calculate Y offset
+        float offsetY = DisplayRect.Top;
+        if (VertAlign == VertAlign.Center)
+            offsetY += (DisplayRect.Height - CalcHeight()) / 2;
+        else if (VertAlign == VertAlign.Bottom)
+            offsetY += (DisplayRect.Height - CalcHeight()) - 1;
+
+        for (int i = 0; i < Paragraphs.Count; i++)
+        {
+            Paragraph paragraph = Paragraphs[i];
+            paragraph.AlignLines(i == Paragraphs.Count - 1 && ForceJustify);
+
+            // adjust line tops
+            foreach (Line line in paragraph.Lines)
+            {
+                line.Top = offsetY;
+                line.MakeUnderlines();
+                offsetY += line.CalcHeight();
+            }
+        }
+    }
+    #endregion
+
+    #region Public Methods
+    /// <summary>
+    /// Draws a text.
+    /// </summary>
+    public void Draw()
+    {
+        // set clipping
+        IGraphicsState state = Graphics.Save();
+        Graphics.SetClip(DisplayRect, SKClipOperation.Intersect);
+
+        // reset alignment
+        StringAlignment saveAlign = Format.Alignment;
+        StringAlignment saveLineAlign = Format.LineAlignment;
+        Format.Alignment = StringAlignment.Near;
+        Format.LineAlignment = StringAlignment.Near;
+
+        if (Angle != 0)
+        {
+            Graphics.TranslateTransform(DisplayRect.Left + DisplayRect.Width / 2,
+              DisplayRect.Top + DisplayRect.Height / 2);
+            Graphics.RotateTransform(Angle);
+        }
+
+        Graphics.ScaleTransform(WidthRatio, 1);
+
+        foreach (Paragraph paragraph in Paragraphs)
+        {
+            paragraph.Draw();
+        }
+
+        // restore alignment and clipping
+        Format.Alignment = saveAlign;
+        Format.LineAlignment = saveLineAlign;
+        Graphics.Restore(state);
+    }
+
+    /// <summary>
+    /// Calculates text height.
+    /// </summary>
+    /// <returns>Text height.</returns>
+    public float CalcHeight()
+    {
+        int charsFit = 0;
+        StyleDescriptor style = null;
+        return CalcHeight(out charsFit, out style);
+    }
+
+    /// <summary>
+    /// Calculates text height.
+    /// </summary>
+    /// <param name="charsFit">Chars fitted.</param>
+    /// <param name="style">Style descriptor.</param>
+    /// <returns>Text height.</returns>
+    public float CalcHeight(out int charsFit, out StyleDescriptor style)
+    {
+        charsFit = 0;
+        style = null;
+        float height = 0;
+        float displayHeight = DisplayRect.Height;
+        if (LineHeight > displayHeight)
+            return 0;
+
+        foreach (Paragraph paragraph in Paragraphs)
+        {
+            foreach (Line line in paragraph.Lines)
+            {
+                height += line.CalcHeight();
+                if (charsFit == 0 && height > displayHeight)
+                {
+                    charsFit = line.OriginalCharIndex;
+                    if (HtmlTags)
+                        style = line.Style;
+                }
+            }
+        }
+
+        if (charsFit == 0)
+            charsFit = text.Length;
+        return height;
+    }
+
+    /// <summary>
+    /// Calculates text width.
+    /// </summary>
+    /// <returns>Text width.</returns>
+    public float CalcWidth()
+    {
+        float width = 0;
+
+        foreach (Paragraph paragraph in Paragraphs)
+        {
+            foreach (Line line in paragraph.Lines)
+            {
+                if (width < line.Width)
+                    width = line.Width;
+            }
+        }
+        return width + spaceWidth;
+    }
+
+    internal float GetTabPosition(float pos)
+    {
+        float tabOffset = TabOffset;
+        float tabSize = TabSize;
+        int tabPosition = (int)((pos - tabOffset) / tabSize);
+        if (pos < tabOffset)
+            return tabOffset;
+        return (tabPosition + 1) * tabSize + tabOffset;
+    }
+    #endregion
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="AdvancedTextRenderer"/> class.
+    /// </summary>
+    /// <param name="text">The text to render.</param>
+    /// <param name="g">Graphics context.</param>
+    /// <param name="font">Default font.</param>
+    /// <param name="brush">Text brush.</param>
+    /// <param name="outlinePen">Text outline pen.</param>
+    /// <param name="rect">Display rect.</param>
+    /// <param name="format">String format.</param>
+    /// <param name="horzAlign">Horizontal text align.</param>
+    /// <param name="vertAlign">Vertical text align.</param>
+    /// <param name="lineHeight">Line height.</param>
+    /// <param name="angle">Text angle.</param>
+    /// <param name="widthRatio">Font width ratio.</param>
+    /// <param name="forceJustify">Force text justification.</param>
+    /// <param name="wysiwyg">Wysiwyg mode.</param>
+    /// <param name="htmlTags">Enable simple html tags.</param>
+    /// <param name="pdfMode">PDF mode.</param>
+    /// <param name="scale">Scale factor.</param>
+    /// <param name="fontScale">Font scale.</param>
+    /// <param name="cache">Image cache.</param>
+    /// <param name="isPrinting">Is printing.</param>
+    public AdvancedTextRenderer(string text, IGraphics g, Font font, Brush brush, FastReport.Pen outlinePen,
+        RectangleF rect, StringFormat format, HorzAlign horzAlign, VertAlign vertAlign,
+        float lineHeight, int angle, float widthRatio,
+        bool forceJustify, bool wysiwyg, bool htmlTags, bool pdfMode,
+        float scale, float fontScale, InlineImageCache cache, bool isPrinting = false)
+    {
+        hasLineHeight = lineHeight != 0;
+        this.cache = cache;
+        this.scale = scale;
+        this.fontScale = fontScale;
+        paragraphs = new List<Paragraph>();
+        this.text = text;
+        graphics = g;
+        this.font = font;
+        this.brush = brush;
+        this.outlinePen = outlinePen;
+        displayRect = rect;
+        this.format = format;
+        this.horzAlign = horzAlign;
+        this.vertAlign = vertAlign;
+        this.lineHeight = lineHeight;
+        fontLineHeight = GetFontLineHeight(font);
+        if (!hasLineHeight)
+        {
+            this.lineHeight = fontLineHeight;
+            if (isPrinting && Config.IsRunningOnMono && DrawUtils.GetMonoRendering(g) == MonoRendering.Pango)
+            {
+                // we need this in order to fix inconsistent line spacing when print using Pango rendering
+                this.lineHeight = fontLineHeight * 1.33f;
+            }
+        }
+        this.angle = angle % 360;
+        this.widthRatio = widthRatio;
+        this.forceJustify = forceJustify;
+        this.wysiwyg = wysiwyg;
+        this.htmlTags = htmlTags;
+        pDFMode = pdfMode;
+        this.spaceWidth = -1;
+
+        StringFormatFlags saveFlags = Format.FormatFlags;
+        StringTrimming saveTrimming = Format.Trimming;
+
+        // match DrawString behavior: 
+        // if height is less than 1.25 of font height, turn off word wrap
+        // commented out due to bug with band.break
+        //if (rect.Height < FFontLineHeight * 1.25f)
+        //FFormat.FormatFlags |= StringFormatFlags.NoWrap;
+
+        // if word wrap is set, ignore trimming
+        if (WordWrap)
+            Format.Trimming = StringTrimming.Word;
+
+        // LineLimit flag is essential in linux
+        Format.FormatFlags = Format.FormatFlags | StringFormatFlags.MeasureTrailingSpaces | StringFormatFlags.LineLimit;
+
+        if (Angle != 0)
+        {
+            // shift displayrect 
+            displayRect = new RectangleF(-DisplayRect.Width / 2, -DisplayRect.Height / 2, DisplayRect.Width / 2, DisplayRect.Height / 2);
+
+            // rotate displayrect if angle is 90 or 270
+            if ((Angle >= 90 && Angle < 180) || (Angle >= 270 && Angle < 360))
+                displayRect = new RectangleF(displayRect.Top, displayRect.Left, displayRect.Top + displayRect.Height, displayRect.Left + displayRect.Width);
+        }
+
+        displayRect = new RectangleF(displayRect.Left / WidthRatio, displayRect.Top, displayRect.Right / WidthRatio, displayRect.Bottom);
+
+        SplitToParagraphs(text);
+        AdjustParagraphLines();
+
+        // restore original values
+        displayRect = rect;
+        Format.FormatFlags = saveFlags;
+        Format.Trimming = saveTrimming;
+    }
+
+
+    /// <summary>
+    /// Paragraph represents single paragraph. It consists of one or several <see cref="Lines"/>.
+    /// </summary>
+    public class Paragraph
     {
         #region Fields
-        private readonly List<Paragraph> paragraphs;
+        private readonly List<Line> lines;
+        private readonly AdvancedTextRenderer renderer;
         private readonly string text;
-        private readonly IGraphics graphics;
-        private readonly Font font;
-        private readonly Brush brush;
-        private readonly FastReport.Pen outlinePen;
-        private readonly RectangleF displayRect;
-        private readonly StringFormat format;
-        private readonly HorzAlign horzAlign;
-        private readonly VertAlign vertAlign;
-        private readonly float lineHeight;
-        private readonly float fontLineHeight;
-        private readonly int angle;
-        private readonly float widthRatio;
-        private readonly bool forceJustify;
-        private readonly bool wysiwyg;
-        private readonly bool htmlTags;
-        private readonly bool pDFMode;
-        private float spaceWidth;
-        private float scale;
-        private InlineImageCache cache;
-        private float fontScale;
-        private bool hasLineHeight;
+        private readonly int originalCharIndex;
         #endregion
 
         #region Properties
         /// <summary>
-        /// Gets a list of paragraphs.
+        /// Gets a list of text lines.
         /// </summary>
-        public List<Paragraph> Paragraphs
+        public List<Line> Lines
         {
-            get { return paragraphs; }
+            get { return lines; }
         }
 
         /// <summary>
-        /// Gets graphics context.
+        /// Gets the parent renderer.
         /// </summary>
-        public IGraphics Graphics
+        public AdvancedTextRenderer Renderer
         {
-            get { return graphics; }
+            get { return renderer; }
         }
 
         /// <summary>
-        /// Gets initial font.
+        /// Determines if this is a last paragraph.
         /// </summary>
-        public Font Font
+        public bool Last
         {
-            get { return font; }
+            get { return renderer.Paragraphs[renderer.Paragraphs.Count - 1] == this; }
         }
 
         /// <summary>
-        /// Gets brush.
+        /// Determines if this paragraph is empty.
         /// </summary>
-        public Brush Brush
+        public bool IsEmpty
         {
-            get { return brush; }
+            get { return String.IsNullOrEmpty(text); }
         }
 
         /// <summary>
-        /// Gets outline pen.
+        /// Gets the text.
         /// </summary>
-        public FastReport.Pen OutlinePen
+        public string Text
         {
-            get { return outlinePen; }
-        }
-
-        /// <summary>
-        /// Gets a brush color.
-        /// </summary>
-        public Color BrushColor
-        {
-            get { return brush is SolidBrush solidBrush ? solidBrush.Color : SKColors.Black; }
-        }
-
-        /// <summary>
-        /// Gets display rect.
-        /// </summary>
-        public RectangleF DisplayRect
-        {
-            get { return displayRect; }
-        }
-
-        /// <summary>
-        /// Gets string format.
-        /// </summary>
-        public StringFormat Format
-        {
-            get { return format; }
-        }
-
-        /// <summary>
-        /// Gets horizontal text align.
-        /// </summary>
-        public HorzAlign HorzAlign
-        {
-            get { return horzAlign; }
-        }
-
-        /// <summary>
-        /// Gets vertical text align.
-        /// </summary>
-        public VertAlign VertAlign
-        {
-            get { return vertAlign; }
-        }
-
-        /// <summary>
-        /// Gets line height.
-        /// </summary>
-        public float LineHeight
-        {
-            get { return lineHeight; }
-        }
-
-        /// <summary>
-        /// Gets defaul font line height.
-        /// </summary>
-        public float FontLineHeight
-        {
-            get { return fontLineHeight; }
-        }
-
-        /// <summary>
-        /// Gets text angle.
-        /// </summary>
-        public int Angle
-        {
-            get { return angle; }
-        }
-
-        /// <summary>
-        /// Gets font width ratio.
-        /// </summary>
-        public float WidthRatio
-        {
-            get { return widthRatio; }
-        }
-
-        /// <summary>
-        /// Determines if horizontal justification should be forced.
-        /// </summary>
-        public bool ForceJustify
-        {
-            get { return forceJustify; }
-        }
-
-        /// <summary>
-        /// Gets wysiwyg value.
-        /// </summary>
-        public bool Wysiwyg
-        {
-            get { return wysiwyg; }
-        }
-
-        /// <summary>
-        /// Gets html tags value.
-        /// </summary>
-        public bool HtmlTags
-        {
-            get { return htmlTags; }
-        }
-
-        /// <summary>
-        /// Determines if line height was set explicitly.
-        /// </summary>
-        public bool HasLineHeight
-        {
-            get { return hasLineHeight; }
-        }
-
-        /// <summary>
-        /// Gets tab size.
-        /// </summary>
-        public float TabSize
-        {
-            get
-            {
-                // re fix tab offset #2823 sorry linux users, on linux firstTab is firstTab not tabSizes[0]
-                float firstTab = 0;
-                float[] tabSizes = Format.GetTabStops(out firstTab);
-                if (tabSizes.Length > 1)
-                    return tabSizes[1];
-                return 0;
-            }
-        }
-
-        /// <summary>
-        /// Gets tab offset.
-        /// </summary>
-        public float TabOffset
-        {
-            get
-            {
-                // re fix tab offset #2823 sorry linux users, on linux firstTab is firstTab not tabSizes[0]
-                float firstTab = 0;
-                float[] tabSizes = Format.GetTabStops(out firstTab);
-                if (tabSizes.Length > 0)
-                    return tabSizes[0];
-                return 0;
-            }
-        }
-
-        /// <summary>
-        /// Gets word wrap.
-        /// </summary>
-        public bool WordWrap
-        {
-            get { return (Format.FormatFlags & StringFormatFlags.NoWrap) == 0; }
-        }
-
-        /// <summary>
-        /// Gets RTL value.
-        /// </summary>
-        public bool RightToLeft
-        {
-            get { return (Format.FormatFlags & StringFormatFlags.DirectionRightToLeft) != 0; }
-        }
-
-        /// <summary>
-        /// Gets PDF mode.
-        /// </summary>
-        public bool PDFMode
-        {
-            get { return pDFMode; }
-        }
-
-        internal float SpaceWidth
-        {
-            get
-            {
-                if (spaceWidth < 0)
-                {
-                    spaceWidth = CalculateSpaceSize(graphics, font);
-                }
-                return spaceWidth;
-            }
-        }
-
-        /// <summary>
-        /// The scale for font tag
-        /// </summary>
-        public float FontScale { get { return fontScale; } set { fontScale = value; } }
-
-        /// <summary>
-        /// Gets scale ratio.
-        /// </summary>
-        public float Scale { get { return scale; } set { scale = value; } }
-
-        /// <summary>
-        /// Gets image cache.
-        /// </summary>
-        public InlineImageCache Cache
-        {
-            get
-            {
-                if (cache == null)
-                    cache = new InlineImageCache();
-                return cache;
-            }
+            get { return text; }
         }
         #endregion
 
         #region Private Methods
-
-        const string ab = "abcdefabcdef";
-        const string a40b = "abcdef                                        abcdef";
-
-        internal static float CalculateSpaceSize(IGraphics g, Font f)
+        private int MeasureString(string text)
         {
-            float w_ab = g.MeasureString(ab, f).Width;
-            float w_a40b = g.MeasureString(a40b, f).Width;
-            return (w_a40b - w_ab) / 40;
-        }
-
-        private static FontStyle GetFontStyle(Font font)
-        {
-            if (font == null)
-                return FontStyle.Regular;
-
-            FontStyle style = FontStyle.Regular;
-            SKFontStyle skStyle = font.Typeface?.FontStyle ?? SKFontStyle.Normal;
-            if (skStyle.Weight >= (int)SKFontStyleWeight.SemiBold)
-                style |= FontStyle.Bold;
-            if (skStyle.Slant != SKFontStyleSlant.Upright)
-                style |= FontStyle.Italic;
-            return style;
-        }
-
-        private static float GetFontLineHeight(Font font)
-        {
-            if (font == null)
-                return 0;
-            SKFontMetrics metrics = font.Metrics;
-            return metrics.Descent - metrics.Ascent + metrics.Leading;
-        }
-
-        private static Font CreateFont(string familyName, float size, FontStyle style)
-        {
-            return DrawUtils.CreateFont(familyName, size, style);
-        }
-
-        private static Font CreateFont(Font source, FontStyle style)
-        {
-            string familyName = source?.Typeface?.FamilyName ?? SKTypeface.Default.FamilyName;
-            float size = source?.Size ?? DrawUtils.DefaultTextObjectFont.Size;
-            return DrawUtils.CreateFont(familyName, size, style);
-        }
-
-        private static SKPaint CreateTextPaint(SKColor color)
-        {
-            return new SKPaint { Color = color, IsAntialias = true, Style = SKPaintStyle.Fill };
-        }
-
-        private static SKPaint CreateStrokePaint(SKColor color, float width)
-        {
-            return new SKPaint { Color = color, StrokeWidth = width, IsAntialias = true, Style = SKPaintStyle.Stroke };
-        }
-
-        private void SplitToParagraphs(string text)
-        {
-            StyleDescriptor style = new StyleDescriptor(GetFontStyle(Font), BrushColor, BaseLine.Normal);
-            if (HtmlTags)
-                text = text.Replace("<br>", "\r\n").Replace("<br/>", "\r\n").Replace("<br />", "\r\n");
-            string[] lines = text.Split('\n', '\v');
-            int originalCharIndex = 0;
-
-            foreach (string line in lines)
+            if (text.Length > 0)
             {
-                string s = line;
-                if (s.Length > 0 && s[s.Length - 1] == '\r')
-                    s = s.Remove(s.Length - 1);
-
-                Paragraph paragraph = new Paragraph(s, this, originalCharIndex);
-                paragraphs.Add(paragraph);
-                if (HtmlTags)
-                    style = paragraph.WrapHtmlLines(style);
-                else
-                    paragraph.WrapLines();
-
-                originalCharIndex += line.Length + 1;
-            }
-
-            // skip empty paragraphs at the end
-            for (int i = paragraphs.Count - 1; i >= 0; i--)
-            {
-                if (paragraphs[i].IsEmpty && paragraphs.Count != 1)
-                    paragraphs.RemoveAt(i);
-                else
-                    break;
-            }
-        }
-
-        private void AdjustParagraphLines()
-        {
-            // calculate Y offset
-            float offsetY = DisplayRect.Top;
-            if (VertAlign == VertAlign.Center)
-                offsetY += (DisplayRect.Height - CalcHeight()) / 2;
-            else if (VertAlign == VertAlign.Bottom)
-                offsetY += (DisplayRect.Height - CalcHeight()) - 1;
-
-            for (int i = 0; i < Paragraphs.Count; i++)
-            {
-                Paragraph paragraph = Paragraphs[i];
-                paragraph.AlignLines(i == Paragraphs.Count - 1 && ForceJustify);
-
-                // adjust line tops
-                foreach (Line line in paragraph.Lines)
+                // BEGIN: The fix for linux and core app a264aae5-193b-4e5c-955c-0818de3ca01b
+                float left = 0;
+                int tabFit = 0;
+                while (text.Length > 0 && text[0] == '\t')
                 {
-                    line.Top = offsetY;
-                    line.MakeUnderlines();
-                    offsetY += line.CalcHeight();
+                    left = Renderer.GetTabPosition(left);
+                    text = text.Substring(1);
+                    if (Renderer.DisplayRect.Width < left)
+                        return tabFit;
+                    tabFit++;
                 }
+                if (tabFit > 0 && Renderer.DisplayRect.Width < left)
+                    return tabFit;
+                int charsFit = 0;
+                int linesFit = 0;
+                // END: The fix for linux and core app a264aae5-193b-4e5c-955c-0818de3ca01b
+                using SKPaint measurePaint = new SKPaint();
+                Renderer.Graphics.MeasureString(text, Renderer.Font,
+                  new SizeF(Renderer.DisplayRect.Width - left, Renderer.FontLineHeight * 1.25f),
+                  measurePaint, out charsFit, out linesFit);
+                return charsFit + tabFit;
             }
+            return 0;
         }
         #endregion
 
         #region Public Methods
-        /// <summary>
-        /// Draws a text.
-        /// </summary>
-        public void Draw()
+        internal void WrapLines()
         {
-            // set clipping
-            IGraphicsState state = Graphics.Save();
-            Graphics.SetClip(DisplayRect, SKClipOperation.Intersect);
-
-            // reset alignment
-            StringAlignment saveAlign = Format.Alignment;
-            StringAlignment saveLineAlign = Format.LineAlignment;
-            Format.Alignment = StringAlignment.Near;
-            Format.LineAlignment = StringAlignment.Near;
-
-            if (Angle != 0)
-            {
-                Graphics.TranslateTransform(DisplayRect.Left + DisplayRect.Width / 2,
-                  DisplayRect.Top + DisplayRect.Height / 2);
-                Graphics.RotateTransform(Angle);
-            }
-
-            Graphics.ScaleTransform(WidthRatio, 1);
-
-            foreach (Paragraph paragraph in Paragraphs)
-            {
-                paragraph.Draw();
-            }
-
-            // restore alignment and clipping
-            Format.Alignment = saveAlign;
-            Format.LineAlignment = saveLineAlign;
-            Graphics.Restore(state);
-        }
-
-        /// <summary>
-        /// Calculates text height.
-        /// </summary>
-        /// <returns>Text height.</returns>
-        public float CalcHeight()
-        {
+            string text = this.text;
             int charsFit = 0;
-            StyleDescriptor style = null;
-            return CalcHeight(out charsFit, out style);
-        }
 
-        /// <summary>
-        /// Calculates text height.
-        /// </summary>
-        /// <param name="charsFit">Chars fitted.</param>
-        /// <param name="style">Style descriptor.</param>
-        /// <returns>Text height.</returns>
-        public float CalcHeight(out int charsFit, out StyleDescriptor style)
-        {
-            charsFit = 0;
-            style = null;
-            float height = 0;
-            float displayHeight = DisplayRect.Height;
-            if (LineHeight > displayHeight)
-                return 0;
-
-            foreach (Paragraph paragraph in Paragraphs)
+            if (String.IsNullOrEmpty(text))
             {
-                foreach (Line line in paragraph.Lines)
+                lines.Add(new Line("", this, originalCharIndex));
+                return;
+            }
+
+            if (Renderer.WordWrap)
+            {
+                int originalCharIndex = this.originalCharIndex;
+                while (text.Length > 0)
                 {
-                    height += line.CalcHeight();
-                    if (charsFit == 0 && height > displayHeight)
-                    {
-                        charsFit = line.OriginalCharIndex;
-                        if (HtmlTags)
-                            style = line.Style;
-                    }
-                }
-            }
-
-            if (charsFit == 0)
-                charsFit = text.Length;
-            return height;
-        }
-
-        /// <summary>
-        /// Calculates text width.
-        /// </summary>
-        /// <returns>Text width.</returns>
-        public float CalcWidth()
-        {
-            float width = 0;
-
-            foreach (Paragraph paragraph in Paragraphs)
-            {
-                foreach (Line line in paragraph.Lines)
-                {
-                    if (width < line.Width)
-                        width = line.Width;
-                }
-            }
-            return width + spaceWidth;
-        }
-
-        internal float GetTabPosition(float pos)
-        {
-            float tabOffset = TabOffset;
-            float tabSize = TabSize;
-            int tabPosition = (int)((pos - tabOffset) / tabSize);
-            if (pos < tabOffset)
-                return tabOffset;
-            return (tabPosition + 1) * tabSize + tabOffset;
-        }
-        #endregion
-
-        /// <summary>
-        /// Initializes a new instance of <see cref="AdvancedTextRenderer"/> class.
-        /// </summary>
-        /// <param name="text">The text to render.</param>
-        /// <param name="g">Graphics context.</param>
-        /// <param name="font">Default font.</param>
-        /// <param name="brush">Text brush.</param>
-        /// <param name="outlinePen">Text outline pen.</param>
-        /// <param name="rect">Display rect.</param>
-        /// <param name="format">String format.</param>
-        /// <param name="horzAlign">Horizontal text align.</param>
-        /// <param name="vertAlign">Vertical text align.</param>
-        /// <param name="lineHeight">Line height.</param>
-        /// <param name="angle">Text angle.</param>
-        /// <param name="widthRatio">Font width ratio.</param>
-        /// <param name="forceJustify">Force text justification.</param>
-        /// <param name="wysiwyg">Wysiwyg mode.</param>
-        /// <param name="htmlTags">Enable simple html tags.</param>
-        /// <param name="pdfMode">PDF mode.</param>
-        /// <param name="scale">Scale factor.</param>
-        /// <param name="fontScale">Font scale.</param>
-        /// <param name="cache">Image cache.</param>
-        /// <param name="isPrinting">Is printing.</param>
-        public AdvancedTextRenderer(string text, IGraphics g, Font font, Brush brush, FastReport.Pen outlinePen,
-            RectangleF rect, StringFormat format, HorzAlign horzAlign, VertAlign vertAlign,
-            float lineHeight, int angle, float widthRatio,
-            bool forceJustify, bool wysiwyg, bool htmlTags, bool pdfMode,
-            float scale, float fontScale, InlineImageCache cache, bool isPrinting = false)
-        {
-            hasLineHeight = lineHeight != 0;
-            this.cache = cache;
-            this.scale = scale;
-            this.fontScale = fontScale;
-            paragraphs = new List<Paragraph>();
-            this.text = text;
-            graphics = g;
-            this.font = font;
-            this.brush = brush;
-            this.outlinePen = outlinePen;
-            displayRect = rect;
-            this.format = format;
-            this.horzAlign = horzAlign;
-            this.vertAlign = vertAlign;
-            this.lineHeight = lineHeight;
-            fontLineHeight = GetFontLineHeight(font);
-            if (!hasLineHeight)
-            {
-                this.lineHeight = fontLineHeight;
-                if (isPrinting && Config.IsRunningOnMono && DrawUtils.GetMonoRendering(g) == MonoRendering.Pango)
-                {
-                    // we need this in order to fix inconsistent line spacing when print using Pango rendering
-                    this.lineHeight = fontLineHeight * 1.33f;
-                }
-            }
-            this.angle = angle % 360;
-            this.widthRatio = widthRatio;
-            this.forceJustify = forceJustify;
-            this.wysiwyg = wysiwyg;
-            this.htmlTags = htmlTags;
-            pDFMode = pdfMode;
-            this.spaceWidth = -1;
-
-            StringFormatFlags saveFlags = Format.FormatFlags;
-            StringTrimming saveTrimming = Format.Trimming;
-
-            // match DrawString behavior: 
-            // if height is less than 1.25 of font height, turn off word wrap
-            // commented out due to bug with band.break
-            //if (rect.Height < FFontLineHeight * 1.25f)
-            //FFormat.FormatFlags |= StringFormatFlags.NoWrap;
-
-            // if word wrap is set, ignore trimming
-            if (WordWrap)
-                Format.Trimming = StringTrimming.Word;
-
-            // LineLimit flag is essential in linux
-            Format.FormatFlags = Format.FormatFlags | StringFormatFlags.MeasureTrailingSpaces | StringFormatFlags.LineLimit;
-
-            if (Angle != 0)
-            {
-                // shift displayrect 
-                displayRect = new RectangleF(-DisplayRect.Width / 2, -DisplayRect.Height / 2, DisplayRect.Width / 2, DisplayRect.Height / 2);
-
-                // rotate displayrect if angle is 90 or 270
-                if ((Angle >= 90 && Angle < 180) || (Angle >= 270 && Angle < 360))
-                    displayRect = new RectangleF(displayRect.Top, displayRect.Left, displayRect.Top + displayRect.Height, displayRect.Left + displayRect.Width);
-            }
-
-            displayRect = new RectangleF(displayRect.Left / WidthRatio, displayRect.Top, displayRect.Right / WidthRatio, displayRect.Bottom);
-
-            SplitToParagraphs(text);
-            AdjustParagraphLines();
-
-            // restore original values
-            displayRect = rect;
-            Format.FormatFlags = saveFlags;
-            Format.Trimming = saveTrimming;
-        }
-
-
-        /// <summary>
-        /// Paragraph represents single paragraph. It consists of one or several <see cref="Lines"/>.
-        /// </summary>
-        public class Paragraph
-        {
-            #region Fields
-            private readonly List<Line> lines;
-            private readonly AdvancedTextRenderer renderer;
-            private readonly string text;
-            private readonly int originalCharIndex;
-            #endregion
-
-            #region Properties
-            /// <summary>
-            /// Gets a list of text lines.
-            /// </summary>
-            public List<Line> Lines
-            {
-                get { return lines; }
-            }
-
-            /// <summary>
-            /// Gets the parent renderer.
-            /// </summary>
-            public AdvancedTextRenderer Renderer
-            {
-                get { return renderer; }
-            }
-
-            /// <summary>
-            /// Determines if this is a last paragraph.
-            /// </summary>
-            public bool Last
-            {
-                get { return renderer.Paragraphs[renderer.Paragraphs.Count - 1] == this; }
-            }
-
-            /// <summary>
-            /// Determines if this paragraph is empty.
-            /// </summary>
-            public bool IsEmpty
-            {
-                get { return String.IsNullOrEmpty(text); }
-            }
-
-            /// <summary>
-            /// Gets the text.
-            /// </summary>
-            public string Text
-            {
-                get { return text; }
-            }
-            #endregion
-
-            #region Private Methods
-            private int MeasureString(string text)
-            {
-                if (text.Length > 0)
-                {
-                    // BEGIN: The fix for linux and core app a264aae5-193b-4e5c-955c-0818de3ca01b
-                    float left = 0;
-                    int tabFit = 0;
-                    while (text.Length > 0 && text[0] == '\t')
-                    {
-                        left = Renderer.GetTabPosition(left);
-                        text = text.Substring(1);
-                        if (Renderer.DisplayRect.Width < left)
-                            return tabFit;
-                        tabFit++;
-                    }
-                    if (tabFit > 0 && Renderer.DisplayRect.Width < left)
-                        return tabFit;
-                    int charsFit = 0;
-                    int linesFit = 0;
-                    // END: The fix for linux and core app a264aae5-193b-4e5c-955c-0818de3ca01b
-                    using SKPaint measurePaint = new SKPaint();
-                    Renderer.Graphics.MeasureString(text, Renderer.Font,
-                      new SizeF(Renderer.DisplayRect.Width - left, Renderer.FontLineHeight * 1.25f),
-                      measurePaint, out charsFit, out linesFit);
-                    return charsFit + tabFit;
-                }
-                return 0;
-            }
-            #endregion
-
-            #region Public Methods
-            internal void WrapLines()
-            {
-                string text = this.text;
-                int charsFit = 0;
-
-                if (String.IsNullOrEmpty(text))
-                {
-                    lines.Add(new Line("", this, originalCharIndex));
-                    return;
-                }
-
-                if (Renderer.WordWrap)
-                {
-                    int originalCharIndex = this.originalCharIndex;
-                    while (text.Length > 0)
-                    {
-                        charsFit = MeasureString(text);
-
-                        // avoid infinite loop when width of object less than width of one character
-                        if (charsFit == 0)
-                        {
-                            break;
-                        }
-
-                        string textFit = text.Substring(0, charsFit).TrimEnd(' ');
-                        lines.Add(new Line(textFit, this, originalCharIndex));
-                        text = text.Substring(charsFit)
-                                        // Fix for linux system
-                                        .TrimStart(' ');
-                        originalCharIndex += charsFit;
-                    }
-                }
-                else
-                {
-                    string ellipsis = "\u2026";
-                    StringTrimming trimming = Renderer.Format.Trimming;
-                    if (trimming == StringTrimming.EllipsisPath)
-                        Renderer.Format.Trimming = StringTrimming.Character;
                     charsFit = MeasureString(text);
 
-                    switch (trimming)
+                    // avoid infinite loop when width of object less than width of one character
+                    if (charsFit == 0)
                     {
-                        case StringTrimming.Character:
-                        case StringTrimming.Word:
-                            text = text.Substring(0, charsFit);
-                            break;
-
-                        case StringTrimming.EllipsisCharacter:
-                        case StringTrimming.EllipsisWord:
-                            if (charsFit < text.Length)
-                            {
-                                text = text.Substring(0, charsFit);
-                                if (text.EndsWith(" "))
-                                    text = text.Substring(0, text.Length - 1);
-                                text += ellipsis;
-                            }
-                            break;
-
-                        case StringTrimming.EllipsisPath:
-                            if (charsFit < text.Length)
-                            {
-                                while (text.Length > 3)
-                                {
-                                    int mid = text.Length / 2;
-                                    string newText = text.Substring(0, mid) + ellipsis + text.Substring(mid + 1);
-                                    if (MeasureString(newText) == newText.Length)
-                                    {
-                                        text = newText;
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        text = text.Remove(mid, 1);
-                                    }
-                                }
-                            }
-                            break;
+                        break;
                     }
 
-                    lines.Add(new Line(text, this, originalCharIndex));
+                    string textFit = text.Substring(0, charsFit).TrimEnd(' ');
+                    lines.Add(new Line(textFit, this, originalCharIndex));
+                    text = text.Substring(charsFit)
+                                    // Fix for linux system
+                                    .TrimStart(' ');
+                    originalCharIndex += charsFit;
                 }
             }
-
-            internal StyleDescriptor WrapHtmlLines(StyleDescriptor style)
+            else
             {
-                Line line = new Line("", this, this.originalCharIndex);
-                lines.Add(line);
-                Word word = new Word("", line);
-                line.Words.Add(word);
-                //    for img
-                //RunImage img = null;
-                //end     img
-                string text = this.text;
-                StringBuilder currentWord = new StringBuilder(100);
-                float width = 0;
-                bool skipSpace = true;
-                int originalCharIndex = this.originalCharIndex;
+                string ellipsis = "\u2026";
+                StringTrimming trimming = Renderer.Format.Trimming;
+                if (trimming == StringTrimming.EllipsisPath)
+                    Renderer.Format.Trimming = StringTrimming.Character;
+                charsFit = MeasureString(text);
 
-                for (int i = 0; i < text.Length; i++)
+                switch (trimming)
                 {
-                    char lastChar = text[i];
-                    if (lastChar == '&')
-                    {
-                        if (Converter.FromHtmlEntities(text, ref i, currentWord))
-                        {
-                            if (i >= text.Length - 1)
-                            {
-                                word.Runs.Add(new Run(currentWord.ToString(), style, word));
-                                // check width
-                                width += word.Width + Renderer.SpaceWidth;
-                                if (width > Renderer.DisplayRect.Width)
-                                {
-                                    // line is too long, make a new line
-                                    if (line.Words.Count > 1)
-                                    {
-                                        // if line has several words, delete the last word from the current line
-                                        line.Words.RemoveAt(line.Words.Count - 1);
-                                        // make new line
-                                        line = new Line("", this, originalCharIndex);
-                                        // and add word to it
-                                        line.Words.Add(word);
-                                        word.SetLine(line);
-                                        lines.Add(line);
-                                    }
-                                }
-currentWord.Length = 0;
-                            }
-                            else
-                            {
-                                if (currentWord[currentWord.Length - 1] == '\t')
-                                {
-                                    currentWord.Length--;
-                                    lastChar = '\t';
+                    case StringTrimming.Character:
+                    case StringTrimming.Word:
+                        text = text.Substring(0, charsFit);
+                        break;
 
+                    case StringTrimming.EllipsisCharacter:
+                    case StringTrimming.EllipsisWord:
+                        if (charsFit < text.Length)
+                        {
+                            text = text.Substring(0, charsFit);
+                            if (text.EndsWith(" "))
+                                text = text.Substring(0, text.Length - 1);
+                            text += ellipsis;
+                        }
+                        break;
+
+                    case StringTrimming.EllipsisPath:
+                        if (charsFit < text.Length)
+                        {
+                            while (text.Length > 3)
+                            {
+                                int mid = text.Length / 2;
+                                string newText = text.Substring(0, mid) + ellipsis + text.Substring(mid + 1);
+                                if (MeasureString(newText) == newText.Length)
+                                {
+                                    text = newText;
+                                    break;
                                 }
                                 else
                                 {
-                                    continue;
+                                    text = text.Remove(mid, 1);
                                 }
                             }
                         }
-                    }
-                    if (lastChar == '<')
+                        break;
+                }
+
+                lines.Add(new Line(text, this, originalCharIndex));
+            }
+        }
+
+        internal StyleDescriptor WrapHtmlLines(StyleDescriptor style)
+        {
+            Line line = new Line("", this, this.originalCharIndex);
+            lines.Add(line);
+            Word word = new Word("", line);
+            line.Words.Add(word);
+            //    for img
+            //RunImage img = null;
+            //end     img
+            string text = this.text;
+            StringBuilder currentWord = new StringBuilder(100);
+            float width = 0;
+            bool skipSpace = true;
+            int originalCharIndex = this.originalCharIndex;
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                char lastChar = text[i];
+                if (lastChar == '&')
+                {
+                    if (Converter.FromHtmlEntities(text, ref i, currentWord))
                     {
-                        // probably html tag
-                        StyleDescriptor newStyle = new StyleDescriptor(style.FontStyle, style.Color, style.BaseLine);
-                        newStyle.Font = style.Font;
-                        newStyle.Size = style.Size;
-                        string tag = "";
-                        bool match = false;
-
-                        // <b>, <i>, <u>
-                        if (i + 3 <= text.Length)
+                        if (i >= text.Length - 1)
                         {
-                            match = true;
-                            tag = text.Substring(i, 3).ToLower();
-                            if (tag == "<b>")
-                                newStyle.FontStyle |= FontStyle.Bold;
-                            else if (tag == "<i>")
-                                newStyle.FontStyle |= FontStyle.Italic;
-                            else if (tag == "<u>")
-                                newStyle.FontStyle |= FontStyle.Underline;
-                            else
-                                match = false;
-
-                            if (match)
-                                i += 3;
-                        }
-
-                        // </b>, </i>, </u>
-                        if (!match && i + 4 <= text.Length && text[i + 1] == '/')
-                        {
-                            match = true;
-                            tag = text.Substring(i, 4).ToLower();
-                            if (tag == "</b>")
-                                newStyle.FontStyle &= ~FontStyle.Bold;
-                            else if (tag == "</i>")
-                                newStyle.FontStyle &= ~FontStyle.Italic;
-                            else if (tag == "</u>")
-                                newStyle.FontStyle &= ~FontStyle.Underline;
-                            else
-                                match = false;
-
-                            if (match)
-                                i += 4;
-                        }
-
-                        // <sub>, <sup> // <img· // <font
-                        if (!match && i + 5 <= text.Length)
-                        {
-                            match = true;
-                            tag = text.Substring(i, 5).ToLower();
-                            if (tag == "<sub>")
-                                newStyle.BaseLine = BaseLine.Subscript;
-                            else if (tag == "<sup>")
-                                newStyle.BaseLine = BaseLine.Superscript;
-                            else if (tag == "<img ")
-                            {
-                                //try to found end tag
-                                int right = text.IndexOf('>', i + 5);
-                                if (right <= 0) match = false;
-                                else
-                                {
-                                    //found img and parse them
-                                    string src = null;
-                                    string alt = " ";
-                                    //currentWord = "";
-                                    int src_ind = text.IndexOf("src=\"", i + 5, StringComparison.Ordinal);
-                                    if (src_ind < right && src_ind >= 0)
-                                    {
-                                        src_ind += 5;
-                                        int src_end = text.IndexOf("\"", src_ind, StringComparison.Ordinal);
-                                        if (src_end < right && src_end >= 0)
-                                        {
-                                            src = text.Substring(src_ind, src_end - src_ind);
-                                        }
-                                    }
-                                    int alt_ind = text.IndexOf("alt=\"", i + 5, StringComparison.Ordinal);
-                                    if (alt_ind < right && alt_ind >= 0)
-                                    {
-                                        alt_ind += 5;
-                                        int alt_end = text.IndexOf("\"", alt_ind, StringComparison.Ordinal);
-                                        if (alt_end < right && alt_end >= 0)
-                                        {
-                                            alt = text.Substring(alt_ind, alt_end - alt_ind);
-                                        }
-                                    }
-                                    //begin
-                                    if (currentWord.Length != 0)
-                                    {
-                                        // finish the word
-                                        word.Runs.Add(new Run(currentWord.ToString(), style, word));
-                                    }
-currentWord.Length = 0;
-                                    word.Runs.Add(new RunImage(src, alt, style, word));
-                                    skipSpace = false;
-                                    i = right - 4;
-                                }
-                            }
-                            else if (tag == "<font")
-                            {
-                                //try to found end of open tag
-                                int right = text.IndexOf('>', i + 5);
-                                if (right <= 0) match = false;
-                                else
-                                {
-                                    //found font and parse them
-                                    string color = null;
-                                    string face = null;
-                                    string size = null;
-                                    int color_ind = text.IndexOf("color=\"", i + 5, StringComparison.Ordinal);
-                                    if (color_ind < right && color_ind >= 0)
-                                    {
-                                        color_ind += 7;
-                                        int color_end = text.IndexOf("\"", color_ind, StringComparison.Ordinal);
-                                        if (color_end < right && color_end >= 0)
-                                        {
-                                            color = text.Substring(color_ind, color_end - color_ind);
-                                        }
-                                    }
-
-                                    int face_ind = text.IndexOf("face=\"", i + 5, StringComparison.Ordinal);
-                                    if (face_ind < right && face_ind >= 0)
-                                    {
-                                        face_ind += 6;
-                                        int face_end = text.IndexOf("\"", face_ind, StringComparison.Ordinal);
-                                        if (face_end < right && face_end >= 0)
-                                        {
-                                            face = text.Substring(face_ind, face_end - face_ind);
-                                        }
-                                    }
-
-                                    int size_ind = text.IndexOf("size=\"", i + 5, StringComparison.Ordinal);
-                                    if (size_ind < right && size_ind >= 0)
-                                    {
-                                        size_ind += 6;
-                                        int size_end = text.IndexOf("\"", size_ind, StringComparison.Ordinal);
-                                        if (size_end < right && size_end >= 0)
-                                        {
-                                            size = text.Substring(size_ind, size_end - size_ind);
-                                        }
-                                    }
-
-                                    if (color != null)
-                                    {
-                                        if (color.StartsWith("\"") && color.EndsWith("\""))
-                                            color = color.Substring(1, color.Length - 2);
-                                        SKColor? parsedColor = ColorHelper.FromString(color);
-                                        if (parsedColor.HasValue)
-                                            newStyle.Color = parsedColor.Value;
-                                    }
-                                    newStyle.Font = face;
-                                    if (size != null)
-                                    {
-
-                                        try
-                                        {
-                                            size = size.Trim(' ');
-
-                                            switch (size[0])
-                                            {
-                                                case '-':
-                                                    size = size.Substring(1);
-                                                    if (style.Size == 0)
-                                                        newStyle.Size = Renderer.Font.Size - (float)Converter.FromString(typeof(float), size) * Renderer.FontScale;
-                                                    else
-                                                        newStyle.Size = style.Size - (float)Converter.FromString(typeof(float), size) * Renderer.FontScale;
-                                                    break;
-                                                case '+':
-                                                    size = size.Substring(1);
-                                                    if (style.Size == 0)
-                                                        newStyle.Size = Renderer.Font.Size + (float)Converter.FromString(typeof(float), size) * Renderer.FontScale;
-                                                    else
-                                                        newStyle.Size = style.Size + (float)Converter.FromString(typeof(float), size) * Renderer.FontScale;
-                                                    break;
-                                                default: newStyle.Size = (float)Converter.FromString(typeof(float), size) * Renderer.FontScale; break;
-                                            }
-                                            if (newStyle.Size < 0) newStyle.Size = 0;
-                                        }
-                                        catch { }
-                                    }
-                                    i = right - 4;
-                                }
-                            }
-                            else
-                                match = false;
-
-                            if (match)
-                                i += 5;
-                        }
-
-                        // </sub>, </sup>
-                        if (!match && i + 6 <= text.Length && text[i + 1] == '/')
-                        {
-                            match = true;
-                            tag = text.Substring(i, 6).ToLower();
-                            if (tag == "</sub>")
-                                newStyle.BaseLine = BaseLine.Normal;
-                            else if (tag == "</sup>")
-                                newStyle.BaseLine = BaseLine.Normal;
-                            else
-                                match = false;
-
-                            if (match)
-                                i += 6;
-                        }
-
-                        // <strike>
-                        if (!match && i + 8 <= text.Length && text.Substring(i, 8).ToLower() == "<strike>")
-                        {
-                            newStyle.FontStyle |= FontStyle.Strikeout;
-                            match = true;
-                            i += 8;
-                        }
-
-                        // </strike>
-                        if (!match && i + 9 <= text.Length && text.Substring(i, 9).ToLower() == "</strike>")
-                        {
-                            newStyle.FontStyle &= ~FontStyle.Strikeout;
-                            match = true;
-                            i += 9;
-                        }
-                        /*
-                        // <font color
-                        if (!match && i + 12 < text.Length && text.Substring(i, 12).ToLower() == "<font color=")
-                        {
-                          int start = i + 12;
-                          int end = start;
-                          for (; end < text.Length && text[end] != '>'; end++)
-                          {
-                          }
-
-                          if (end < text.Length)
-                          {
-                            string colorName = text.Substring(start, end - start);
-                            if (colorName.StartsWith("\"") && colorName.EndsWith("\""))
-                              colorName = colorName.Substring(1, colorName.Length - 2);
-                            SKColor? parsedColor = ColorHelper.FromString(colorName);
-                            if (parsedColor.HasValue)
-                              newStyle.Color = parsedColor.Value;
-                            i = end + 1;
-                            match = true;
-                          }
-                        }
-                        */
-                        // </font>
-                        if (!match && i + 7 <= text.Length && text.Substring(i, 7).ToLower() == "</font>")
-                        {
-                            newStyle.Color = Renderer.BrushColor;
-                            newStyle.Size = 0;
-                            newStyle.Font = null;
-                            match = true;
-                            i += 7;
-                        }
-
-                        if (match)
-                        {
-                            if (currentWord.Length != 0)
-                            {
-                                // finish the word
-                                word.Runs.Add(new Run(currentWord.ToString(), style, word));
-                            }
-
-currentWord.Length = 0;
-style = newStyle;
-                            i--;
-
-                            if (i >= text.Length - 1)
-                            {
-                                // check width
-                                width += word.Width + Renderer.SpaceWidth;
-                                if (width > Renderer.DisplayRect.Width)
-                                {
-                                    // line is too long, make a new line
-                                    if (line.Words.Count > 1)
-                                    {
-                                        // if line has several words, delete the last word from the current line
-                                        line.Words.RemoveAt(line.Words.Count - 1);
-                                        // make new line
-                                        line = new Line("", this, originalCharIndex);
-                                        // and add word to it
-                                        line.Words.Add(word);
-                                        word.SetLine(line);
-                                        lines.Add(line);
-                                    }
-                                }
-                            }
-                            continue;
-                        }
-                    }
-                    if (lastChar == ' ' || lastChar == '\t' || i == text.Length - 1)
-                    {
-                        // finish the last word
-                        bool isLastWord = i == text.Length - 1;
-                        if (isLastWord)
-                        {
-                            currentWord.Append(lastChar);
-                            skipSpace = false;
-                        }
-
-                        if (lastChar == '\t')
-                            skipSpace = false;
-
-                        // space
-                        if (skipSpace)
-                        {
-                            currentWord.Append(lastChar);
-                        }
-                        else
-                        {
-                            // finish the word
-                            if (currentWord.Length != 0)
-                                word.Runs.Add(new Run(currentWord.ToString(), style, word));
-
+                            word.Runs.Add(new Run(currentWord.ToString(), style, word));
                             // check width
-                            width += word.Width + word.SpaceWidth;
+                            width += word.Width + Renderer.SpaceWidth;
                             if (width > Renderer.DisplayRect.Width)
                             {
                                 // line is too long, make a new line
-                                width = 0;
                                 if (line.Words.Count > 1)
                                 {
                                     // if line has several words, delete the last word from the current line
@@ -1194,1495 +849,1771 @@ style = newStyle;
                                     // and add word to it
                                     line.Words.Add(word);
                                     word.SetLine(line);
-                                    width += word.Width + word.SpaceWidth;
+                                    lines.Add(line);
                                 }
-                                else
-                                {
-                                    line = new Line("", this, i + 1);
-                                }
-                                lines.Add(line);
                             }
-
-                            // TAB symbol
-                            if (lastChar == '\t')
+                            currentWord.Length = 0;
+                        }
+                        else
+                        {
+                            if (currentWord[currentWord.Length - 1] == '\t')
                             {
-                                if (currentWord.Length == 0 && line.Words.Count > 0 && line.Words[line.Words.Count - 1].Width == 0)
-                                    line.Words.RemoveAt(line.Words.Count - 1);
-                                word = new Word("\t", line);
-                                line.Words.Add(word);
-                                // adjust width
-                                width = Renderer.GetTabPosition(width);
+                                currentWord.Length--;
+                                lastChar = '\t';
+
                             }
-
-                            if (!isLastWord)
+                            else
                             {
-                                word = new Word("", line);
-                                line.Words.Add(word);
-                                currentWord.Length = 0;
-                                originalCharIndex = this.originalCharIndex + i + 1;
-                                skipSpace = true;
+                                continue;
                             }
                         }
                     }
-                    else
+                }
+                if (lastChar == '<')
+                {
+                    // probably html tag
+                    StyleDescriptor newStyle = new StyleDescriptor(style.FontStyle, style.Color, style.BaseLine);
+                    newStyle.Font = style.Font;
+                    newStyle.Size = style.Size;
+                    string tag = "";
+                    bool match = false;
+
+                    // <b>, <i>, <u>
+                    if (i + 3 <= text.Length)
                     {
-                        // symbol
+                        match = true;
+                        tag = text.Substring(i, 3).ToLower();
+                        if (tag == "<b>")
+                            newStyle.FontStyle |= FontStyle.Bold;
+                        else if (tag == "<i>")
+                            newStyle.FontStyle |= FontStyle.Italic;
+                        else if (tag == "<u>")
+                            newStyle.FontStyle |= FontStyle.Underline;
+                        else
+                            match = false;
+
+                        if (match)
+                            i += 3;
+                    }
+
+                    // </b>, </i>, </u>
+                    if (!match && i + 4 <= text.Length && text[i + 1] == '/')
+                    {
+                        match = true;
+                        tag = text.Substring(i, 4).ToLower();
+                        if (tag == "</b>")
+                            newStyle.FontStyle &= ~FontStyle.Bold;
+                        else if (tag == "</i>")
+                            newStyle.FontStyle &= ~FontStyle.Italic;
+                        else if (tag == "</u>")
+                            newStyle.FontStyle &= ~FontStyle.Underline;
+                        else
+                            match = false;
+
+                        if (match)
+                            i += 4;
+                    }
+
+                    // <sub>, <sup> // <img· // <font
+                    if (!match && i + 5 <= text.Length)
+                    {
+                        match = true;
+                        tag = text.Substring(i, 5).ToLower();
+                        if (tag == "<sub>")
+                            newStyle.BaseLine = BaseLine.Subscript;
+                        else if (tag == "<sup>")
+                            newStyle.BaseLine = BaseLine.Superscript;
+                        else if (tag == "<img ")
+                        {
+                            //try to found end tag
+                            int right = text.IndexOf('>', i + 5);
+                            if (right <= 0) match = false;
+                            else
+                            {
+                                //found img and parse them
+                                string src = null;
+                                string alt = " ";
+                                //currentWord = "";
+                                int src_ind = text.IndexOf("src=\"", i + 5, StringComparison.Ordinal);
+                                if (src_ind < right && src_ind >= 0)
+                                {
+                                    src_ind += 5;
+                                    int src_end = text.IndexOf("\"", src_ind, StringComparison.Ordinal);
+                                    if (src_end < right && src_end >= 0)
+                                    {
+                                        src = text.Substring(src_ind, src_end - src_ind);
+                                    }
+                                }
+                                int alt_ind = text.IndexOf("alt=\"", i + 5, StringComparison.Ordinal);
+                                if (alt_ind < right && alt_ind >= 0)
+                                {
+                                    alt_ind += 5;
+                                    int alt_end = text.IndexOf("\"", alt_ind, StringComparison.Ordinal);
+                                    if (alt_end < right && alt_end >= 0)
+                                    {
+                                        alt = text.Substring(alt_ind, alt_end - alt_ind);
+                                    }
+                                }
+                                //begin
+                                if (currentWord.Length != 0)
+                                {
+                                    // finish the word
+                                    word.Runs.Add(new Run(currentWord.ToString(), style, word));
+                                }
+                                currentWord.Length = 0;
+                                word.Runs.Add(new RunImage(src, alt, style, word));
+                                skipSpace = false;
+                                i = right - 4;
+                            }
+                        }
+                        else if (tag == "<font")
+                        {
+                            //try to found end of open tag
+                            int right = text.IndexOf('>', i + 5);
+                            if (right <= 0) match = false;
+                            else
+                            {
+                                //found font and parse them
+                                string color = null;
+                                string face = null;
+                                string size = null;
+                                int color_ind = text.IndexOf("color=\"", i + 5, StringComparison.Ordinal);
+                                if (color_ind < right && color_ind >= 0)
+                                {
+                                    color_ind += 7;
+                                    int color_end = text.IndexOf("\"", color_ind, StringComparison.Ordinal);
+                                    if (color_end < right && color_end >= 0)
+                                    {
+                                        color = text.Substring(color_ind, color_end - color_ind);
+                                    }
+                                }
+
+                                int face_ind = text.IndexOf("face=\"", i + 5, StringComparison.Ordinal);
+                                if (face_ind < right && face_ind >= 0)
+                                {
+                                    face_ind += 6;
+                                    int face_end = text.IndexOf("\"", face_ind, StringComparison.Ordinal);
+                                    if (face_end < right && face_end >= 0)
+                                    {
+                                        face = text.Substring(face_ind, face_end - face_ind);
+                                    }
+                                }
+
+                                int size_ind = text.IndexOf("size=\"", i + 5, StringComparison.Ordinal);
+                                if (size_ind < right && size_ind >= 0)
+                                {
+                                    size_ind += 6;
+                                    int size_end = text.IndexOf("\"", size_ind, StringComparison.Ordinal);
+                                    if (size_end < right && size_end >= 0)
+                                    {
+                                        size = text.Substring(size_ind, size_end - size_ind);
+                                    }
+                                }
+
+                                if (color != null)
+                                {
+                                    if (color.StartsWith("\"") && color.EndsWith("\""))
+                                        color = color.Substring(1, color.Length - 2);
+                                    SKColor? parsedColor = ColorHelper.FromString(color);
+                                    if (parsedColor.HasValue)
+                                        newStyle.Color = parsedColor.Value;
+                                }
+                                newStyle.Font = face;
+                                if (size != null)
+                                {
+
+                                    try
+                                    {
+                                        size = size.Trim(' ');
+
+                                        switch (size[0])
+                                        {
+                                            case '-':
+                                                size = size.Substring(1);
+                                                if (style.Size == 0)
+                                                    newStyle.Size = Renderer.Font.Size - (float)Converter.FromString(typeof(float), size) * Renderer.FontScale;
+                                                else
+                                                    newStyle.Size = style.Size - (float)Converter.FromString(typeof(float), size) * Renderer.FontScale;
+                                                break;
+                                            case '+':
+                                                size = size.Substring(1);
+                                                if (style.Size == 0)
+                                                    newStyle.Size = Renderer.Font.Size + (float)Converter.FromString(typeof(float), size) * Renderer.FontScale;
+                                                else
+                                                    newStyle.Size = style.Size + (float)Converter.FromString(typeof(float), size) * Renderer.FontScale;
+                                                break;
+                                            default: newStyle.Size = (float)Converter.FromString(typeof(float), size) * Renderer.FontScale; break;
+                                        }
+                                        if (newStyle.Size < 0) newStyle.Size = 0;
+                                    }
+                                    catch { }
+                                }
+                                i = right - 4;
+                            }
+                        }
+                        else
+                            match = false;
+
+                        if (match)
+                            i += 5;
+                    }
+
+                    // </sub>, </sup>
+                    if (!match && i + 6 <= text.Length && text[i + 1] == '/')
+                    {
+                        match = true;
+                        tag = text.Substring(i, 6).ToLower();
+                        if (tag == "</sub>")
+                            newStyle.BaseLine = BaseLine.Normal;
+                        else if (tag == "</sup>")
+                            newStyle.BaseLine = BaseLine.Normal;
+                        else
+                            match = false;
+
+                        if (match)
+                            i += 6;
+                    }
+
+                    // <strike>
+                    if (!match && i + 8 <= text.Length && text.Substring(i, 8).ToLower() == "<strike>")
+                    {
+                        newStyle.FontStyle |= FontStyle.Strikeout;
+                        match = true;
+                        i += 8;
+                    }
+
+                    // </strike>
+                    if (!match && i + 9 <= text.Length && text.Substring(i, 9).ToLower() == "</strike>")
+                    {
+                        newStyle.FontStyle &= ~FontStyle.Strikeout;
+                        match = true;
+                        i += 9;
+                    }
+                    /*
+                    // <font color
+                    if (!match && i + 12 < text.Length && text.Substring(i, 12).ToLower() == "<font color=")
+                    {
+                      int start = i + 12;
+                      int end = start;
+                      for (; end < text.Length && text[end] != '>'; end++)
+                      {
+                      }
+
+                      if (end < text.Length)
+                      {
+                        string colorName = text.Substring(start, end - start);
+                        if (colorName.StartsWith("\"") && colorName.EndsWith("\""))
+                          colorName = colorName.Substring(1, colorName.Length - 2);
+                        SKColor? parsedColor = ColorHelper.FromString(colorName);
+                        if (parsedColor.HasValue)
+                          newStyle.Color = parsedColor.Value;
+                        i = end + 1;
+                        match = true;
+                      }
+                    }
+                    */
+                    // </font>
+                    if (!match && i + 7 <= text.Length && text.Substring(i, 7).ToLower() == "</font>")
+                    {
+                        newStyle.Color = Renderer.BrushColor;
+                        newStyle.Size = 0;
+                        newStyle.Font = null;
+                        match = true;
+                        i += 7;
+                    }
+
+                    if (match)
+                    {
+                        if (currentWord.Length != 0)
+                        {
+                            // finish the word
+                            word.Runs.Add(new Run(currentWord.ToString(), style, word));
+                        }
+
+                        currentWord.Length = 0;
+                        style = newStyle;
+                        i--;
+
+                        if (i >= text.Length - 1)
+                        {
+                            // check width
+                            width += word.Width + Renderer.SpaceWidth;
+                            if (width > Renderer.DisplayRect.Width)
+                            {
+                                // line is too long, make a new line
+                                if (line.Words.Count > 1)
+                                {
+                                    // if line has several words, delete the last word from the current line
+                                    line.Words.RemoveAt(line.Words.Count - 1);
+                                    // make new line
+                                    line = new Line("", this, originalCharIndex);
+                                    // and add word to it
+                                    line.Words.Add(word);
+                                    word.SetLine(line);
+                                    lines.Add(line);
+                                }
+                            }
+                        }
+                        continue;
+                    }
+                }
+                if (lastChar == ' ' || lastChar == '\t' || i == text.Length - 1)
+                {
+                    // finish the last word
+                    bool isLastWord = i == text.Length - 1;
+                    if (isLastWord)
+                    {
                         currentWord.Append(lastChar);
                         skipSpace = false;
                     }
+
+                    if (lastChar == '\t')
+                        skipSpace = false;
+
+                    // space
+                    if (skipSpace)
+                    {
+                        currentWord.Append(lastChar);
+                    }
+                    else
+                    {
+                        // finish the word
+                        if (currentWord.Length != 0)
+                            word.Runs.Add(new Run(currentWord.ToString(), style, word));
+
+                        // check width
+                        width += word.Width + word.SpaceWidth;
+                        if (width > Renderer.DisplayRect.Width)
+                        {
+                            // line is too long, make a new line
+                            width = 0;
+                            if (line.Words.Count > 1)
+                            {
+                                // if line has several words, delete the last word from the current line
+                                line.Words.RemoveAt(line.Words.Count - 1);
+                                // make new line
+                                line = new Line("", this, originalCharIndex);
+                                // and add word to it
+                                line.Words.Add(word);
+                                word.SetLine(line);
+                                width += word.Width + word.SpaceWidth;
+                            }
+                            else
+                            {
+                                line = new Line("", this, i + 1);
+                            }
+                            lines.Add(line);
+                        }
+
+                        // TAB symbol
+                        if (lastChar == '\t')
+                        {
+                            if (currentWord.Length == 0 && line.Words.Count > 0 && line.Words[line.Words.Count - 1].Width == 0)
+                                line.Words.RemoveAt(line.Words.Count - 1);
+                            word = new Word("\t", line);
+                            line.Words.Add(word);
+                            // adjust width
+                            width = Renderer.GetTabPosition(width);
+                        }
+
+                        if (!isLastWord)
+                        {
+                            word = new Word("", line);
+                            line.Words.Add(word);
+                            currentWord.Length = 0;
+                            originalCharIndex = this.originalCharIndex + i + 1;
+                            skipSpace = true;
+                        }
+                    }
                 }
-
-                return style;
-            }
-
-            internal void AlignLines(bool forceJustify)
-            {
-                for (int i = 0; i < Lines.Count; i++)
+                else
                 {
-                    HorzAlign align = Renderer.HorzAlign;
-                    if (align == HorzAlign.Justify && i == Lines.Count - 1 && !forceJustify)
-                        align = HorzAlign.Left;
-                    Lines[i].AlignWords(align);
+                    // symbol
+                    currentWord.Append(lastChar);
+                    skipSpace = false;
                 }
             }
 
-            internal void Draw()
-            {
-                foreach (Line line in Lines)
-                {
-                    line.Draw();
-                }
-            }
-            #endregion
+            return style;
+        }
 
-            internal Paragraph(string text, AdvancedTextRenderer renderer, int originalCharIndex)
+        internal void AlignLines(bool forceJustify)
+        {
+            for (int i = 0; i < Lines.Count; i++)
             {
-                lines = new List<Line>();
-                this.text = text;
-                this.renderer = renderer;
-                this.originalCharIndex = originalCharIndex;
+                HorzAlign align = Renderer.HorzAlign;
+                if (align == HorzAlign.Justify && i == Lines.Count - 1 && !forceJustify)
+                    align = HorzAlign.Left;
+                Lines[i].AlignWords(align);
             }
         }
 
+        internal void Draw()
+        {
+            foreach (Line line in Lines)
+            {
+                line.Draw();
+            }
+        }
+        #endregion
+
+        internal Paragraph(string text, AdvancedTextRenderer renderer, int originalCharIndex)
+        {
+            lines = new List<Line>();
+            this.text = text;
+            this.renderer = renderer;
+            this.originalCharIndex = originalCharIndex;
+        }
+    }
+
+
+    /// <summary>
+    /// Line represents single text line. It consists of one or several <see cref="Words"/>.
+    /// Simple line (that does not contain tabs, html tags, and is not justified) has
+    /// single <see cref="Word"/> which contains all the text.
+    /// </summary>
+    public class Line
+    {
+        #region Fields
+        private readonly List<Word> words;
+        private readonly string text;
+        private readonly bool hasTabs;
+        private readonly Paragraph paragraph;
+        private float top;
+        private float width;
+        private readonly int originalCharIndex;
+        private readonly List<RectangleF> underlines;
+        private readonly List<RectangleF> strikeouts;
+        #endregion
+
+        #region Properties
+        /// <summary>
+        /// Gets a list of words in this line.
+        /// </summary>
+        public List<Word> Words
+        {
+            get { return words; }
+        }
 
         /// <summary>
-        /// Line represents single text line. It consists of one or several <see cref="Words"/>.
-        /// Simple line (that does not contain tabs, html tags, and is not justified) has
-        /// single <see cref="Word"/> which contains all the text.
+        /// Gets a text.
         /// </summary>
-        public class Line
+        public string Text
         {
-            #region Fields
-            private readonly List<Word> words;
-            private readonly string text;
-            private readonly bool hasTabs;
-            private readonly Paragraph paragraph;
-            private float top;
-            private float width;
-            private readonly int originalCharIndex;
-            private readonly List<RectangleF> underlines;
-            private readonly List<RectangleF> strikeouts;
-            #endregion
+            get { return text; }
+        }
 
-            #region Properties
-            /// <summary>
-            /// Gets a list of words in this line.
-            /// </summary>
-            public List<Word> Words
+        /// <summary>
+        /// Determines if this line has tabs.
+        /// </summary>
+        public bool HasTabs
+        {
+            get { return hasTabs; }
+        }
+
+        /// <summary>
+        /// Gets the left coordinate.
+        /// </summary>
+        public float Left
+        {
+            get { return Words.Count > 0 ? Words[0].Left : 0; }
+        }
+
+        /// <summary>
+        /// Gets the top coordinate.
+        /// </summary>
+        public float Top
+        {
+            get { return top; }
+            set { top = value; }
+        }
+
+        /// <summary>
+        /// Gets the line width.
+        /// </summary>
+        public float Width
+        {
+            get { return width; }
+        }
+
+        /// <summary>
+        /// Gets the char index in the original text.
+        /// </summary>
+        public int OriginalCharIndex
+        {
+            get { return originalCharIndex; }
+        }
+
+        /// <summary>
+        /// Gets the renderer.
+        /// </summary>
+        public AdvancedTextRenderer Renderer
+        {
+            get { return paragraph.Renderer; }
+        }
+
+        /// <summary>
+        /// Gets the style descriptor.
+        /// </summary>
+        public StyleDescriptor Style
+        {
+            get
             {
-                get { return words; }
+                if (Words.Count > 0)
+                    if (Words[0].Runs.Count > 0)
+                        return Words[0].Runs[0].Style;
+                return null;
             }
+        }
 
-            /// <summary>
-            /// Gets a text.
-            /// </summary>
-            public string Text
-            {
-                get { return text; }
-            }
+        /// <summary>
+        /// Determines if this line is last one.
+        /// </summary>
+        public bool Last
+        {
+            get { return paragraph.Lines[paragraph.Lines.Count - 1] == this; }
+        }
 
-            /// <summary>
-            /// Determines if this line has tabs.
-            /// </summary>
-            public bool HasTabs
-            {
-                get { return hasTabs; }
-            }
+        /// <summary>
+        /// Gets a list of line segments used to draw underlines.
+        /// </summary>
+        public List<RectangleF> Underlines
+        {
+            get { return underlines; }
+        }
 
-            /// <summary>
-            /// Gets the left coordinate.
-            /// </summary>
-            public float Left
-            {
-                get { return Words.Count > 0 ? Words[0].Left : 0; }
-            }
+        /// <summary>
+        /// Gets a list of line segments used to draw strikeouts.
+        /// </summary>
+        public List<RectangleF> Strikeouts
+        {
+            get { return strikeouts; }
+        }
+        #endregion
 
-            /// <summary>
-            /// Gets the top coordinate.
-            /// </summary>
-            public float Top
-            {
-                get { return top; }
-                set { top = value; }
-            }
+        #region Private Methods
+        private void PrepareUnderlines(List<RectangleF> list, FontStyle style)
+        {
+            list.Clear();
+            if (Words.Count == 0)
+                return;
 
-            /// <summary>
-            /// Gets the line width.
-            /// </summary>
-            public float Width
+            if (Renderer.HtmlTags)
             {
-                get { return width; }
-            }
+                float left = 0;
+                float right = 0;
+                bool styleOn = false;
 
-            /// <summary>
-            /// Gets the char index in the original text.
-            /// </summary>
-            public int OriginalCharIndex
-            {
-                get { return originalCharIndex; }
-            }
-
-            /// <summary>
-            /// Gets the renderer.
-            /// </summary>
-            public AdvancedTextRenderer Renderer
-            {
-                get { return paragraph.Renderer; }
-            }
-
-            /// <summary>
-            /// Gets the style descriptor.
-            /// </summary>
-            public StyleDescriptor Style
-            {
-                get
+                foreach (Word word in Words)
                 {
-                    if (Words.Count > 0)
-                        if (Words[0].Runs.Count > 0)
-                            return Words[0].Runs[0].Style;
-                    return null;
-                }
-            }
-
-            /// <summary>
-            /// Determines if this line is last one.
-            /// </summary>
-            public bool Last
-            {
-                get { return paragraph.Lines[paragraph.Lines.Count - 1] == this; }
-            }
-
-            /// <summary>
-            /// Gets a list of line segments used to draw underlines.
-            /// </summary>
-            public List<RectangleF> Underlines
-            {
-                get { return underlines; }
-            }
-
-            /// <summary>
-            /// Gets a list of line segments used to draw strikeouts.
-            /// </summary>
-            public List<RectangleF> Strikeouts
-            {
-                get { return strikeouts; }
-            }
-            #endregion
-
-            #region Private Methods
-            private void PrepareUnderlines(List<RectangleF> list, FontStyle style)
-            {
-                list.Clear();
-                if (Words.Count == 0)
-                    return;
-
-                if (Renderer.HtmlTags)
-                {
-                    float left = 0;
-                    float right = 0;
-                    bool styleOn = false;
-
-                    foreach (Word word in Words)
+                    foreach (Run run in word.Runs)
                     {
-                        foreach (Run run in word.Runs)
+                        using (Font fnt = run.GetFont())
                         {
-                            using (Font fnt = run.GetFont())
+                            if ((GetFontStyle(fnt) & style) > 0)
                             {
-                                if ((GetFontStyle(fnt) & style) > 0)
+                                if (!styleOn)
                                 {
-                                    if (!styleOn)
-                                    {
-                                        styleOn = true;
-                                        left = run.Left;
-                                    }
-                                    right = run.Left + run.Width;
+                                    styleOn = true;
+                                    left = run.Left;
                                 }
-                                if ((GetFontStyle(fnt) & style) == 0 && styleOn)
-                                {
-                                    styleOn = false;
-                                    list.Add(new RectangleF(left, Top, left + (right - left), Top + 1));
-                                }
+                                right = run.Left + run.Width;
+                            }
+                            if ((GetFontStyle(fnt) & style) == 0 && styleOn)
+                            {
+                                styleOn = false;
+                                list.Add(new RectangleF(left, Top, left + (right - left), Top + 1));
                             }
                         }
                     }
-                    // close the style
-                    if (styleOn)
-                        list.Add(new RectangleF(left, Top, left + (right - left), Top + 1));
                 }
-                else if ((GetFontStyle(Renderer.Font) & style) > 0)
-                {
-                    float lineWidth = Width;
-                    if (Renderer.HorzAlign == HorzAlign.Justify && (!Last || (paragraph.Last && Renderer.ForceJustify)))
-                        lineWidth = Renderer.DisplayRect.Width - Renderer.SpaceWidth;
+                // close the style
+                if (styleOn)
+                    list.Add(new RectangleF(left, Top, left + (right - left), Top + 1));
+            }
+            else if ((GetFontStyle(Renderer.Font) & style) > 0)
+            {
+                float lineWidth = Width;
+                if (Renderer.HorzAlign == HorzAlign.Justify && (!Last || (paragraph.Last && Renderer.ForceJustify)))
+                    lineWidth = Renderer.DisplayRect.Width - Renderer.SpaceWidth;
 
-                    list.Add(new RectangleF(Left, Top, Left + lineWidth, Top + 1));
+                list.Add(new RectangleF(Left, Top, Left + lineWidth, Top + 1));
+            }
+        }
+        #endregion
+
+        #region Public Methods
+        internal void AlignWords(HorzAlign align)
+        {
+            width = 0;
+
+            // handle each word
+            if (align == HorzAlign.Justify || HasTabs || Renderer.Wysiwyg || Renderer.HtmlTags)
+            {
+                float left = 0;
+                Word word = null;
+                for (int i = 0; i < Words.Count; i++)
+                {
+                    word = Words[i];
+                    word.Left = left;
+
+                    if (word.Text == "\t")
+                    {
+                        left = Renderer.GetTabPosition(left);
+                        // remove tab
+                        Words.RemoveAt(i);
+                        i--;
+                    }
+                    else
+                        left += word.Width + word.SpaceWidth;
+                }
+                if (word != null)
+                    width = left - word.SpaceWidth;
+                else
+                    width = left - Renderer.SpaceWidth;
+            }
+            else
+            {
+                // join all words into one
+                Words.Clear();
+                Words.Add(new Word(text, this));
+                width = Words[0].Width;
+            }
+
+            float rectWidth = Renderer.DisplayRect.Width;
+            if (align == HorzAlign.Justify)
+            {
+                float delta = (rectWidth - width - Renderer.SpaceWidth) / (Words.Count - 1);
+                float curDelta = delta;
+                for (int i = 1; i < Words.Count; i++)
+                {
+                    words[i].Left += curDelta;
+                    curDelta += delta;
                 }
             }
-            #endregion
-
-            #region Public Methods
-            internal void AlignWords(HorzAlign align)
+            else
             {
-                width = 0;
-
-                // handle each word
-                if (align == HorzAlign.Justify || HasTabs || Renderer.Wysiwyg || Renderer.HtmlTags)
+                float delta = 0;
+                if (align == HorzAlign.Center)
+                    delta = (rectWidth - width) / 2;
+                else if (align == HorzAlign.Right)
+                    delta = rectWidth - width - Renderer.SpaceWidth;
+                for (int i = 0; i < Words.Count; i++)
                 {
-                    float left = 0;
-                    Word word = null;
-                    for (int i = 0; i < Words.Count; i++)
-                    {
-                        word = Words[i];
-                        word.Left = left;
+                    words[i].Left += delta;
+                }
+            }
 
-                        if (word.Text == "\t")
-                        {
-                            left = Renderer.GetTabPosition(left);
-                            // remove tab
-                            Words.RemoveAt(i);
-                            i--;
-                        }
+            // adjust X offset
+            foreach (Word word in Words)
+            {
+                if (Renderer.RightToLeft)
+                    word.Left = Renderer.DisplayRect.Right - word.Left;
+                else
+                    word.Left += Renderer.DisplayRect.Left;
+                word.AdjustRuns();
+                if (Renderer.RightToLeft && Renderer.PDFMode)
+                    word.Left -= word.Width;
+            }
+        }
+
+        internal void MakeUnderlines()
+        {
+            PrepareUnderlines(underlines, FontStyle.Underline);
+            PrepareUnderlines(strikeouts, FontStyle.Strikeout);
+        }
+
+        internal void Draw()
+        {
+            foreach (Word word in Words)
+            {
+                word.Draw();
+            }
+
+            if (Underlines.Count > 0 || Strikeouts.Count > 0)
+            {
+                float h = Renderer.FontLineHeight;
+                float w = h * 0.1f; // to match .net char X offset
+                if (Renderer.RightToLeft)
+                    w = -w;
+
+                using SKPaint pen = CreateStrokePaint(Renderer.BrushColor, Math.Max(Renderer.Font.Size * 0.1f, 1f));
+                foreach (RectangleF rect in Underlines)
+                {
+                    Renderer.Graphics.DrawLine(pen, rect.Left + w, rect.Top + h - w, rect.Right + w, rect.Top + h - w);
+                }
+
+                h /= 2;
+                foreach (RectangleF rect in Strikeouts)
+                {
+                    Renderer.Graphics.DrawLine(pen, rect.Left + w, rect.Top + h, rect.Right + w, rect.Top + h);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Calculates line height.
+        /// </summary>
+        /// <returns>Line height.</returns>
+        public float CalcHeight()
+        {
+            float height = -1;
+            foreach (Word word in Words)
+            {
+                height = Math.Max(height, word.CalcHeight());
+            }
+            if (height < 0)
+                height = Renderer.LineHeight;
+            return height;
+        }
+        #endregion
+
+        internal Line(string text, Paragraph paragraph, int originalCharIndex)
+        {
+            this.words = new List<Word>();
+            this.text = text;
+            this.paragraph = paragraph;
+            this.originalCharIndex = originalCharIndex;
+            underlines = new List<RectangleF>();
+            strikeouts = new List<RectangleF>();
+            hasTabs = text.Contains("\t");
+
+            // split text by spaces
+            string[] words = text.Split(' ');
+            string textWithSpaces = "";
+
+            foreach (string word in words)
+            {
+                if (word == "")
+                    textWithSpaces += " ";
+                else
+                {
+                    // split text by tabs
+                    textWithSpaces += word;
+                    string[] tabWords = textWithSpaces.Split('\t');
+
+                    foreach (string word1 in tabWords)
+                    {
+                        if (word1 == "")
+                            this.words.Add(new Word("\t", this));
                         else
-                            left += word.Width + word.SpaceWidth;
+                        {
+                            this.words.Add(new Word(word1, this));
+                            this.words.Add(new Word("\t", this));
+                        }
                     }
-                    if (word != null)
-                        width = left - word.SpaceWidth;
+
+                    // remove last tab
+                    this.words.RemoveAt(this.words.Count - 1);
+
+                    textWithSpaces = "";
+                }
+            }
+        }
+
+        internal float CalcBaseLine()
+        {
+            float baseline = 0;
+            foreach (Word word in Words)
+            {
+                baseline = Math.Max(baseline, word.CalcBaseLine());
+            }
+            return baseline;
+        }
+
+        internal float CalcUnderBaseLine()
+        {
+            float underbaseline = 0;
+            foreach (Word word in Words)
+            {
+                underbaseline = Math.Max(underbaseline, word.CalcUnderBaseLine());
+            }
+            return underbaseline;
+        }
+    }
+
+
+    /// <summary>
+    /// Word represents single word. It may consist of one or several <see cref="Runs"/>, in case
+    /// when HtmlTags are enabled in the main <see cref="AdvancedTextRenderer"/> class.
+    /// </summary>
+    public class Word
+    {
+        #region Fields
+        private readonly List<Run> runs;
+        private readonly string text;
+        private float left;
+        private float width;
+        internal Line line;
+        #endregion
+
+        #region Properties
+        /// <summary>
+        /// Gets the text.
+        /// </summary>
+        public string Text
+        {
+            get { return text; }
+        }
+
+        /// <summary>
+        /// Gets the left coordinate.
+        /// </summary>
+        public float Left
+        {
+            get { return left; }
+            internal set { left = value; }
+        }
+
+        /// <summary>
+        /// Gets the width.
+        /// </summary>
+        public float Width
+        {
+            get
+            {
+                if (width == -1)
+                {
+                    if (Renderer.HtmlTags)
+                    {
+                        width = 0;
+                        foreach (Run run in Runs)
+                        {
+                            width += run.Width;
+                        }
+                    }
                     else
-                        width = left - Renderer.SpaceWidth;
+                    {
+                        width = Renderer.Graphics.MeasureString(text, Renderer.Font).Width;
+                    }
+                }
+                return width;
+            }
+        }
+
+        /// <summary>
+        /// Gets the top coordinate.
+        /// </summary>
+        public float Top
+        {
+            get { return line.Top; }
+        }
+
+        /// <summary>
+        /// Gets the renderer.
+        /// </summary>
+        public AdvancedTextRenderer Renderer
+        {
+            get { return line.Renderer; }
+        }
+
+        /// <summary>
+        /// Gets a list of runs.
+        /// </summary>
+        public List<Run> Runs
+        {
+            get { return runs; }
+        }
+
+        /// <summary>
+        /// Gets the space width.
+        /// </summary>
+        public float SpaceWidth
+        {
+            get
+            {
+                if (Runs == null || Runs.Count == 0)
+                    return Renderer.SpaceWidth;
+                return Runs[Runs.Count - 1].SpaceWidth;
+            }
+        }
+        #endregion
+
+        #region Public Methods
+        internal void AdjustRuns()
+        {
+            float left = Left;
+            foreach (Run run in Runs)
+            {
+                run.Left = left;
+
+                if (Renderer.RightToLeft)
+                {
+                    left -= run.Width;
+                    if (Renderer.PDFMode)
+                        run.Left -= run.Width;
                 }
                 else
-                {
-                    // join all words into one
-                    Words.Clear();
-                    Words.Add(new Word(text, this));
-                    width = Words[0].Width;
-                }
-
-                float rectWidth = Renderer.DisplayRect.Width;
-                if (align == HorzAlign.Justify)
-                {
-                    float delta = (rectWidth - width - Renderer.SpaceWidth) / (Words.Count - 1);
-                    float curDelta = delta;
-                    for (int i = 1; i < Words.Count; i++)
-                    {
-                        words[i].Left += curDelta;
-                        curDelta += delta;
-                    }
-                }
-                else
-                {
-                    float delta = 0;
-                    if (align == HorzAlign.Center)
-                        delta = (rectWidth - width) / 2;
-                    else if (align == HorzAlign.Right)
-                        delta = rectWidth - width - Renderer.SpaceWidth;
-                    for (int i = 0; i < Words.Count; i++)
-                    {
-                        words[i].Left += delta;
-                    }
-                }
-
-                // adjust X offset
-                foreach (Word word in Words)
-                {
-                    if (Renderer.RightToLeft)
-                        word.Left = Renderer.DisplayRect.Right - word.Left;
-                    else
-                        word.Left += Renderer.DisplayRect.Left;
-                    word.AdjustRuns();
-                    if (Renderer.RightToLeft && Renderer.PDFMode)
-                        word.Left -= word.Width;
-                }
+                    left += run.Width;
             }
+        }
 
-            internal void MakeUnderlines()
+        internal void SetLine(Line line)
+        {
+            this.line = line;
+        }
+
+        internal void Draw()
+        {
+            if (Renderer.HtmlTags)
             {
-                PrepareUnderlines(underlines, FontStyle.Underline);
-                PrepareUnderlines(strikeouts, FontStyle.Strikeout);
+                foreach (Run run in Runs)
+                {
+                    run.Draw();
+                }
             }
-
-            internal void Draw()
+            else
             {
-                foreach (Word word in Words)
+                // don't draw underlines & strikeouts because they are drawn in the Line.Draw method
+                Font font = Renderer.Font;
+                bool disposeFont = false;
+                FontStyle rendererStyle = GetFontStyle(Renderer.Font);
+                if ((rendererStyle & FontStyle.Underline) > 0 || (rendererStyle & FontStyle.Strikeout) > 0)
                 {
-                    word.Draw();
+                    font = CreateFont(Renderer.Font, rendererStyle & ~FontStyle.Underline & ~FontStyle.Strikeout);
+                    disposeFont = true;
                 }
 
-                if (Underlines.Count > 0 || Strikeouts.Count > 0)
+                using SKPaint textPaint = CreateTextPaint(Renderer.BrushColor);
+                Renderer.Graphics.DrawString(Text, font, textPaint, Left, Top, null);
+
+                if (disposeFont)
                 {
-                    float h = Renderer.FontLineHeight;
-                    float w = h * 0.1f; // to match .net char X offset
-                    if (Renderer.RightToLeft)
-                        w = -w;
-
-                    using SKPaint pen = CreateStrokePaint(Renderer.BrushColor, Math.Max(Renderer.Font.Size * 0.1f, 1f));
-                    foreach (RectangleF rect in Underlines)
-                    {
-                        Renderer.Graphics.DrawLine(pen, rect.Left + w, rect.Top + h - w, rect.Right + w, rect.Top + h - w);
-                    }
-
-                    h /= 2;
-                    foreach (RectangleF rect in Strikeouts)
-                    {
-                        Renderer.Graphics.DrawLine(pen, rect.Left + w, rect.Top + h, rect.Right + w, rect.Top + h);
-                    }
+                    font.Dispose();
+                    font = null;
                 }
             }
+        }
 
-            /// <summary>
-            /// Calculates line height.
-            /// </summary>
-            /// <returns>Line height.</returns>
-            public float CalcHeight()
+        internal float CalcHeight()
+        {
+            if (Renderer.HtmlTags)
             {
                 float height = -1;
-                foreach (Word word in Words)
+                foreach (Run run in Runs)
                 {
-                    height = Math.Max(height, word.CalcHeight());
+                    height = Math.Max(height, run.Height);
                 }
                 if (height < 0)
                     height = Renderer.LineHeight;
                 return height;
             }
-            #endregion
-
-            internal Line(string text, Paragraph paragraph, int originalCharIndex)
+            else
             {
-                this.words = new List<Word>();
-                this.text = text;
-                this.paragraph = paragraph;
-                this.originalCharIndex = originalCharIndex;
-                underlines = new List<RectangleF>();
-                strikeouts = new List<RectangleF>();
-                hasTabs = text.Contains("\t");
+                // not needed anymore; skia now uses metrics of original font in case of font fallback
+                /*#if SKIA
+                                    // we need actual height of a text because it may have font fallback with different metrics
+                                    if (!string.IsNullOrEmpty(text) && !Renderer.HasLineHeight)
+                                    {
+                                        var stringHeight = DrawUtils.MeasureString(Renderer.Graphics.Graphics, text, Renderer.Font, Renderer.Format).Height;
 
-                // split text by spaces
-                string[] words = text.Split(' ');
-                string textWithSpaces = "";
-
-                foreach (string word in words)
-                {
-                    if (word == "")
-                        textWithSpaces += " ";
-                    else
-                    {
-                        // split text by tabs
-                        textWithSpaces += word;
-                        string[] tabWords = textWithSpaces.Split('\t');
-
-                        foreach (string word1 in tabWords)
-                        {
-                            if (word1 == "")
-                                this.words.Add(new Word("\t", this));
-                            else
-                            {
-                                this.words.Add(new Word(word1, this));
-                                this.words.Add(new Word("\t", this));
-                            }
-                        }
-
-                        // remove last tab
-                        this.words.RemoveAt(this.words.Count - 1);
-
-                        textWithSpaces = "";
-                    }
-                }
-            }
-
-            internal float CalcBaseLine()
-            {
-                float baseline = 0;
-                foreach (Word word in Words)
-                {
-                    baseline = Math.Max(baseline, word.CalcBaseLine());
-                }
-                return baseline;
-            }
-
-            internal float CalcUnderBaseLine()
-            {
-                float underbaseline = 0;
-                foreach (Word word in Words)
-                {
-                    underbaseline = Math.Max(underbaseline, word.CalcUnderBaseLine());
-                }
-                return underbaseline;
+                                        return Renderer.FontLineHeight > stringHeight ? Renderer.FontLineHeight : stringHeight;
+                                    }
+                #endif*/
+                return Renderer.LineHeight;
             }
         }
 
-
-        /// <summary>
-        /// Word represents single word. It may consist of one or several <see cref="Runs"/>, in case
-        /// when HtmlTags are enabled in the main <see cref="AdvancedTextRenderer"/> class.
-        /// </summary>
-        public class Word
+        internal float CalcBaseLine()
         {
-            #region Fields
-            private readonly List<Run> runs;
-            private readonly string text;
-            private float left;
-            private float width;
-            internal Line line;
-            #endregion
-
-            #region Properties
-            /// <summary>
-            /// Gets the text.
-            /// </summary>
-            public string Text
+            float baseLine = 0;
+            if (Renderer.HtmlTags)
             {
-                get { return text; }
-            }
-
-            /// <summary>
-            /// Gets the left coordinate.
-            /// </summary>
-            public float Left
-            {
-                get { return left; }
-                internal set { left = value; }
-            }
-
-            /// <summary>
-            /// Gets the width.
-            /// </summary>
-            public float Width
-            {
-                get
-                {
-                    if (width == -1)
-                    {
-                        if (Renderer.HtmlTags)
-                        {
-                            width = 0;
-                            foreach (Run run in Runs)
-                            {
-                                width += run.Width;
-                            }
-                        }
-                        else
-                        {
-                            width = Renderer.Graphics.MeasureString(text, Renderer.Font).Width;
-                        }
-                    }
-                    return width;
-                }
-            }
-
-            /// <summary>
-            /// Gets the top coordinate.
-            /// </summary>
-            public float Top
-            {
-                get { return line.Top; }
-            }
-
-            /// <summary>
-            /// Gets the renderer.
-            /// </summary>
-            public AdvancedTextRenderer Renderer
-            {
-                get { return line.Renderer; }
-            }
-
-            /// <summary>
-            /// Gets a list of runs.
-            /// </summary>
-            public List<Run> Runs
-            {
-                get { return runs; }
-            }
-
-            /// <summary>
-            /// Gets the space width.
-            /// </summary>
-            public float SpaceWidth
-            {
-                get
-                {
-                    if (Runs == null || Runs.Count == 0)
-                        return Renderer.SpaceWidth;
-                    return Runs[Runs.Count - 1].SpaceWidth;
-                }
-            }
-            #endregion
-
-            #region Public Methods
-            internal void AdjustRuns()
-            {
-                float left = Left;
                 foreach (Run run in Runs)
                 {
-                    run.Left = left;
+                    baseLine = Math.Max(baseLine, run.CurrentBaseLine);
+                }
+                return baseLine;
+            }
+            else
+            {
+                return 0;
+            }
+        }
 
-                    if (Renderer.RightToLeft)
-                    {
-                        left -= run.Width;
-                        if (Renderer.PDFMode)
-                            run.Left -= run.Width;
-                    }
+        internal float CalcUnderBaseLine()
+        {
+            float underbaseLine = 0;
+            if (Renderer.HtmlTags)
+            {
+                foreach (Run run in Runs)
+                {
+                    underbaseLine = Math.Max(underbaseLine, run.CurrentUnderBaseLine);
+                }
+                return underbaseLine;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+        #endregion
+
+        internal Word(string text, Line line)
+        {
+            this.text = text;
+            runs = new List<Run>();
+            this.line = line;
+            width = -1;
+        }
+    }
+
+
+
+    /// <summary>
+    /// Represents character placement.
+    /// </summary>
+    public enum BaseLine
+    {
+        /// <summary>
+        /// Normal placement.
+        /// </summary>
+        Normal,
+
+        /// <summary>
+        /// Subscript.
+        /// </summary>
+        Subscript,
+
+        /// <summary>
+        /// Superscript.
+        /// </summary>
+        Superscript
+    }
+
+
+    /// <summary>
+    /// Represents a style used in HtmlTags mode.
+    /// </summary>
+    public class StyleDescriptor
+    {
+        #region Fields
+        private FontStyle fontStyle;
+        private Color color;
+        private BaseLine baseLine;
+        private string font;
+        private float size;
+        #endregion
+
+        #region Properties
+        /// <summary>
+        /// Gets or sets font style.
+        /// </summary>
+        public FontStyle FontStyle
+        {
+            get { return fontStyle; }
+            set { fontStyle = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets font.
+        /// </summary>
+        public string Font
+        {
+            get { return font; }
+            set { font = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets font size.
+        /// </summary>
+        public float Size
+        {
+            get { return size; }
+            set { size = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets text color.
+        /// </summary>
+        public Color Color
+        {
+            get { return color; }
+            set { color = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets baseline.
+        /// </summary>
+        public BaseLine BaseLine
+        {
+            get { return baseLine; }
+            set { baseLine = value; }
+        }
+        #endregion
+
+        #region Public Methods
+        /// <inheritdoc/>
+        public override string ToString()
+        {
+            string result = "";
+
+            if ((FontStyle & FontStyle.Bold) != 0)
+                result += "<b>";
+            if ((FontStyle & FontStyle.Italic) != 0)
+                result += "<i>";
+            if ((FontStyle & FontStyle.Underline) != 0)
+                result += "<u>";
+            if ((FontStyle & FontStyle.Strikeout) != 0)
+                result += "<strike>";
+            if (BaseLine == BaseLine.Subscript)
+                result += "<sub>";
+            if (BaseLine == BaseLine.Superscript)
+                result += "<sup>";
+
+            result += "<font color=\"";
+            result += String.Format("#{0:X2}{1:X2}{2:X2}{3:X2}", Color.Alpha, Color.Red, Color.Green, Color.Blue);
+            result += "\"";
+            if (Font != null)
+                result += " face=\"" + Font + "\"";
+            if (Size != 0)
+                result += " size=\"" + Math.Round(Size).ToString() + "\"";
+            result += ">";
+
+            return result;
+        }
+        #endregion
+
+        internal StyleDescriptor(FontStyle fontStyle, Color color, BaseLine baseLine)
+        {
+            this.fontStyle = fontStyle;
+            this.color = color;
+            this.baseLine = baseLine;
+        }
+    }
+
+
+    /// <summary>
+    /// Represents sequence of characters that have the same <see cref="Style"/>.
+    /// </summary>
+    public class Run
+    {
+        #region Fields
+        private readonly string text;
+        private readonly StyleDescriptor style;
+        private protected readonly Word word;
+        private float left;
+        private readonly float width;
+        private float lineHeight;
+        private float fontLineHeight;
+        private float baseLine;
+        private protected float underBaseLine;
+        private float spaceWidth;
+        #endregion
+
+        #region Properties
+        /// <summary>
+        /// Gets the text.
+        /// </summary>
+        public string Text
+        {
+            get { return text; }
+        }
+
+        /// <summary>
+        /// Gets the style descriptor.
+        /// </summary>
+        public StyleDescriptor Style
+        {
+            get { return style; }
+        }
+
+        /// <summary>
+        /// Gets the renderer.
+        /// </summary>
+        public AdvancedTextRenderer Renderer
+        {
+            get { return word.Renderer; }
+        }
+
+        /// <summary>
+        /// Gets the left coordinate.
+        /// </summary>
+        public float Left
+        {
+            get { return left; }
+            set { left = value; }
+        }
+
+        /// <summary>
+        /// Gets the line height.
+        /// </summary>
+        public float LineHeight
+        {
+            get
+            {
+                if (lineHeight == 0)
+                {
+                    if (style.Font == null && style.Size <= 0)
+                        lineHeight = Renderer.LineHeight;
                     else
-                        left += run.Width;
+                        lineHeight = GetFontLineHeight(GetFont());
                 }
+                return lineHeight;
             }
+        }
 
-            internal void SetLine(Line line)
+        /// <summary>
+        /// Gets baseline.
+        /// </summary>
+        virtual public float CurrentBaseLine
+        {
+            get
             {
-                this.line = line;
+                if (baseLine < 0)
+                {
+                    Font ff = GetFont();
+                    SKFontMetrics metrics = ff.Metrics;
+                    float lineSpace = metrics.Descent - metrics.Ascent + metrics.Leading;
+                    float ascent = -metrics.Ascent;
+                    baseLine = lineSpace == 0 ? 0 : FontLineHeight * ascent / lineSpace;
+                    underBaseLine = FontLineHeight - baseLine;
+                }
+                return baseLine;
             }
+        }
 
-            internal void Draw()
+        /// <summary>
+        /// Gets baseline for underline.
+        /// </summary>
+        virtual public float CurrentUnderBaseLine
+        {
+            get
             {
-                if (Renderer.HtmlTags)
+                if (underBaseLine < 0)
                 {
-                    foreach (Run run in Runs)
-                    {
-                        run.Draw();
-                    }
+                    Font ff = GetFont();
+                    SKFontMetrics metrics = ff.Metrics;
+                    float lineSpace = metrics.Descent - metrics.Ascent + metrics.Leading;
+                    float ascent = -metrics.Ascent;
+                    baseLine = lineSpace == 0 ? 0 : FontLineHeight * ascent / lineSpace;
+                    underBaseLine = FontLineHeight - baseLine;
                 }
-                else
-                {
-                    // don't draw underlines & strikeouts because they are drawn in the Line.Draw method
-                    Font font = Renderer.Font;
-                    bool disposeFont = false;
-                    FontStyle rendererStyle = GetFontStyle(Renderer.Font);
-                    if ((rendererStyle & FontStyle.Underline) > 0 || (rendererStyle & FontStyle.Strikeout) > 0)
-                    {
-                        font = CreateFont(Renderer.Font, rendererStyle & ~FontStyle.Underline & ~FontStyle.Strikeout);
-                        disposeFont = true;
-                    }
-
-                    using SKPaint textPaint = CreateTextPaint(Renderer.BrushColor);
-                    Renderer.Graphics.DrawString(Text, font, textPaint, Left, Top, null);
-
-                    if (disposeFont)
-                    {
-                        font.Dispose();
-                        font = null;
-                    }
-                }
+                return baseLine;
             }
+        }
 
-            internal float CalcHeight()
+        /// <summary>
+        /// Gets font line height.
+        /// </summary>
+        public float FontLineHeight
+        {
+            get
             {
-                if (Renderer.HtmlTags)
+                if (fontLineHeight == 0)
                 {
-                    float height = -1;
-                    foreach (Run run in Runs)
-                    {
-                        height = Math.Max(height, run.Height);
-                    }
-                    if (height < 0)
-                        height = Renderer.LineHeight;
-                    return height;
+                    if (style.Font == null && style.Size <= 0)
+                        fontLineHeight = Renderer.FontLineHeight;
+                    else
+                        fontLineHeight = GetFontLineHeight(GetFont());
                 }
-                else
-                {
-                    // not needed anymore; skia now uses metrics of original font in case of font fallback
-                    /*#if SKIA
-                                        // we need actual height of a text because it may have font fallback with different metrics
-                                        if (!string.IsNullOrEmpty(text) && !Renderer.HasLineHeight)
-                                        {
-                                            var stringHeight = DrawUtils.MeasureString(Renderer.Graphics.Graphics, text, Renderer.Font, Renderer.Format).Height;
-
-                                            return Renderer.FontLineHeight > stringHeight ? Renderer.FontLineHeight : stringHeight;
-                                        }
-                    #endif*/
-                    return Renderer.LineHeight;
-                }
+                return fontLineHeight;
             }
+        }
 
-            internal float CalcBaseLine()
+        /// <summary>
+        /// Gets top coordinate.
+        /// </summary>
+        public virtual float Top
+        {
+            get
             {
                 float baseLine = 0;
-                if (Renderer.HtmlTags)
-                {
-                    foreach (Run run in Runs)
-                    {
-                        baseLine = Math.Max(baseLine, run.CurrentBaseLine);
-                    }
-                    return baseLine;
-                }
-                else
-                {
-                    return 0;
-                }
-            }
-
-            internal float CalcUnderBaseLine()
-            {
-                float underbaseLine = 0;
-                if (Renderer.HtmlTags)
-                {
-                    foreach (Run run in Runs)
-                    {
-                        underbaseLine = Math.Max(underbaseLine, run.CurrentUnderBaseLine);
-                    }
-                    return underbaseLine;
-                }
-                else
-                {
-                    return 0;
-                }
-            }
-            #endregion
-
-            internal Word(string text, Line line)
-            {
-                this.text = text;
-                runs = new List<Run>();
-                this.line = line;
-                width = -1;
-            }
-        }
-
-
-
-        /// <summary>
-        /// Represents character placement.
-        /// </summary>
-        public enum BaseLine
-        {
-            /// <summary>
-            /// Normal placement.
-            /// </summary>
-            Normal,
-
-            /// <summary>
-            /// Subscript.
-            /// </summary>
-            Subscript,
-
-            /// <summary>
-            /// Superscript.
-            /// </summary>
-            Superscript
-        }
-
-
-        /// <summary>
-        /// Represents a style used in HtmlTags mode.
-        /// </summary>
-        public class StyleDescriptor
-        {
-            #region Fields
-            private FontStyle fontStyle;
-            private Color color;
-            private BaseLine baseLine;
-            private string font;
-            private float size;
-            #endregion
-
-            #region Properties
-            /// <summary>
-            /// Gets or sets font style.
-            /// </summary>
-            public FontStyle FontStyle
-            {
-                get { return fontStyle; }
-                set { fontStyle = value; }
-            }
-
-            /// <summary>
-            /// Gets or sets font.
-            /// </summary>
-            public string Font
-            {
-                get { return font; }
-                set { font = value; }
-            }
-
-            /// <summary>
-            /// Gets or sets font size.
-            /// </summary>
-            public float Size
-            {
-                get { return size; }
-                set { size = value; }
-            }
-
-            /// <summary>
-            /// Gets or sets text color.
-            /// </summary>
-            public Color Color
-            {
-                get { return color; }
-                set { color = value; }
-            }
-
-            /// <summary>
-            /// Gets or sets baseline.
-            /// </summary>
-            public BaseLine BaseLine
-            {
-                get { return baseLine; }
-                set { baseLine = value; }
-            }
-            #endregion
-
-            #region Public Methods
-            /// <inheritdoc/>
-            public override string ToString()
-            {
-                string result = "";
-
-                if ((FontStyle & FontStyle.Bold) != 0)
-                    result += "<b>";
-                if ((FontStyle & FontStyle.Italic) != 0)
-                    result += "<i>";
-                if ((FontStyle & FontStyle.Underline) != 0)
-                    result += "<u>";
-                if ((FontStyle & FontStyle.Strikeout) != 0)
-                    result += "<strike>";
-                if (BaseLine == BaseLine.Subscript)
-                    result += "<sub>";
-                if (BaseLine == BaseLine.Superscript)
-                    result += "<sup>";
-
-                result += "<font color=\"";
-                result += String.Format("#{0:X2}{1:X2}{2:X2}{3:X2}", Color.Alpha, Color.Red, Color.Green, Color.Blue);
-                result += "\"";
-                if (Font != null)
-                    result += " face=\"" + Font + "\"";
-                if (Size != 0)
-                    result += " size=\"" + Math.Round(Size).ToString() + "\"";
-                result += ">";
-
-                return result;
-            }
-            #endregion
-
-            internal StyleDescriptor(FontStyle fontStyle, Color color, BaseLine baseLine)
-            {
-                this.fontStyle = fontStyle;
-                this.color = color;
-                this.baseLine = baseLine;
-            }
-        }
-
-
-        /// <summary>
-        /// Represents sequence of characters that have the same <see cref="Style"/>.
-        /// </summary>
-        public class Run
-        {
-            #region Fields
-            private readonly string text;
-            private readonly StyleDescriptor style;
-            private protected readonly Word word;
-            private float left;
-            private readonly float width;
-            private float lineHeight;
-            private float fontLineHeight;
-            private float baseLine;
-            private protected float underBaseLine;
-            private float spaceWidth;
-            #endregion
-
-            #region Properties
-            /// <summary>
-            /// Gets the text.
-            /// </summary>
-            public string Text
-            {
-                get { return text; }
-            }
-
-            /// <summary>
-            /// Gets the style descriptor.
-            /// </summary>
-            public StyleDescriptor Style
-            {
-                get { return style; }
-            }
-
-            /// <summary>
-            /// Gets the renderer.
-            /// </summary>
-            public AdvancedTextRenderer Renderer
-            {
-                get { return word.Renderer; }
-            }
-
-            /// <summary>
-            /// Gets the left coordinate.
-            /// </summary>
-            public float Left
-            {
-                get { return left; }
-                set { left = value; }
-            }
-
-            /// <summary>
-            /// Gets the line height.
-            /// </summary>
-            public float LineHeight
-            {
-                get
-                {
-                    if (lineHeight == 0)
-                    {
-                        if (style.Font == null && style.Size <= 0)
-                            lineHeight = Renderer.LineHeight;
-                        else
-                            lineHeight = GetFontLineHeight(GetFont());
-                    }
-                    return lineHeight;
-                }
-            }
-
-            /// <summary>
-            /// Gets baseline.
-            /// </summary>
-            virtual public float CurrentBaseLine
-            {
-                get
-                {
-                    if (baseLine < 0)
-                    {
-                        Font ff = GetFont();
-                        SKFontMetrics metrics = ff.Metrics;
-                        float lineSpace = metrics.Descent - metrics.Ascent + metrics.Leading;
-                        float ascent = -metrics.Ascent;
-                        baseLine = lineSpace == 0 ? 0 : FontLineHeight * ascent / lineSpace;
-                        underBaseLine = FontLineHeight - baseLine;
-                    }
-                    return baseLine;
-                }
-            }
-
-            /// <summary>
-            /// Gets baseline for underline.
-            /// </summary>
-            virtual public float CurrentUnderBaseLine
-            {
-                get
-                {
-                    if (underBaseLine < 0)
-                    {
-                        Font ff = GetFont();
-                        SKFontMetrics metrics = ff.Metrics;
-                        float lineSpace = metrics.Descent - metrics.Ascent + metrics.Leading;
-                        float ascent = -metrics.Ascent;
-                        baseLine = lineSpace == 0 ? 0 : FontLineHeight * ascent / lineSpace;
-                        underBaseLine = FontLineHeight - baseLine;
-                    }
-                    return baseLine;
-                }
-            }
-
-            /// <summary>
-            /// Gets font line height.
-            /// </summary>
-            public float FontLineHeight
-            {
-                get
-                {
-                    if (fontLineHeight == 0)
-                    {
-                        if (style.Font == null && style.Size <= 0)
-                            fontLineHeight = Renderer.FontLineHeight;
-                        else
-                            fontLineHeight = GetFontLineHeight(GetFont());
-                    }
-                    return fontLineHeight;
-                }
-            }
-
-            /// <summary>
-            /// Gets top coordinate.
-            /// </summary>
-            public virtual float Top
-            {
-                get
-                {
-                    float baseLine = 0;
-                    if (Style.BaseLine == BaseLine.Subscript)
-                        baseLine += FontLineHeight * 0.45f;
-                    else if (Style.BaseLine == BaseLine.Superscript)
-                        baseLine -= FontLineHeight * 0.15f;
-                    return word.Top + word.line.CalcBaseLine() - CurrentBaseLine + baseLine;
-                }
-            }
-
-            /// <summary>
-            /// Gets the width.
-            /// </summary>
-            virtual public float Width
-            {
-                get { return width; }
-            }
-
-            /// <summary>
-            /// Gets the height.
-            /// </summary>
-            virtual public float Height
-            {
-                get
-                {
-                    return LineHeight;
-                }
-            }
-
-            /// <summary>
-            /// Gets the space width.
-            /// </summary>
-            public float SpaceWidth
-            {
-                get
-                {
-                    if (spaceWidth < 0)
-                    {
-                        spaceWidth = CalculateSpaceSize(Renderer.Graphics, GetFont());
-                    }
-                    return spaceWidth;
-                }
-            }
-            #endregion
-
-            #region Private Methods
-            private Font GetFont(bool disableUnderlinesStrikeouts)
-            {
-                float fontSize = Renderer.Font.Size;
-                if (Style.Size != 0)
-                    fontSize = Style.Size;
-                if (Style.BaseLine != BaseLine.Normal)
-                    fontSize *= 0.6f;
-
-                FontStyle fontStyle = Style.FontStyle;
-                if (disableUnderlinesStrikeouts)
-                    fontStyle = fontStyle & ~FontStyle.Underline & ~FontStyle.Strikeout;
-                if (Style.Font != null)
-                    return CreateFont(Style.Font, fontSize, fontStyle);
-                return CreateFont(Renderer.Font.Typeface?.FamilyName ?? SKTypeface.Default.FamilyName, fontSize, fontStyle);
-            }
-            #endregion
-
-            #region Public Methods
-            internal Font GetFont()
-            {
-                return GetFont(false);
-            }
-
-            internal Brush GetBrush()
-            {
-                return new SolidBrush(Style.Color);
-            }
-
-            internal virtual void Draw()
-            {
-                using (Font font = GetFont(true))
-                using (SKPaint brush = CreateTextPaint(Style.Color))
-                {
-                    Renderer.Graphics.DrawString(text, font, brush, Left, Top, null);
-                }
-            }
-            #endregion
-
-            internal Run(string text, StyleDescriptor style, Word word)
-            {
-                baseLine = float.MinValue;
-                underBaseLine = float.MinValue;
-                this.text = text;
-                this.style = new StyleDescriptor(style.FontStyle, style.Color, style.BaseLine);
-                this.style.Font = style.Font;
-                this.style.Size = style.Size;
-                this.word = word;
-                spaceWidth = -1;
-
-                using (Font font = GetFont())
-                {
-                    width = Renderer.Graphics.MeasureString(text, font).Width;
-                }
+                if (Style.BaseLine == BaseLine.Subscript)
+                    baseLine += FontLineHeight * 0.45f;
+                else if (Style.BaseLine == BaseLine.Superscript)
+                    baseLine -= FontLineHeight * 0.15f;
+                return word.Top + word.line.CalcBaseLine() - CurrentBaseLine + baseLine;
             }
         }
 
         /// <summary>
-        /// Represents inline Image.
+        /// Gets the width.
         /// </summary>
-        internal class RunImage : Run
+        virtual public float Width
         {
-            public Image Image { get { return image; } }
-            override public float Width
+            get { return width; }
+        }
+
+        /// <summary>
+        /// Gets the height.
+        /// </summary>
+        virtual public float Height
+        {
+            get
             {
-                get
+                return LineHeight;
+            }
+        }
+
+        /// <summary>
+        /// Gets the space width.
+        /// </summary>
+        public float SpaceWidth
+        {
+            get
+            {
+                if (spaceWidth < 0)
                 {
-                    if (Image == null) return base.Width;
-                    return Image.Width;
+                    spaceWidth = CalculateSpaceSize(Renderer.Graphics, GetFont());
                 }
+                return spaceWidth;
             }
+        }
+        #endregion
 
-            override public float Top
+        #region Private Methods
+        private Font GetFont(bool disableUnderlinesStrikeouts)
+        {
+            float fontSize = Renderer.Font.Size;
+            if (Style.Size != 0)
+                fontSize = Style.Size;
+            if (Style.BaseLine != BaseLine.Normal)
+                fontSize *= 0.6f;
+
+            FontStyle fontStyle = Style.FontStyle;
+            if (disableUnderlinesStrikeouts)
+                fontStyle = fontStyle & ~FontStyle.Underline & ~FontStyle.Strikeout;
+            if (Style.Font != null)
+                return CreateFont(Style.Font, fontSize, fontStyle);
+            return CreateFont(Renderer.Font.Typeface?.FamilyName ?? SKTypeface.Default.FamilyName, fontSize, fontStyle);
+        }
+        #endregion
+
+        #region Public Methods
+        internal Font GetFont()
+        {
+            return GetFont(false);
+        }
+
+        internal Brush GetBrush()
+        {
+            return new SolidBrush(Style.Color);
+        }
+
+        internal virtual void Draw()
+        {
+            using (Font font = GetFont(true))
+            using (SKPaint brush = CreateTextPaint(Style.Color))
             {
-                get
-                {
-                    float baseLine = 0;
-                    if (Style.BaseLine == BaseLine.Subscript)
-                        baseLine += FontLineHeight * 0.45f;
-                    else if (Style.BaseLine == BaseLine.Superscript)
-                        baseLine -= FontLineHeight * 0.15f;
-                    return word.Top + word.line.CalcBaseLine() - CurrentBaseLine + baseLine;
-                }
+                Renderer.Graphics.DrawString(text, font, brush, Left, Top, null);
             }
+        }
+        #endregion
 
-            override public float CurrentBaseLine
+        internal Run(string text, StyleDescriptor style, Word word)
+        {
+            baseLine = float.MinValue;
+            underBaseLine = float.MinValue;
+            this.text = text;
+            this.style = new StyleDescriptor(style.FontStyle, style.Color, style.BaseLine);
+            this.style.Font = style.Font;
+            this.style.Size = style.Size;
+            this.word = word;
+            spaceWidth = -1;
+
+            using (Font font = GetFont())
             {
-                get
-                {
-                    if (Image == null) return base.CurrentBaseLine;
-                    return Image.Height;
-                }
-            }
-
-            override public float Height
-            {
-                get
-                {
-                    if (Image == null) return base.Height;
-                    return Image.Height + word.line.CalcUnderBaseLine();
-                }
-            }
-
-            private Image image;
-
-            override internal void Draw()
-            {
-                if (Image == null)
-                {
-                    base.Draw();
-                    return;
-                }
-                Renderer.Graphics.DrawImage(SKImage.FromBitmap(Image), Left, Top);// (FText, font, brush, Left, Top, Renderer.Format);
-            }
-
-            public static Bitmap ResizeImage(Image image, float scale)
-            {
-                int width = (int)(image.Width * scale);
-                int height = (int)(image.Height * scale);
-                if (width == 0) width = 1;
-                if (height == 0) height = 1;
-
-                SKBitmap destImage = new SKBitmap(width, height);
-                using SKCanvas canvas = new SKCanvas(destImage);
-                using SKPaint paint = new SKPaint { IsAntialias = true };
-                canvas.DrawBitmap(image, new SKRect(0, 0, width, height), paint);
-                return destImage;
-            }
-
-            public RunImage(string src, string text, StyleDescriptor style, Word word) : base(text, style, word)
-            {
-                underBaseLine = 0;
-                image = ResizeImage(InlineImageCache.Load(Renderer.Cache, src), Renderer.Scale);
+                width = Renderer.Graphics.MeasureString(text, font).Width;
             }
         }
     }
 
-
     /// <summary>
-    /// Standard text renderer uses standard DrawString method to draw text. It also supports:
-    /// - text rotation;
-    /// - fonts with non-standard width ratio.
-    /// In case your text is justified, or contains html tags, use the <see cref="AdvancedTextRenderer"/>
-    /// class instead.
+    /// Represents inline Image.
     /// </summary>
-    internal class StandardTextRenderer
+    internal class RunImage : Run
     {
-        public static void Draw(string text, IGraphics g, Font font, Brush brush, FastReport.Pen outlinePen,
-          RectangleF rect, StringFormat format, int angle, float widthRatio)
+        public Image Image { get { return image; } }
+        override public float Width
         {
-            text = text.Replace('\v', '\n');
-            IGraphicsState state = g.Save();
-            g.SetClip(rect, SKClipOperation.Intersect);
-            g.TranslateTransform(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2);
-            g.RotateTransform(angle);
-            rect = new RectangleF(-rect.Width / 2, -rect.Height / 2, rect.Width / 2, rect.Height / 2);
-
-            if ((angle >= 90 && angle < 180) || (angle >= 270 && angle < 360))
-                rect = new RectangleF(rect.Top, rect.Left, rect.Top + rect.Height, rect.Left + rect.Width);
-
-            g.ScaleTransform(widthRatio, 1);
-            rect = new RectangleF(rect.Left / widthRatio, rect.Top, rect.Right / widthRatio, rect.Bottom);
-
-            using SKPaint textPaint = new SKPaint
+            get
             {
-                Color = brush is SolidBrush solidBrush ? solidBrush.Color : SKColors.Black,
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill
-            };
-            g.DrawString(text, font, textPaint, rect, null);
+                if (Image == null) return base.Width;
+                return Image.Width;
+            }
+        }
 
-            g.Restore(state);
+        override public float Top
+        {
+            get
+            {
+                float baseLine = 0;
+                if (Style.BaseLine == BaseLine.Subscript)
+                    baseLine += FontLineHeight * 0.45f;
+                else if (Style.BaseLine == BaseLine.Superscript)
+                    baseLine -= FontLineHeight * 0.15f;
+                return word.Top + word.line.CalcBaseLine() - CurrentBaseLine + baseLine;
+            }
+        }
+
+        override public float CurrentBaseLine
+        {
+            get
+            {
+                if (Image == null) return base.CurrentBaseLine;
+                return Image.Height;
+            }
+        }
+
+        override public float Height
+        {
+            get
+            {
+                if (Image == null) return base.Height;
+                return Image.Height + word.line.CalcUnderBaseLine();
+            }
+        }
+
+        private Image image;
+
+        override internal void Draw()
+        {
+            if (Image == null)
+            {
+                base.Draw();
+                return;
+            }
+            Renderer.Graphics.DrawImage(SKImage.FromBitmap(Image), Left, Top);// (FText, font, brush, Left, Top, Renderer.Format);
+        }
+
+        public static Bitmap ResizeImage(Image image, float scale)
+        {
+            int width = (int)(image.Width * scale);
+            int height = (int)(image.Height * scale);
+            if (width == 0) width = 1;
+            if (height == 0) height = 1;
+
+            SKBitmap destImage = new SKBitmap(width, height);
+            using SKCanvas canvas = new SKCanvas(destImage);
+            using SKPaint paint = new SKPaint { IsAntialias = true };
+            canvas.DrawBitmap(image, new SKRect(0, 0, width, height), paint);
+            return destImage;
+        }
+
+        public RunImage(string src, string text, StyleDescriptor style, Word word) : base(text, style, word)
+        {
+            underBaseLine = 0;
+            image = ResizeImage(InlineImageCache.Load(Renderer.Cache, src), Renderer.Scale);
+        }
+    }
+}
+
+
+/// <summary>
+/// Standard text renderer uses standard DrawString method to draw text. It also supports:
+/// - text rotation;
+/// - fonts with non-standard width ratio.
+/// In case your text is justified, or contains html tags, use the <see cref="AdvancedTextRenderer"/>
+/// class instead.
+/// </summary>
+internal class StandardTextRenderer
+{
+    public static void Draw(string text, IGraphics g, Font font, Brush brush, FastReport.Pen outlinePen,
+      RectangleF rect, StringFormat format, int angle, float widthRatio)
+    {
+        text = text.Replace('\v', '\n');
+        IGraphicsState state = g.Save();
+        g.SetClip(rect, SKClipOperation.Intersect);
+        g.TranslateTransform(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2);
+        g.RotateTransform(angle);
+        rect = new RectangleF(-rect.Width / 2, -rect.Height / 2, rect.Width / 2, rect.Height / 2);
+
+        if ((angle >= 90 && angle < 180) || (angle >= 270 && angle < 360))
+            rect = new RectangleF(rect.Top, rect.Left, rect.Top + rect.Height, rect.Left + rect.Width);
+
+        g.ScaleTransform(widthRatio, 1);
+        rect = new RectangleF(rect.Left / widthRatio, rect.Top, rect.Right / widthRatio, rect.Bottom);
+
+        using SKPaint textPaint = new SKPaint
+        {
+            Color = brush is SolidBrush solidBrush ? solidBrush.Color : SKColors.Black,
+            IsAntialias = true,
+            Style = SKPaintStyle.Fill
+        };
+        g.DrawString(text, font, textPaint, rect, null);
+
+        g.Restore(state);
+    }
+}
+
+/// <summary>
+/// Cache for rendering img tags in textobject.
+/// You can use only HTTP[s] protocol with absolute urls.
+/// </summary>
+public class InlineImageCache : IDisposable
+{
+    #region Private Fields
+
+    private WebClient client;
+
+    private Dictionary<string, CacheItem> items;
+
+    private bool serialized;
+
+    private readonly object locker;
+
+    #endregion Private Fields
+
+    #region Public Properties
+
+    /// <summary>
+    /// Is serialized
+    /// </summary>
+    public bool Serialized { get { return serialized; } set { serialized = value; } }
+
+    #endregion Public Properties
+
+    #region Private Properties
+
+    /// <summary>
+    /// Get or set WebClient for downloading imgs by url
+    /// </summary>
+    private WebClient Client
+    {
+        get
+        {
+            if (client == null)
+            {
+#pragma warning disable SYSLIB0014 // alternative is async only
+                client = new WebClient();
+#pragma warning restore SYSLIB0014
+            }
+            return client;
+        }
+        set
+        {
+            client = value;
         }
     }
 
+    #endregion Private Properties
+
+    #region Public Events
+
     /// <summary>
-    /// Cache for rendering img tags in textobject.
-    /// You can use only HTTP[s] protocol with absolute urls.
+    /// Occurs before image load
     /// </summary>
-    public class InlineImageCache : IDisposable
+    public static event EventHandler<LoadEventArgs> AfterLoad;
+    /// <summary>
+    /// Occurs after image load
+    /// </summary>
+    public static event EventHandler<LoadEventArgs> BeforeLoad;
+
+    #endregion Public Events
+
+    #region Public Methods
+
+    /// <summary>
+    /// Enumerates all values
+    /// </summary>
+    /// <returns></returns>
+    public IEnumerable<CacheItem> AllItems()
+    {
+        List<CacheItem> list = new List<CacheItem>();
+        lock (locker)
+        {
+            if (items != null)
+            {
+                foreach (KeyValuePair<string, CacheItem> item in items)
+                {
+                    item.Value.Src = item.Key;
+                    list.Add(item.Value);
+                }
+            }
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Return CacheItem by src
+    /// </summary>
+    /// <param name="src">Src attribute from img tag</param>
+    /// <returns></returns>
+    public CacheItem Get(string src)
+    {
+        CacheItem item = null;
+        if (!Validate(src))
+            item = new CacheItem();
+        if (String.IsNullOrEmpty(src))
+            return item;
+        lock (locker)
+        {
+            if (items == null)
+            {
+                items = new Dictionary<string, CacheItem>();
+                if (item == null)
+                    item = new CacheItem();
+                items[src] = item;
+                Serialized = false;
+            }
+            if (items.ContainsKey(src))
+                return items[src];
+        }
+        return item;
+    }
+
+    /// <summary>
+    ///
+    /// </summary>
+    /// <param name="src"></param>
+    /// <returns></returns>
+    public Image Load(string src)
+    {
+        CacheItem item = null;
+        if (String.IsNullOrEmpty(src))
+            item = new CacheItem();
+        else
+            lock (locker)
+            {
+                if (items == null)
+                    items = new Dictionary<string, CacheItem>();
+                else
+                    if (items.ContainsKey(src))
+                        return items[src].Image;
+                item = new CacheItem();
+                if (Validate(src))
+                {
+                    try
+                    {
+                        if (src.StartsWith("data:"))
+                        {
+                            item.Set(src.Substring(src.IndexOf("base64,", StringComparison.Ordinal) + "base64,".Length));
+                        }
+                        else
+                            item.Set(Client.DownloadData(src));
+                    }
+                    catch
+                    {
+                        item.Set("");
+                    }
+                }
+                items[src] = item;
+                Serialized = false;
+            }
+        item.Src = src;
+        return item.Image;
+    }
+
+    /// <summary>
+    /// Set CacheItem by src
+    /// </summary>
+    /// <param name="src">Src attribute from img tag</param>
+    /// <param name="item">CacheItem</param>
+    /// <returns></returns>
+    public CacheItem Set(string src, CacheItem item)
+    {
+        if (String.IsNullOrEmpty(src))
+            return new CacheItem();
+        lock (locker)
+        {
+            if (items == null)
+                items = new Dictionary<string, CacheItem>();
+            if (!Validate(src))
+                item = new CacheItem();
+            items[src] = item;
+            Serialized = false;
+        }
+        item.Src = src;
+        return item;
+    }
+
+    /// <summary>
+    /// Validate src attribute from image
+    /// </summary>
+    /// <param name="src">Src attribute from img tag</param>
+    /// <returns>return true if src is valid</returns>
+    public bool Validate(string src)
+    {
+        if (String.IsNullOrEmpty(src))
+            return false;
+        src = src.ToLower();
+        if (src.StartsWith("http://"))
+            return true;
+        if (src.StartsWith("https://"))
+            return true;
+        if (src.StartsWith("data:") && src.IndexOf("base64,", StringComparison.Ordinal) > 0)
+            return true;
+        return false;
+    }
+
+    #endregion Public Methods
+
+    #region Internal Methods
+
+    static internal Image Load(InlineImageCache cache, string src)
+    {
+        LoadEventArgs args = new LoadEventArgs(cache, src);
+        if (BeforeLoad != null) BeforeLoad(null, args);
+        Image result = null;
+        if (!args.Handled) result = cache.Load(src);
+        args.Handled = false;
+        if (AfterLoad != null) AfterLoad(null, args);
+        if (args.Handled)
+            return cache.Get(src).Image;
+        return result;
+    }
+
+    #endregion Internal Methods
+
+    #region Public Constructors
+
+    /// <inheritdoc/>
+    public InlineImageCache()
+    {
+        locker = new object();
+        client = null;
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    ~InlineImageCache()
+    {
+        Dispose(false);
+    }
+
+    #endregion Public Constructors
+
+    #region Public Classes
+
+    /// <summary>
+    /// Item of image cache Dictionary
+    /// </summary>
+    public class CacheItem : IDisposable
     {
         #region Private Fields
 
-        private WebClient client;
+        private string base64;
 
-        private Dictionary<string, CacheItem> items;
+        private bool error;
 
-        private bool serialized;
+        private Image image;
 
-        private readonly object locker;
+        //private int FId;
+        private string src;
+
+        private byte[] stream;
 
         #endregion Private Fields
 
         #region Public Properties
 
         /// <summary>
-        /// Is serialized
+        /// Get Base64 string
         /// </summary>
-        public bool Serialized { get { return serialized; } set { serialized = value; } }
-
-        #endregion Public Properties
-
-        #region Private Properties
-
-        /// <summary>
-        /// Get or set WebClient for downloading imgs by url
-        /// </summary>
-        private WebClient Client
+        public string Base64
         {
             get
             {
-                if (client == null)
-                {
-#pragma warning disable SYSLIB0014 // alternative is async only
-                    client = new WebClient();
-#pragma warning restore SYSLIB0014
-                }
-                return client;
-            }
-            set
-            {
-                client = value;
-            }
-        }
-
-        #endregion Private Properties
-
-        #region Public Events
-
-        /// <summary>
-        /// Occurs before image load
-        /// </summary>
-        public static event EventHandler<LoadEventArgs> AfterLoad;
-        /// <summary>
-        /// Occurs after image load
-        /// </summary>
-        public static event EventHandler<LoadEventArgs> BeforeLoad;
-
-        #endregion Public Events
-
-        #region Public Methods
-
-        /// <summary>
-        /// Enumerates all values
-        /// </summary>
-        /// <returns></returns>
-        public IEnumerable<CacheItem> AllItems()
-        {
-            List<CacheItem> list = new List<CacheItem>();
-            lock (locker)
-            {
-                if (items != null)
-                {
-                    foreach (KeyValuePair<string, CacheItem> item in items)
-                    {
-                        item.Value.Src = item.Key;
-                        list.Add(item.Value);
-                    }
-                }
-            }
-            return list;
-        }
-
-        /// <summary>
-        /// Return CacheItem by src
-        /// </summary>
-        /// <param name="src">Src attribute from img tag</param>
-        /// <returns></returns>
-        public CacheItem Get(string src)
-        {
-            CacheItem item = null;
-            if (!Validate(src))
-                item = new CacheItem();
-            if (String.IsNullOrEmpty(src))
-                return item;
-            lock (locker)
-            {
-                if (items == null)
-                {
-                    items = new Dictionary<string, CacheItem>();
-                    if (item == null)
-                        item = new CacheItem();
-                    items[src] = item;
-                    Serialized = false;
-                }
-                if (items.ContainsKey(src))
-                    return items[src];
-            }
-            return item;
-        }
-
-        /// <summary>
-        ///
-        /// </summary>
-        /// <param name="src"></param>
-        /// <returns></returns>
-        public Image Load(string src)
-        {
-            CacheItem item = null;
-            if (String.IsNullOrEmpty(src))
-                item = new CacheItem();
-            else
-                lock (locker)
-                {
-                    if (items == null)
-                        items = new Dictionary<string, CacheItem>();
-                    else
-                        if (items.ContainsKey(src))
-                            return items[src].Image;
-                    item = new CacheItem();
-                    if (Validate(src))
-                    {
-                        try
-                        {
-                            if (src.StartsWith("data:"))
-                            {
-                                item.Set(src.Substring(src.IndexOf("base64,", StringComparison.Ordinal) + "base64,".Length));
-                            }
-                            else
-                                item.Set(Client.DownloadData(src));
-                        }
-                        catch
-                        {
-                            item.Set("");
-                        }
-                    }
-                    items[src] = item;
-                    Serialized = false;
-                }
-            item.Src = src;
-            return item.Image;
-        }
-
-        /// <summary>
-        /// Set CacheItem by src
-        /// </summary>
-        /// <param name="src">Src attribute from img tag</param>
-        /// <param name="item">CacheItem</param>
-        /// <returns></returns>
-        public CacheItem Set(string src, CacheItem item)
-        {
-            if (String.IsNullOrEmpty(src))
-                return new CacheItem();
-            lock (locker)
-            {
-                if (items == null)
-                    items = new Dictionary<string, CacheItem>();
-                if (!Validate(src))
-                    item = new CacheItem();
-                items[src] = item;
-                Serialized = false;
-            }
-            item.Src = src;
-            return item;
-        }
-
-        /// <summary>
-        /// Validate src attribute from image
-        /// </summary>
-        /// <param name="src">Src attribute from img tag</param>
-        /// <returns>return true if src is valid</returns>
-        public bool Validate(string src)
-        {
-            if (String.IsNullOrEmpty(src))
-                return false;
-            src = src.ToLower();
-            if (src.StartsWith("http://"))
-                return true;
-            if (src.StartsWith("https://"))
-                return true;
-            if (src.StartsWith("data:") && src.IndexOf("base64,", StringComparison.Ordinal) > 0)
-                return true;
-            return false;
-        }
-
-        #endregion Public Methods
-
-        #region Internal Methods
-
-        static internal Image Load(InlineImageCache cache, string src)
-        {
-            LoadEventArgs args = new LoadEventArgs(cache, src);
-            if (BeforeLoad != null) BeforeLoad(null, args);
-            Image result = null;
-            if (!args.Handled) result = cache.Load(src);
-            args.Handled = false;
-            if (AfterLoad != null) AfterLoad(null, args);
-            if (args.Handled)
-                return cache.Get(src).Image;
-            return result;
-        }
-
-        #endregion Internal Methods
-
-        #region Public Constructors
-
-        /// <inheritdoc/>
-        public InlineImageCache()
-        {
-            locker = new object();
-            client = null;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        ~InlineImageCache()
-        {
-            Dispose(false);
-        }
-
-        #endregion Public Constructors
-
-        #region Public Classes
-
-        /// <summary>
-        /// Item of image cache Dictionary
-        /// </summary>
-        public class CacheItem : IDisposable
-        {
-            #region Private Fields
-
-            private string base64;
-
-            private bool error;
-
-            private Image image;
-
-            //private int FId;
-            private string src;
-
-            private byte[] stream;
-
-            #endregion Private Fields
-
-            #region Public Properties
-
-            /// <summary>
-            /// Get Base64 string
-            /// </summary>
-            public string Base64
-            {
-                get
-                {
-                    try
-                    {//For strange img tag
-                        if (base64 != null)
-                            return base64;
-                        if (stream != null)
-                        {
-                            base64 = Convert.ToBase64String(stream);
-                            return base64;
-                        }
-                        if (image != null)
-                        {
-                            using (MemoryStream ms = new MemoryStream())
-                            {
-                                using SKImage skImage = SKImage.FromBitmap(image);
-                                using SKData data = skImage.Encode(SKEncodedImageFormat.Png, 100);
-                                data.SaveTo(ms);
-                                ms.Flush();
-                                stream = ms.ToArray();
-                            }
-                            base64 = Convert.ToBase64String(stream);
-                            return base64;
-                        }
-                    }
-                    catch { }
-                    GetErrorImage();
-                    return "";
-                }
-            }
-
-            /// <summary>
-            /// Return true if has some error with Image
-            /// </summary>
-            public bool Error
-            {
-                get { return error; }
-            }
-
-            /// <summary>
-            /// Get Image
-            /// </summary>
-            public Image Image
-            {
-                get
-                {
-                    try
-                    {//for strange img tag
-                        if (image != null)
-                            return image;
-                        if (stream != null)
-                        {
-
-                            image = ImageHelper.Load(stream);
-                            return image;
-                        }
-                        if (base64 != null)
-                        {
-                            this.stream = Convert.FromBase64String(base64);
-
-                            image = ImageHelper.Load(stream);
-                            return image;
-                        }
-                    }
-                    catch { }
-                    return GetErrorImage();
-                }
-            }
-
-            /// <summary>
-            /// Get byte array
-            /// </summary>
-            public byte[] Stream
-            {
-                get
-                {
-                    if (stream != null) return stream;
+                try
+                {//For strange img tag
                     if (base64 != null)
+                        return base64;
+                    if (stream != null)
                     {
-                        stream = Convert.FromBase64String(base64);
-                        return stream;
+                        base64 = Convert.ToBase64String(stream);
+                        return base64;
                     }
                     if (image != null)
                     {
@@ -2694,165 +2625,142 @@ style = newStyle;
                             ms.Flush();
                             stream = ms.ToArray();
                         }
-                        return stream;
+                        base64 = Convert.ToBase64String(stream);
+                        return base64;
                     }
-                    return new byte[0];
                 }
+                catch { }
+                GetErrorImage();
+                return "";
             }
-
-            #endregion Public Properties
-
-            #region Internal Properties
-
-            internal string Src
-            {
-                get { return src; }
-                set { src = value; }
-            }
-
-            #endregion Internal Properties
-
-            #region Public Methods
-
-            /// <summary>
-            /// Return error image and set true to error property
-            /// </summary>
-            /// <returns></returns>
-            public Image GetErrorImage()
-            {
-                error = true;
-                base64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgAABdwnLpRPAAAAFdJREFUOE9jbGlq+c9AIqipq2GEawEZQAo4dvgYqoXD0QAGhv9ATyKCBY1PXBjANKEbBjSWOANA9mPRDBImzgCKXECVMMCTsojzwtAzAOQvUjCJmRe/cgDt6ZAkZx23LwAAAABJRU5ErkJggg==";
-                src = "data:image/png;base64," + base64;
-                stream = Convert.FromBase64String(base64);
-                image = ImageHelper.Load(stream);
-                return image;
-            }
-
-            /// <summary>
-            /// Set value for cache item
-            /// </summary>
-            /// <param name="base64">Image encoded base64 string</param>
-            public void Set(string base64)
-            {
-                this.base64 = base64;
-                image = null;
-                stream = null;
-            }
-
-            /// <summary>
-            /// Set value for cache item
-            /// </summary>
-            /// <param name="img">Image</param>
-            public void Set(Image img)
-            {
-                base64 = null;
-                image = img;
-                stream = null;
-            }
-
-            /// <summary>
-            /// Set value for cache item
-            /// </summary>
-            /// <param name="arr">Image</param>
-            public void Set(byte[] arr)
-            {
-                base64 = null;
-                image = null;
-                stream = arr;
-            }
-
-            #region IDisposable Support
-            private bool disposedValue = false; // To detect redundant calls
-
-            /// <summary>
-            /// 
-            /// </summary>
-            /// <param name="disposing"></param>
-            protected virtual void Dispose(bool disposing)
-            {
-                if (!disposedValue)
-                {
-                    if (disposing)
-                    {
-                        if (image != null)
-                        {
-                            image.Dispose();
-                            image = null;
-                        }
-                        // TODO: dispose managed state (managed objects).
-                    }
-
-                    // TODO: free unmanaged resources (unmanaged objects) and override a finalizer below.
-                    // TODO: set large fields to null.
-
-                    disposedValue = true;
-                }
-            }
-
-            // TODO: override a finalizer only if Dispose(bool disposing) above has code to free unmanaged resources.
-            // ~CacheItem() {
-            //   // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
-            //   Dispose(false);
-            // }
-
-            // This code added to correctly implement the disposable pattern.
-            /// <summary>
-            /// Disposes this object.
-            /// </summary>
-            public void Dispose()
-            {
-                // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
-                Dispose(true);
-                // TODO: uncomment the following line if the finalizer is overridden above.
-                // GC.SuppressFinalize(this);
-            }
-            #endregion
-
-            #endregion Public Methods
         }
 
         /// <summary>
-        /// WebClientEventArgs
+        /// Return true if has some error with Image
         /// </summary>
-        public class LoadEventArgs : EventArgs
+        public bool Error
         {
-            #region Private Fields
+            get { return error; }
+        }
 
-            private InlineImageCache cache;
-            private bool handled;
-            private string source;
-
-            #endregion Private Fields
-
-            #region Public Properties
-
-            /// <summary>
-            /// Gets a cache
-            /// </summary>
-            public InlineImageCache Cache { get { return cache; } }
-
-            /// <summary>
-            /// Gets or sets a value indicating whether the event was handled.
-            /// </summary>
-            public bool Handled { get { return handled; } set { handled = value; } }
-
-            /// <summary>
-            /// Gets or sets a url from src attribue of img tag
-            /// </summary>
-            public string Source { get { return source; } set { source = value; } }
-
-            #endregion Public Properties
-
-            #region Internal Constructors
-
-            internal LoadEventArgs(InlineImageCache c, string src)
+        /// <summary>
+        /// Get Image
+        /// </summary>
+        public Image Image
+        {
+            get
             {
-                cache = c;
-                source = src;
-                handled = false;
-            }
+                try
+                {//for strange img tag
+                    if (image != null)
+                        return image;
+                    if (stream != null)
+                    {
 
-            #endregion Internal Constructors
+                        image = ImageHelper.Load(stream);
+                        return image;
+                    }
+                    if (base64 != null)
+                    {
+                        this.stream = Convert.FromBase64String(base64);
+
+                        image = ImageHelper.Load(stream);
+                        return image;
+                    }
+                }
+                catch { }
+                return GetErrorImage();
+            }
+        }
+
+        /// <summary>
+        /// Get byte array
+        /// </summary>
+        public byte[] Stream
+        {
+            get
+            {
+                if (stream != null) return stream;
+                if (base64 != null)
+                {
+                    stream = Convert.FromBase64String(base64);
+                    return stream;
+                }
+                if (image != null)
+                {
+                    using (MemoryStream ms = new MemoryStream())
+                    {
+                        using SKImage skImage = SKImage.FromBitmap(image);
+                        using SKData data = skImage.Encode(SKEncodedImageFormat.Png, 100);
+                        data.SaveTo(ms);
+                        ms.Flush();
+                        stream = ms.ToArray();
+                    }
+                    return stream;
+                }
+                return new byte[0];
+            }
+        }
+
+        #endregion Public Properties
+
+        #region Internal Properties
+
+        internal string Src
+        {
+            get { return src; }
+            set { src = value; }
+        }
+
+        #endregion Internal Properties
+
+        #region Public Methods
+
+        /// <summary>
+        /// Return error image and set true to error property
+        /// </summary>
+        /// <returns></returns>
+        public Image GetErrorImage()
+        {
+            error = true;
+            base64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgAABdwnLpRPAAAAFdJREFUOE9jbGlq+c9AIqipq2GEawEZQAo4dvgYqoXD0QAGhv9ATyKCBY1PXBjANKEbBjSWOANA9mPRDBImzgCKXECVMMCTsojzwtAzAOQvUjCJmRe/cgDt6ZAkZx23LwAAAABJRU5ErkJggg==";
+            src = "data:image/png;base64," + base64;
+            stream = Convert.FromBase64String(base64);
+            image = ImageHelper.Load(stream);
+            return image;
+        }
+
+        /// <summary>
+        /// Set value for cache item
+        /// </summary>
+        /// <param name="base64">Image encoded base64 string</param>
+        public void Set(string base64)
+        {
+            this.base64 = base64;
+            image = null;
+            stream = null;
+        }
+
+        /// <summary>
+        /// Set value for cache item
+        /// </summary>
+        /// <param name="img">Image</param>
+        public void Set(Image img)
+        {
+            base64 = null;
+            image = img;
+            stream = null;
+        }
+
+        /// <summary>
+        /// Set value for cache item
+        /// </summary>
+        /// <param name="arr">Image</param>
+        public void Set(byte[] arr)
+        {
+            base64 = null;
+            image = null;
+            stream = arr;
         }
 
         #region IDisposable Support
@@ -2868,15 +2776,12 @@ style = newStyle;
             {
                 if (disposing)
                 {
+                    if (image != null)
+                    {
+                        image.Dispose();
+                        image = null;
+                    }
                     // TODO: dispose managed state (managed objects).
-                }
-
-                if (this.items != null)
-                {
-                    Dictionary<string, CacheItem> items = this.items;
-                    this.items = null;
-                    foreach (CacheItem item in items.Values)
-                        item.Dispose();
                 }
 
                 // TODO: free unmanaged resources (unmanaged objects) and override a finalizer below.
@@ -2887,13 +2792,12 @@ style = newStyle;
         }
 
         // TODO: override a finalizer only if Dispose(bool disposing) above has code to free unmanaged resources.
-        // ~InlineImageCache() {
+        // ~CacheItem() {
         //   // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
         //   Dispose(false);
         // }
 
         // This code added to correctly implement the disposable pattern.
-
         /// <summary>
         /// Disposes this object.
         /// </summary>
@@ -2906,6 +2810,103 @@ style = newStyle;
         }
         #endregion
 
-        #endregion Public Classes
+        #endregion Public Methods
     }
+
+    /// <summary>
+    /// WebClientEventArgs
+    /// </summary>
+    public class LoadEventArgs : EventArgs
+    {
+        #region Private Fields
+
+        private InlineImageCache cache;
+        private bool handled;
+        private string source;
+
+        #endregion Private Fields
+
+        #region Public Properties
+
+        /// <summary>
+        /// Gets a cache
+        /// </summary>
+        public InlineImageCache Cache { get { return cache; } }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the event was handled.
+        /// </summary>
+        public bool Handled { get { return handled; } set { handled = value; } }
+
+        /// <summary>
+        /// Gets or sets a url from src attribue of img tag
+        /// </summary>
+        public string Source { get { return source; } set { source = value; } }
+
+        #endregion Public Properties
+
+        #region Internal Constructors
+
+        internal LoadEventArgs(InlineImageCache c, string src)
+        {
+            cache = c;
+            source = src;
+            handled = false;
+        }
+
+        #endregion Internal Constructors
+    }
+
+    #region IDisposable Support
+    private bool disposedValue = false; // To detect redundant calls
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="disposing"></param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!disposedValue)
+        {
+            if (disposing)
+            {
+                // TODO: dispose managed state (managed objects).
+            }
+
+            if (this.items != null)
+            {
+                Dictionary<string, CacheItem> items = this.items;
+                this.items = null;
+                foreach (CacheItem item in items.Values)
+                    item.Dispose();
+            }
+
+            // TODO: free unmanaged resources (unmanaged objects) and override a finalizer below.
+            // TODO: set large fields to null.
+
+            disposedValue = true;
+        }
+    }
+
+    // TODO: override a finalizer only if Dispose(bool disposing) above has code to free unmanaged resources.
+    // ~InlineImageCache() {
+    //   // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+    //   Dispose(false);
+    // }
+
+    // This code added to correctly implement the disposable pattern.
+
+    /// <summary>
+    /// Disposes this object.
+    /// </summary>
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+        Dispose(true);
+        // TODO: uncomment the following line if the finalizer is overridden above.
+        // GC.SuppressFinalize(this);
+    }
+    #endregion
+
+    #endregion Public Classes
 }

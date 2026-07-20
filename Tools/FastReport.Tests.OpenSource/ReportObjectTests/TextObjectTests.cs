@@ -1,291 +1,291 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
-using Xunit;
 using System.Linq;
+using System.Text;
 
-namespace FastReport.Tests.Core.ReportObjectTests
+using Xunit;
+
+namespace FastReport.Tests.OpenSource.ReportObjectTests;
+
+public class TextObjectTests
 {
-    public class TextObjectTests
+    private Report report;
+    ReportPage page;
+    PageHeaderBand pageHeaderBand;
+    DataBand dataBand;
+    TextObject textObject;
+
+    public TextObjectTests()
     {
-        private Report report;
-        ReportPage page;
-        PageHeaderBand pageHeaderBand;
-        DataBand dataBand;
-        TextObject textObject;
+        report = new Report();
+    }
 
-        public TextObjectTests()
-        {
-            report = new Report();    
-        }
+    private void CreateTemplate()
+    {
+        // create report with bands
+        report = new Report();
+        page = new ReportPage();
+        pageHeaderBand = new PageHeaderBand();
+        pageHeaderBand.CreateUniqueName();
+        pageHeaderBand.Width = 718;
+        pageHeaderBand.Height = 300;
+        dataBand = new DataBand();
+        dataBand.CreateUniqueName();
+        dataBand.Width = 718;
+        dataBand.Height = 300;
 
-        private void CreateTemplate()
-        {
-            // create report with bands
-            report = new Report();
-            page = new ReportPage();
-            pageHeaderBand = new PageHeaderBand();
-            pageHeaderBand.CreateUniqueName();
-            pageHeaderBand.Width = 718;
-            pageHeaderBand.Height = 300;
-            dataBand = new DataBand();
-            dataBand.CreateUniqueName();
-            dataBand.Width = 718;
-            dataBand.Height = 300;
+        page.Bands.Add(pageHeaderBand);
+        page.Bands.Add(dataBand);
+        report.Pages.Add(page);
+    }
 
-            page.Bands.Add(pageHeaderBand);
-            page.Bands.Add(dataBand);
-            report.Pages.Add(page);
-        }
+    private void AddTextObject()
+    {
+        textObject = new TextObject();
+        textObject.CreateUniqueName();
+        textObject.Width = 100;
+        textObject.Height = 100;
+        textObject.Text = "Test";
+        textObject.Left = 0;
+        textObject.Top = 0;
+        textObject.Border.Lines = BorderLines.All;
 
-        private void AddTextObject()
-        {
-            textObject = new TextObject();
-            textObject.CreateUniqueName();
-            textObject.Width = 100;
-            textObject.Height = 100;
-            textObject.Text = "Test";
-            textObject.Left = 0;
-            textObject.Top = 0;
-            textObject.Border.Lines = BorderLines.All;
+        dataBand.AddChild(textObject);
+    }
 
-            dataBand.AddChild(textObject);
-        }
+    private DataBand GetDataBand() =>
+        report.PreparedPages.GetPage(0).Bands.ToArray()
+        .FirstOrDefault(b => b.GetType() == typeof(DataBand)) as DataBand;
 
-        private DataBand GetDataBand() => 
-            report.PreparedPages.GetPage(0).Bands.ToArray()
-            .FirstOrDefault(b => b.GetType() == typeof(DataBand)) as DataBand;
-
-        private TextObject GetTextObject(string name) =>
-    report.PreparedPages.GetPage(0).FindObject(name) as TextObject;
+    private TextObject GetTextObject(string name) =>
+report.PreparedPages.GetPage(0).FindObject(name) as TextObject;
 
 
-        //Can't pass!!!
-        //[Fact]
-        //public void BandSquizingAnchorBotLeftTest()
-        //{
-        //    CreateTemplate();
+    //Can't pass!!!
+    //[Fact]
+    //public void BandSquizingAnchorBotLeftTest()
+    //{
+    //    CreateTemplate();
 
-        //    AddTextObject();
-        //    textObject.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
-        //    //decrease dataBandSize
-        //    dataBand.Height -= textObject.Height / 2;
+    //    AddTextObject();
+    //    textObject.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
+    //    //decrease dataBandSize
+    //    dataBand.Height -= textObject.Height / 2;
 
-        //    Assert.True(textObject.Top >= 0);
-        //    //report.Save("BandSquizingAnchorBotLeftTest.frx");
-        //}
+    //    Assert.True(textObject.Top >= 0);
+    //    //report.Save("BandSquizingAnchorBotLeftTest.frx");
+    //}
 
-        [Fact]
-        public void AutoWidthTest()
-        {
-            CreateTemplate();
+    [Fact]
+    public void AutoWidthTest()
+    {
+        CreateTemplate();
 
-            AddTextObject();
-            textObject.Text = "very very loooooooooooooooooooooooooooooooooooooooooooooooooooooong text!";
-            textObject.Width = 1;
-            textObject.Name = "AutoWidthTextObject";
-            textObject.AutoWidth = true;
+        AddTextObject();
+        textObject.Text = "very very loooooooooooooooooooooooooooooooooooooooooooooooooooooong text!";
+        textObject.Width = 1;
+        textObject.Name = "AutoWidthTextObject";
+        textObject.AutoWidth = true;
 
-            report.Prepare();
-            
-            TextObject t = GetTextObject("AutoWidthTextObject");
-            
-            Assert.True(t.Width > 1);
-        }
+        report.Prepare();
 
-        [Fact]
-        public void CanGrowTest()
-        {
-            CreateTemplate();
+        TextObject t = GetTextObject("AutoWidthTextObject");
 
-            AddTextObject();
-            textObject.Text = "teeeeeeeeeeeeeeeeeeeeeeest" +
-                "teeeeeeeeeeeeeeeeeeeeeeest" +
-                "teeeeeeeeeeeeeeeeeeeeeeest" +
-                "teeeeeeeeeeeeeeeeeeeeeeest" +
-                "teeeeeeeeeeeeeeeeeeeeeeest" +
-                "teeeeeeeeeeeeeeeeeeeeeeest" +
-                "teeeeeeeeeeeeeeeeeeeeeeest";
-            textObject.Width = 100;
-            textObject.Height = 1;
-            textObject.Name = "CanGrowTextObject";
-            textObject.CanGrow = true;
+        Assert.True(t.Width > 1);
+    }
 
-            report.Prepare();
-            TextObject t = GetTextObject("CanGrowTextObject");
+    [Fact]
+    public void CanGrowTest()
+    {
+        CreateTemplate();
 
-            Assert.True(t.Height > 1);
-        }
+        AddTextObject();
+        textObject.Text = "teeeeeeeeeeeeeeeeeeeeeeest" +
+            "teeeeeeeeeeeeeeeeeeeeeeest" +
+            "teeeeeeeeeeeeeeeeeeeeeeest" +
+            "teeeeeeeeeeeeeeeeeeeeeeest" +
+            "teeeeeeeeeeeeeeeeeeeeeeest" +
+            "teeeeeeeeeeeeeeeeeeeeeeest" +
+            "teeeeeeeeeeeeeeeeeeeeeeest";
+        textObject.Width = 100;
+        textObject.Height = 1;
+        textObject.Name = "CanGrowTextObject";
+        textObject.CanGrow = true;
 
-        [Fact]
-        public void CanShrinkTest()
-        {
-            CreateTemplate();
+        report.Prepare();
+        TextObject t = GetTextObject("CanGrowTextObject");
 
-            AddTextObject();
-            textObject.Text = "teeeeeeeeeeeeeeeeeeeeeeest";
-            textObject.Width = 100;
-            textObject.Height = 1000;
-            textObject.Name = "CanShrinkTextObject";
-            textObject.CanShrink = true;
+        Assert.True(t.Height > 1);
+    }
 
-            report.Prepare();
-            TextObject t = GetTextObject("CanShrinkTextObject");
+    [Fact]
+    public void CanShrinkTest()
+    {
+        CreateTemplate();
 
-            Assert.True(t.Height < 1000);
-        }
+        AddTextObject();
+        textObject.Text = "teeeeeeeeeeeeeeeeeeeeeeest";
+        textObject.Width = 100;
+        textObject.Height = 1000;
+        textObject.Name = "CanShrinkTextObject";
+        textObject.CanShrink = true;
 
-        [Fact]
-        public void GrowToBottomTest()
-        {
-            CreateTemplate();
+        report.Prepare();
+        TextObject t = GetTextObject("CanShrinkTextObject");
 
-            AddTextObject();
-            textObject.Text = "teeeeeeeeeeeeeeeeeeeeeeest";
-            textObject.Width = 100;
-            textObject.Height = 1;
-            textObject.Name = "GrowToBottomTextObject";
-            textObject.GrowToBottom = true;
+        Assert.True(t.Height < 1000);
+    }
 
-            report.Prepare();
-            TextObject t = GetTextObject("GrowToBottomTextObject");
+    [Fact]
+    public void GrowToBottomTest()
+    {
+        CreateTemplate();
 
-            DataBand d = GetDataBand();
+        AddTextObject();
+        textObject.Text = "teeeeeeeeeeeeeeeeeeeeeeest";
+        textObject.Width = 100;
+        textObject.Height = 1;
+        textObject.Name = "GrowToBottomTextObject";
+        textObject.GrowToBottom = true;
 
-            Assert.True(t.Top + t.Height == d.Top + d.Height);
-        }
+        report.Prepare();
+        TextObject t = GetTextObject("GrowToBottomTextObject");
 
-        [Fact]
-        public void ShouldHideValueTest()
-        {
-            CreateTemplate();
+        DataBand d = GetDataBand();
 
-            AddTextObject();
-            textObject.Text = "[3-2]";
-            textObject.Name = "HideValueTextObject";
-            textObject.HideValue = "1";
+        Assert.True(t.Top + t.Height == d.Top + d.Height);
+    }
 
-            report.Prepare();
-            TextObject t = GetTextObject("HideValueTextObject");
+    [Fact]
+    public void ShouldHideValueTest()
+    {
+        CreateTemplate();
 
-            Assert.True(t.Text == "");
-        }
+        AddTextObject();
+        textObject.Text = "[3-2]";
+        textObject.Name = "HideValueTextObject";
+        textObject.HideValue = "1";
 
-        [Fact]
-        public void ShouldNotHideValueTest()
-        {
-            CreateTemplate();
+        report.Prepare();
+        TextObject t = GetTextObject("HideValueTextObject");
 
-            AddTextObject();
-            textObject.Text = "[3-3]";
-            textObject.Name = "HideValueTextObject";
-            textObject.HideValue = "1";
+        Assert.True(t.Text == "");
+    }
 
-            report.Prepare();
-            TextObject t = GetTextObject("HideValueTextObject");
+    [Fact]
+    public void ShouldNotHideValueTest()
+    {
+        CreateTemplate();
 
-            Assert.True(t.Text != "");
-        }
+        AddTextObject();
+        textObject.Text = "[3-3]";
+        textObject.Name = "HideValueTextObject";
+        textObject.HideValue = "1";
 
-        [Fact]
-        public void ShouldHideZerosTest()
-        {
-            CreateTemplate();
+        report.Prepare();
+        TextObject t = GetTextObject("HideValueTextObject");
 
-            AddTextObject();
-            textObject.Text = "[3-3]";
-            textObject.Name = "HideZerosTextObject";
-            textObject.HideZeros = true;
+        Assert.True(t.Text != "");
+    }
 
-            report.Prepare();
-            TextObject t = GetTextObject("HideZerosTextObject");
+    [Fact]
+    public void ShouldHideZerosTest()
+    {
+        CreateTemplate();
 
-            Assert.True(t.Text == "");
-        }
+        AddTextObject();
+        textObject.Text = "[3-3]";
+        textObject.Name = "HideZerosTextObject";
+        textObject.HideZeros = true;
 
-        [Fact]
-        public void ShouldNotHideZerosTest()
-        {
-            CreateTemplate();
+        report.Prepare();
+        TextObject t = GetTextObject("HideZerosTextObject");
 
-            AddTextObject();
-            textObject.Text = "[3-3]";
-            textObject.Name = "HideZerosTextObject";
-            textObject.HideZeros = false;
+        Assert.True(t.Text == "");
+    }
 
-            report.Prepare();
-            TextObject t = GetTextObject("HideZerosTextObject");
+    [Fact]
+    public void ShouldNotHideZerosTest()
+    {
+        CreateTemplate();
 
-            Assert.True(t.Text != "");
-        }
+        AddTextObject();
+        textObject.Text = "[3-3]";
+        textObject.Name = "HideZerosTextObject";
+        textObject.HideZeros = false;
 
-        [InlineData("[null]")]
-        [InlineData("[5]")]
-        [Theory]
-        public void NullValueTest(string text)
-        {
-            CreateTemplate();
+        report.Prepare();
+        TextObject t = GetTextObject("HideZerosTextObject");
 
-            AddTextObject();
-            textObject.Text = text;
-            textObject.Name = "NullValueTextObject";
-            textObject.NullValue = "notnull";
+        Assert.True(t.Text != "");
+    }
 
-            report.Prepare();
-            TextObject t = GetTextObject("NullValueTextObject");
+    [InlineData("[null]")]
+    [InlineData("[5]")]
+    [Theory]
+    public void NullValueTest(string text)
+    {
+        CreateTemplate();
 
-            if (text == "[null]")
-                Assert.True(t.Text == "notnull");
-            else
-                Assert.True(t.Text != "notnull");
-        }
+        AddTextObject();
+        textObject.Text = text;
+        textObject.Name = "NullValueTextObject";
+        textObject.NullValue = "notnull";
 
-        [Fact]
-        public void AllowExpressionsTrueTest()
-        {
-            CreateTemplate();
+        report.Prepare();
+        TextObject t = GetTextObject("NullValueTextObject");
 
-            AddTextObject();
-            textObject.Text = "[2+2*2]";
-            textObject.Name = "AllowExpressionsTextObject";
-            textObject.AllowExpressions = true;
+        if (text == "[null]")
+            Assert.True(t.Text == "notnull");
+        else
+            Assert.True(t.Text != "notnull");
+    }
 
-            report.Prepare();
-            TextObject t = GetTextObject("AllowExpressionsTextObject");
+    [Fact]
+    public void AllowExpressionsTrueTest()
+    {
+        CreateTemplate();
 
-            Assert.True(t.Text == "6");
-        }
+        AddTextObject();
+        textObject.Text = "[2+2*2]";
+        textObject.Name = "AllowExpressionsTextObject";
+        textObject.AllowExpressions = true;
 
-        [Fact]
-        public void AllowExpressionsFalseTest()
-        {
-            CreateTemplate();
+        report.Prepare();
+        TextObject t = GetTextObject("AllowExpressionsTextObject");
 
-            AddTextObject();
-            textObject.Text = "[2+2*2]";
-            textObject.Name = "AllowExpressionsTextObject";
-            textObject.AllowExpressions = false;
+        Assert.True(t.Text == "6");
+    }
 
-            report.Prepare();
-            TextObject t = GetTextObject("AllowExpressionsTextObject");
+    [Fact]
+    public void AllowExpressionsFalseTest()
+    {
+        CreateTemplate();
 
-            Assert.True(t.Text == "[2+2*2]");
-        }
+        AddTextObject();
+        textObject.Text = "[2+2*2]";
+        textObject.Name = "AllowExpressionsTextObject";
+        textObject.AllowExpressions = false;
 
-        [Fact]
-        public void CustomBracketsTest()
-        {
-            CreateTemplate();
+        report.Prepare();
+        TextObject t = GetTextObject("AllowExpressionsTextObject");
 
-            AddTextObject();
-            textObject.Text = "{2+2*2}";
-            textObject.Name = "BracketsTextObject";
-            textObject.Brackets = "{,}";
+        Assert.True(t.Text == "[2+2*2]");
+    }
 
-            report.Prepare();
-            TextObject t = GetTextObject("BracketsTextObject");
+    [Fact]
+    public void CustomBracketsTest()
+    {
+        CreateTemplate();
 
-            Assert.True(t.Text == "6");
-        }
+        AddTextObject();
+        textObject.Text = "{2+2*2}";
+        textObject.Name = "BracketsTextObject";
+        textObject.Brackets = "{,}";
+
+        report.Prepare();
+        TextObject t = GetTextObject("BracketsTextObject");
+
+        Assert.True(t.Text == "6");
     }
 }

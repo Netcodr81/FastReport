@@ -1,14 +1,13 @@
-﻿namespace FastReport
+﻿namespace FastReport;
+
+partial class PictureObject
 {
-    partial class PictureObject
+    #region Private Methods
+
+    private bool IsDesigningInPreviewPageDesigner()
     {
-        #region Private Methods
-
-        private bool IsDesigningInPreviewPageDesigner()
-        {
-            return false;
-        }
-
-        #endregion Private Methods
+        return false;
     }
+
+    #endregion Private Methods
 }

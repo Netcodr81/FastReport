@@ -1,20 +1,19 @@
 using System;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
 
-namespace FastReport.Matrix
+namespace FastReport.Matrix;
+
+public partial class MatrixObject
 {
-    public partial class MatrixObject
+    #region Report Engine
+
+    /// <inheritdoc/>
+    public override async Task GetDataAsync(CancellationToken cancellationToken)
     {
-        #region Report Engine
-
-        /// <inheritdoc/>
-        public override async Task GetDataAsync(CancellationToken cancellationToken)
-        {
-            await base.GetDataAsync(cancellationToken);
-            GetDataShared();
-        }
-
-        #endregion
+        await base.GetDataAsync(cancellationToken);
+        GetDataShared();
     }
+
+    #endregion
 }

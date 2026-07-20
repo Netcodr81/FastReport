@@ -1,527 +1,1070 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+
 using SkiaSharp;
 
-namespace FastReport.Utils
+namespace FastReport.Utils;
+
+/// <summary>
+/// Represents HTML text renderer.
+/// </summary>
+/// <remarks>
+/// This is a more advanced version of AdvancedTextRenderer with support of more tags.
+/// </remarks>
+public class HtmlTextRenderer : IDisposable
 {
+    #region Definitions
     /// <summary>
-    /// Represents HTML text renderer.
+    /// Context for HTML rendering. <br/>
+    /// Using this structure instead of the class's private fields is recommended. <br/>
+    /// This allows for future optimizations and helps avoid constructors with numerous arguments.
     /// </summary>
-    /// <remarks>
-    /// This is a more advanced version of AdvancedTextRenderer with support of more tags.
-    /// </remarks>
-    public class HtmlTextRenderer : IDisposable
+    internal struct RendererContext
     {
-        #region Definitions
-        /// <summary>
-        /// Context for HTML rendering. <br/>
-        /// Using this structure instead of the class's private fields is recommended. <br/>
-        /// This allows for future optimizations and helps avoid constructors with numerous arguments.
-        /// </summary>
-        internal struct RendererContext
+        internal int angle;
+        internal float widthRatio;
+        internal string text;
+        internal IGraphics g;
+        internal FontFamily font;
+        internal float size;
+        internal FontStyle style; // no keep
+        internal SKColor color; // no keep
+        internal SKColor underlineColor;
+        internal SKRect rect;
+        internal bool underlines;
+        internal StringFormat format; // no keep
+        internal HorzAlign horzAlign;
+        internal VertAlign vertAlign;
+        internal ParagraphFormat paragraphFormat;
+        internal bool forceJustify;
+        internal float scale;
+        internal float fontScale;
+        internal InlineImageCache cache;
+        internal bool isPrinting;
+        internal bool isDifferentTabPositions;
+        internal bool keepLastLineSpace; // Classic objects need false, translated objects need true
+    }
+    #endregion
+
+    #region Internal Fields
+
+    /// <summary>
+    /// Gets invariant culture.
+    /// </summary>
+    public static readonly System.Globalization.CultureInfo CultureInfo = System.Globalization.CultureInfo.InvariantCulture;
+
+    #endregion Internal Fields
+
+    #region Private Fields
+
+    private int angle;
+    private float widthRatio;
+    private const char SOFT_ENTER = '\u2028';
+    private List<RectangleFColor> backgrounds;
+    private InlineImageCache cache;
+    private SKRect displayRect;
+    private bool everUnderlines;
+    private FontFamily font;
+    private float fontLineHeight;
+    private float scale;
+    private bool forceJustify;
+    private StringFormat format;
+    private IGraphics graphics;
+    private HorzAlign horzAlign;
+    private ParagraphFormat paragraphFormat;
+    private List<HtmlTextRenderer.Paragraph> paragraphs;
+    private bool rightToLeft;
+    private float size;
+    private List<LineFColor> strikeouts;
+    private string text;
+    private SKColor underlineColor;
+    private List<LineFColor> underlines;
+    private VertAlign vertAlign;
+    private StyleDescriptor initalStyle;
+    private float fontScale;
+    private FastString cacheString = new FastString(100);
+    private bool isPrinting;
+    private bool isDifferentTabPositions;
+    internal bool keepLastSpace = false;
+
+    #endregion Private Fields
+
+    #region Public Properties
+
+    /// <summary>
+    /// Gets a list of colored background rectangles.
+    /// </summary>
+    public IEnumerable<RectangleFColor> Backgrounds { get { return backgrounds; } }
+
+    /// <summary>
+    /// Gets a display rectangle.
+    /// </summary>
+    public SKRect DisplayRect { get { return displayRect; } }
+
+    /// <summary>
+    /// Gets a scale factor.
+    /// </summary>
+    public float Scale { get { return scale; } }
+
+    /// <summary>
+    /// Gets or sets font scale factor.
+    /// </summary>
+    public float FontScale { get { return fontScale; } set { fontScale = value; } }
+
+    /// <summary>
+    /// Gets a horizontal alignment.
+    /// </summary>
+    public HorzAlign HorzAlign { get { return horzAlign; } }
+
+    /// <summary>
+    /// Gets paragraph format object.
+    /// </summary>
+    public ParagraphFormat ParagraphFormat { get { return paragraphFormat; } }
+
+    /// <summary>
+    /// Gets a list of paragraphs.
+    /// </summary>
+    public IEnumerable<Paragraph> Paragraphs { get { return paragraphs; } }
+
+    /// <summary>
+    /// Gets RTL flag.
+    /// </summary>
+    public bool RightToLeft
+    {
+        get { return rightToLeft; }
+    }
+
+    /// <summary>
+    /// Gets a list of strikeout lines.
+    /// </summary>
+    public IEnumerable<LineFColor> Stikeouts { get { return strikeouts; } }
+
+    /// <summary>
+    /// Gets an array of tab positions.
+    /// </summary>
+    public float[] TabPositions
+    {
+        get
         {
-            internal int angle;
-            internal float widthRatio;
-            internal string text;
-            internal IGraphics g;
-            internal FontFamily font;
-            internal float size;
-            internal FontStyle style; // no keep
-            internal SKColor color; // no keep
-            internal SKColor underlineColor;
-            internal SKRect rect;
-            internal bool underlines;
-            internal StringFormat format; // no keep
-            internal HorzAlign horzAlign;
-            internal VertAlign vertAlign;
-            internal ParagraphFormat paragraphFormat;
-            internal bool forceJustify;
-            internal float scale;
-            internal float fontScale;
-            internal InlineImageCache cache;
-            internal bool isPrinting;
-            internal bool isDifferentTabPositions;
-            internal bool keepLastLineSpace; // Classic objects need false, translated objects need true
+            float firstTabStop;
+            return format.GetTabStops(out firstTabStop);
         }
-        #endregion
+    }
 
-        #region Internal Fields
-
-        /// <summary>
-        /// Gets invariant culture.
-        /// </summary>
-        public static readonly System.Globalization.CultureInfo CultureInfo = System.Globalization.CultureInfo.InvariantCulture;
-
-        #endregion Internal Fields
-
-        #region Private Fields
-
-        private int angle;
-        private float widthRatio;
-        private const char SOFT_ENTER = '\u2028';
-        private List<RectangleFColor> backgrounds;
-        private InlineImageCache cache;
-        private SKRect displayRect;
-        private bool everUnderlines;
-        private FontFamily font;
-        private float fontLineHeight;
-        private float scale;
-        private bool forceJustify;
-        private StringFormat format;
-        private IGraphics graphics;
-        private HorzAlign horzAlign;
-        private ParagraphFormat paragraphFormat;
-        private List<HtmlTextRenderer.Paragraph> paragraphs;
-        private bool rightToLeft;
-        private float size;
-        private List<LineFColor> strikeouts;
-        private string text;
-        private SKColor underlineColor;
-        private List<LineFColor> underlines;
-        private VertAlign vertAlign;
-        private StyleDescriptor initalStyle;
-        private float fontScale;
-        private FastString cacheString = new FastString(100);
-        private bool isPrinting;
-        private bool isDifferentTabPositions;
-        internal bool keepLastSpace = false;
-
-        #endregion Private Fields
-
-        #region Public Properties
-
-        /// <summary>
-        /// Gets a list of colored background rectangles.
-        /// </summary>
-        public IEnumerable<RectangleFColor> Backgrounds { get { return backgrounds; } }
-        
-        /// <summary>
-        /// Gets a display rectangle.
-        /// </summary>
-        public SKRect DisplayRect { get { return displayRect; } }
-        
-        /// <summary>
-        /// Gets a scale factor.
-        /// </summary>
-        public float Scale { get { return scale; } }
-        
-        /// <summary>
-        /// Gets or sets font scale factor.
-        /// </summary>
-        public float FontScale { get { return fontScale; } set { fontScale = value; } }
-        
-        /// <summary>
-        /// Gets a horizontal alignment.
-        /// </summary>
-        public HorzAlign HorzAlign { get { return horzAlign; } }
-        
-        /// <summary>
-        /// Gets paragraph format object.
-        /// </summary>
-        public ParagraphFormat ParagraphFormat { get { return paragraphFormat; } }
-        
-        /// <summary>
-        /// Gets a list of paragraphs.
-        /// </summary>
-        public IEnumerable<Paragraph> Paragraphs { get { return paragraphs; } }
-
-        /// <summary>
-        /// Gets RTL flag.
-        /// </summary>
-        public bool RightToLeft
+    /// <summary>
+    /// Gets a tab size.
+    /// </summary>
+    public float TabSize
+    {
+        get
         {
-            get { return rightToLeft; }
+            // re fix tab offset #2823 sorry linux users, on linux firstTab is firstTab not tabSizes[0]
+            float[] tabSizes = TabPositions;
+            if (tabSizes.Length > 1)
+                return tabSizes[1];
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Gets the first tab offset.
+    /// </summary>
+    public float TabOffset
+    {
+        get
+        {
+            // re fix tab offset #2823 sorry linux users, on linux firstTab is firstTab not tabSizes[0]
+            float[] tabSizes = TabPositions;
+            if (tabSizes.Length > 0)
+                return tabSizes[0];
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Gets a list of underline lines.
+    /// </summary>
+    public IEnumerable<LineFColor> Underlines { get { return underlines; } }
+
+    /// <summary>
+    /// Gets word wrap flag.
+    /// </summary>
+    public bool WordWrap
+    {
+        get { return (format.FormatFlags & StringFormatFlags.NoWrap) == 0; }
+    }
+
+    /// <summary>
+    /// Gets the angle of rotation.
+    /// </summary>
+    public int Angle
+    {
+        get { return angle; }
+    }
+
+    /// <summary>
+    /// Gets the width ratio of the object.
+    /// </summary>
+    public float WidthRatio
+    {
+        get { return widthRatio; }
+    }
+
+    #endregion Public Properties
+
+    ////TODO this is a problem with dotnet, because typographic width
+    ////float width_dotnet = 2.7f;
+
+    #region Public Constructors
+    /// <summary>
+    /// Initializes a new instance of the HTML text renderer with a specified rendering context.
+    /// </summary>
+    /// <param name="context">The rendering context for the HTML renderer.</param>
+    internal HtmlTextRenderer(RendererContext context)
+    {
+        this.angle = context.angle % 360;
+        this.widthRatio = context.widthRatio;
+        this.text = context.text;
+        this.graphics = context.g;
+        this.font = context.font;
+        this.size = context.size;
+        this.underlineColor = context.underlineColor;
+        this.displayRect = context.rect;
+        this.everUnderlines = context.underlines;
+        this.format = context.format;
+        this.horzAlign = context.horzAlign;
+        this.vertAlign = context.vertAlign;
+        this.paragraphFormat = context.paragraphFormat;
+        this.forceJustify = context.forceJustify;
+        this.scale = context.scale;
+        this.fontScale = context.fontScale;
+        this.cache = context.cache;
+        this.isPrinting = context.isPrinting;
+        this.isDifferentTabPositions = context.isDifferentTabPositions;
+        this.keepLastSpace = context.keepLastLineSpace;
+
+        paragraphs = new List<HtmlTextRenderer.Paragraph>();
+        rightToLeft = (context.format.FormatFlags & StringFormatFlags.DirectionRightToLeft) == StringFormatFlags.DirectionRightToLeft;
+        // Dispose it
+        this.format = StringFormat.GenericTypographic.Clone();
+        if (RightToLeft)
+            this.format.FormatFlags |= StringFormatFlags.DirectionRightToLeft;
+        float firstTab;
+        float[] tabs = context.format.GetTabStops(out firstTab);
+        this.format.SetTabStops(firstTab, tabs);
+        this.format.Alignment = StringAlignment.Near;
+        this.format.LineAlignment = StringAlignment.Near;
+        this.format.Trimming = StringTrimming.None;
+        this.format.HotkeyPrefix = null;
+        //FFormat.DigitSubstitutionMethod = StringDigitSubstitute.User;
+        //FFormat.DigitSubstitutionLanguage = 0;
+        this.format.FormatFlags |= StringFormatFlags.NoClip | StringFormatFlags.FitBlackBox | StringFormatFlags.LineLimit;
+        //FFormat.FormatFlags |= StringFormatFlags.NoFontFallback;
+
+        backgrounds = new List<RectangleFColor>();
+        this.underlines = new List<LineFColor>();
+        strikeouts = new List<LineFColor>();
+        //FDisplayRect.Width -= width_dotnet * scale;
+
+        initalStyle = new StyleDescriptor(context.style, context.color, BaseLine.Normal, this.font, this.size * this.fontScale);
+        using (SKFont f = initalStyle.GetFont())
+        {
+            SKFontMetrics metrics = f.Metrics;
+            fontLineHeight = metrics.Descent - metrics.Ascent + metrics.Leading;
         }
 
-        /// <summary>
-        /// Gets a list of strikeout lines.
-        /// </summary>
-        public IEnumerable<LineFColor> Stikeouts { get { return strikeouts; } }
 
-        /// <summary>
-        /// Gets an array of tab positions.
-        /// </summary>
-        public float[] TabPositions
+        StringFormatFlags saveFlags = this.format.FormatFlags;
+        StringTrimming saveTrimming = this.format.Trimming;
+
+        // if word wrap is set, ignore trimming
+        if (WordWrap)
+            this.format.Trimming = StringTrimming.Word;
+
+        SplitToParagraphs(text);
+        AdjustParagraphLines();
+
+        // restore original values
+        displayRect = context.rect;
+        this.format.FormatFlags = saveFlags;
+        this.format.Trimming = saveTrimming;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="HtmlTextRenderer"/> class.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="g">The graphics context.</param>
+    /// <param name="font">The font.</param>
+    /// <param name="size">The font size.</param>
+    /// <param name="style">The font style.</param>
+    /// <param name="color">The text color.</param>
+    /// <param name="underlineColor">The underline color.</param>
+    /// <param name="rect">The display rectangle.</param>
+    /// <param name="underlines">Whether to use underlines.</param>
+    /// <param name="format">The string format.</param>
+    /// <param name="horzAlign">The horizontal alignment.</param>
+    /// <param name="vertAlign">The vertical alignment.</param>
+    /// <param name="paragraphFormat">The paragraph format.</param>
+    /// <param name="forceJustify">Whether to force the justify alignment.</param>
+    /// <param name="scale">The scale factor.</param>
+    /// <param name="fontScale">The font scale.</param>
+    /// <param name="cache">The image cache.</param>
+    /// <param name="isPrinting">Is printing to a printer.</param>
+    /// <param name="isDifferentTabPositions">Is different tab positions used.</param>
+    public HtmlTextRenderer(string text, IGraphics g, FontFamily font, float size,
+                FontStyle style, SKColor color, SKColor underlineColor, SKRect rect, bool underlines,
+                StringFormat format, HorzAlign horzAlign, VertAlign vertAlign,
+                ParagraphFormat paragraphFormat, bool forceJustify, float scale, float fontScale, InlineImageCache cache, bool isPrinting = false, bool isDifferentTabPositions = false)
+    {
+        this.cache = cache;
+        this.scale = scale;
+        this.fontScale = fontScale;
+        paragraphs = new List<HtmlTextRenderer.Paragraph>();
+        this.text = text;
+        graphics = g;
+        this.font = font;
+        displayRect = rect;
+        rightToLeft = (format.FormatFlags & StringFormatFlags.DirectionRightToLeft) == StringFormatFlags.DirectionRightToLeft;
+        // Dispose it
+        this.format = StringFormat.GenericTypographic.Clone();
+        if (RightToLeft)
+            this.format.FormatFlags |= StringFormatFlags.DirectionRightToLeft;
+        float firstTab;
+        float[] tabs = format.GetTabStops(out firstTab);
+        this.format.SetTabStops(firstTab, tabs);
+        this.format.Alignment = StringAlignment.Near;
+        this.format.LineAlignment = StringAlignment.Near;
+        this.format.Trimming = StringTrimming.None;
+        this.format.HotkeyPrefix = null;
+        this.underlineColor = underlineColor;
+        //FFormat.DigitSubstitutionMethod = StringDigitSubstitute.User;
+        //FFormat.DigitSubstitutionLanguage = 0;
+        this.format.FormatFlags |= StringFormatFlags.NoClip | StringFormatFlags.FitBlackBox | StringFormatFlags.LineLimit;
+        //FFormat.FormatFlags |= StringFormatFlags.NoFontFallback;
+        this.horzAlign = horzAlign;
+        this.vertAlign = vertAlign;
+        this.paragraphFormat = paragraphFormat;
+        this.font = font;
+        this.size = size;
+        this.isPrinting = isPrinting;
+        this.isDifferentTabPositions = isDifferentTabPositions;
+        everUnderlines = underlines;
+
+        backgrounds = new List<RectangleFColor>();
+        this.underlines = new List<LineFColor>();
+        strikeouts = new List<LineFColor>();
+        //FDisplayRect.Width -= width_dotnet * scale;
+
+        initalStyle = new StyleDescriptor(style, color, BaseLine.Normal, this.font, this.size * this.fontScale);
+        using (SKFont f = initalStyle.GetFont())
         {
-            get
+            SKFontMetrics metrics = f.Metrics;
+            fontLineHeight = metrics.Descent - metrics.Ascent + metrics.Leading;
+        }
+
+        this.forceJustify = forceJustify;
+
+        StringFormatFlags saveFlags = this.format.FormatFlags;
+        StringTrimming saveTrimming = this.format.Trimming;
+
+        // if word wrap is set, ignore trimming
+        if (WordWrap)
+            this.format.Trimming = StringTrimming.Word;
+
+        SplitToParagraphs(text);
+        AdjustParagraphLines();
+
+        // restore original values
+        displayRect = rect;
+        this.format.FormatFlags = saveFlags;
+        this.format.Trimming = saveTrimming;
+    }
+
+    #endregion Public Constructors
+
+    #region Public Methods
+
+    internal void AddUnknownWord(List<CharWithIndex> w, Paragraph paragraph, StyleDescriptor style, int charIndex, ref Line line, ref Word word, ref float width, ref int tabIndex)
+    {
+        if (w[0].Char == ' ')
+        {
+            if (word == null || word.Type == WordType.Normal)
             {
-                float firstTabStop;
-                return format.GetTabStops(out firstTabStop);
+                word = new Word(this, line, WordType.WhiteSpace);
+                line.Words.Add(word);
             }
+            Run r = new RunText(this, word, style, w, width, charIndex);
+            word.Runs.Add(r);
+            width += r.Width;
+            if (width > displayRect.Width)
+                line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
         }
-
-        /// <summary>
-        /// Gets a tab size.
-        /// </summary>
-        public float TabSize
+        else
         {
-            get
+            if (word == null || word.Type != WordType.Normal)
             {
-                // re fix tab offset #2823 sorry linux users, on linux firstTab is firstTab not tabSizes[0]
-                float[] tabSizes = TabPositions;
-                if (tabSizes.Length > 1)
-                    return tabSizes[1];
-                return 0;
+                word = new Word(this, line, WordType.Normal);
+                line.Words.Add(word);
             }
+            Run r = new RunText(this, word, style, w, width, charIndex);
+            word.Runs.Add(r);
+            width += r.Width;
+            if (width > displayRect.Width)
+                line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
         }
+    }
 
-        /// <summary>
-        /// Gets the first tab offset.
-        /// </summary>
-        public float TabOffset
+    /// <summary>
+    /// Gets the text height.
+    /// </summary>
+    /// <returns>The text height.</returns>
+    public float CalcHeight()
+    {
+        int charsFit = 0;
+        return CalcHeight(out charsFit);
+    }
+
+    /// <summary>
+    /// Gets the text height.
+    /// </summary>
+    /// <param name="charsFit">The number of chars fitted.</param>
+    /// <returns>The text height.</returns>
+    public float CalcHeight(out int charsFit)
+    {
+        charsFit = -1;
+        float height = 0;
+        float displayHeight = displayRect.Height;
+        float lineSpacing = 0;
+
+        foreach (Paragraph paragraph in paragraphs)
         {
-            get
+            foreach (Line line in paragraph.Lines)
             {
-                // re fix tab offset #2823 sorry linux users, on linux firstTab is firstTab not tabSizes[0]
-                float[] tabSizes = TabPositions;
-                if (tabSizes.Length > 0)
-                    return tabSizes[0];
-                return 0;
-            }
-        }
-
-        /// <summary>
-        /// Gets a list of underline lines.
-        /// </summary>
-        public IEnumerable<LineFColor> Underlines { get { return underlines; } }
-
-        /// <summary>
-        /// Gets word wrap flag.
-        /// </summary>
-        public bool WordWrap
-        {
-            get { return (format.FormatFlags & StringFormatFlags.NoWrap) == 0; }
-        }
-
-        /// <summary>
-        /// Gets the angle of rotation.
-        /// </summary>
-        public int Angle
-        {
-            get { return angle; }
-        }
-
-        /// <summary>
-        /// Gets the width ratio of the object.
-        /// </summary>
-        public float WidthRatio
-        {
-            get { return widthRatio; }
-        }
-
-        #endregion Public Properties
-
-        ////TODO this is a problem with dotnet, because typographic width
-        ////float width_dotnet = 2.7f;
-
-        #region Public Constructors
-        /// <summary>
-        /// Initializes a new instance of the HTML text renderer with a specified rendering context.
-        /// </summary>
-        /// <param name="context">The rendering context for the HTML renderer.</param>
-        internal HtmlTextRenderer(RendererContext context)
-        {
-            this.angle = context.angle % 360;
-            this.widthRatio = context.widthRatio;
-            this.text = context.text;
-            this.graphics = context.g;
-            this.font = context.font;
-            this.size = context.size;
-            this.underlineColor = context.underlineColor;
-            this.displayRect = context.rect;
-            this.everUnderlines = context.underlines;
-            this.format = context.format;
-            this.horzAlign = context.horzAlign;
-            this.vertAlign = context.vertAlign;
-            this.paragraphFormat = context.paragraphFormat;
-            this.forceJustify = context.forceJustify;
-            this.scale = context.scale;
-            this.fontScale = context.fontScale;
-            this.cache = context.cache;
-            this.isPrinting = context.isPrinting;
-            this.isDifferentTabPositions = context.isDifferentTabPositions;
-            this.keepLastSpace = context.keepLastLineSpace;
-
-            paragraphs = new List<HtmlTextRenderer.Paragraph>();
-            rightToLeft = (context.format.FormatFlags & StringFormatFlags.DirectionRightToLeft) == StringFormatFlags.DirectionRightToLeft;
-            // Dispose it
-            this.format = StringFormat.GenericTypographic.Clone();
-            if (RightToLeft)
-                this.format.FormatFlags |= StringFormatFlags.DirectionRightToLeft;
-            float firstTab;
-            float[] tabs = context.format.GetTabStops(out firstTab);
-            this.format.SetTabStops(firstTab, tabs);
-            this.format.Alignment = StringAlignment.Near;
-            this.format.LineAlignment = StringAlignment.Near;
-            this.format.Trimming = StringTrimming.None;
-            this.format.HotkeyPrefix = null;
-            //FFormat.DigitSubstitutionMethod = StringDigitSubstitute.User;
-            //FFormat.DigitSubstitutionLanguage = 0;
-            this.format.FormatFlags |= StringFormatFlags.NoClip | StringFormatFlags.FitBlackBox | StringFormatFlags.LineLimit;
-            //FFormat.FormatFlags |= StringFormatFlags.NoFontFallback;
-
-            backgrounds = new List<RectangleFColor>();
-            this.underlines = new List<LineFColor>();
-            strikeouts = new List<LineFColor>();
-            //FDisplayRect.Width -= width_dotnet * scale;
-
-            initalStyle = new StyleDescriptor(context.style, context.color, BaseLine.Normal, this.font, this.size * this.fontScale);
-            using (SKFont f = initalStyle.GetFont())
-            {
-                SKFontMetrics metrics = f.Metrics;
-                fontLineHeight = metrics.Descent - metrics.Ascent + metrics.Leading;
-            }
-
-
-            StringFormatFlags saveFlags = this.format.FormatFlags;
-            StringTrimming saveTrimming = this.format.Trimming;
-
-            // if word wrap is set, ignore trimming
-            if (WordWrap)
-                this.format.Trimming = StringTrimming.Word;
-
-            SplitToParagraphs(text);
-            AdjustParagraphLines();
-
-            // restore original values
-            displayRect = context.rect;
-            this.format.FormatFlags = saveFlags;
-            this.format.Trimming = saveTrimming;
-        }
-
-        /// <summary>
-        /// Initializes a new instance of <see cref="HtmlTextRenderer"/> class.
-        /// </summary>
-        /// <param name="text">The text.</param>
-        /// <param name="g">The graphics context.</param>
-        /// <param name="font">The font.</param>
-        /// <param name="size">The font size.</param>
-        /// <param name="style">The font style.</param>
-        /// <param name="color">The text color.</param>
-        /// <param name="underlineColor">The underline color.</param>
-        /// <param name="rect">The display rectangle.</param>
-        /// <param name="underlines">Whether to use underlines.</param>
-        /// <param name="format">The string format.</param>
-        /// <param name="horzAlign">The horizontal alignment.</param>
-        /// <param name="vertAlign">The vertical alignment.</param>
-        /// <param name="paragraphFormat">The paragraph format.</param>
-        /// <param name="forceJustify">Whether to force the justify alignment.</param>
-        /// <param name="scale">The scale factor.</param>
-        /// <param name="fontScale">The font scale.</param>
-        /// <param name="cache">The image cache.</param>
-        /// <param name="isPrinting">Is printing to a printer.</param>
-        /// <param name="isDifferentTabPositions">Is different tab positions used.</param>
-        public HtmlTextRenderer(string text, IGraphics g, FontFamily font, float size,
-                    FontStyle style, SKColor color, SKColor underlineColor, SKRect rect, bool underlines,
-                    StringFormat format, HorzAlign horzAlign, VertAlign vertAlign,
-                    ParagraphFormat paragraphFormat, bool forceJustify, float scale, float fontScale, InlineImageCache cache, bool isPrinting = false, bool isDifferentTabPositions = false)
-        {
-            this.cache = cache;
-            this.scale = scale;
-            this.fontScale = fontScale;
-            paragraphs = new List<HtmlTextRenderer.Paragraph>();
-            this.text = text;
-            graphics = g;
-            this.font = font;
-            displayRect = rect;
-            rightToLeft = (format.FormatFlags & StringFormatFlags.DirectionRightToLeft) == StringFormatFlags.DirectionRightToLeft;
-            // Dispose it
-            this.format = StringFormat.GenericTypographic.Clone();
-            if (RightToLeft)
-                this.format.FormatFlags |= StringFormatFlags.DirectionRightToLeft;
-            float firstTab;
-            float[] tabs = format.GetTabStops(out firstTab);
-            this.format.SetTabStops(firstTab, tabs);
-            this.format.Alignment = StringAlignment.Near;
-            this.format.LineAlignment = StringAlignment.Near;
-            this.format.Trimming = StringTrimming.None;
-            this.format.HotkeyPrefix = null;
-            this.underlineColor = underlineColor;
-            //FFormat.DigitSubstitutionMethod = StringDigitSubstitute.User;
-            //FFormat.DigitSubstitutionLanguage = 0;
-            this.format.FormatFlags |= StringFormatFlags.NoClip | StringFormatFlags.FitBlackBox | StringFormatFlags.LineLimit;
-            //FFormat.FormatFlags |= StringFormatFlags.NoFontFallback;
-            this.horzAlign = horzAlign;
-            this.vertAlign = vertAlign;
-            this.paragraphFormat = paragraphFormat;
-            this.font = font;
-            this.size = size;
-            this.isPrinting = isPrinting;
-            this.isDifferentTabPositions = isDifferentTabPositions;
-            everUnderlines = underlines;
-
-            backgrounds = new List<RectangleFColor>();
-            this.underlines = new List<LineFColor>();
-            strikeouts = new List<LineFColor>();
-            //FDisplayRect.Width -= width_dotnet * scale;
-
-            initalStyle = new StyleDescriptor(style, color, BaseLine.Normal, this.font, this.size * this.fontScale);
-            using (SKFont f = initalStyle.GetFont())
-            {
-                SKFontMetrics metrics = f.Metrics;
-                fontLineHeight = metrics.Descent - metrics.Ascent + metrics.Leading;
-            }
-
-            this.forceJustify = forceJustify;
-
-            StringFormatFlags saveFlags = this.format.FormatFlags;
-            StringTrimming saveTrimming = this.format.Trimming;
-
-            // if word wrap is set, ignore trimming
-            if (WordWrap)
-                this.format.Trimming = StringTrimming.Word;
-
-            SplitToParagraphs(text);
-            AdjustParagraphLines();
-
-            // restore original values
-            displayRect = rect;
-            this.format.FormatFlags = saveFlags;
-            this.format.Trimming = saveTrimming;
-        }
-
-        #endregion Public Constructors
-
-        #region Public Methods
-
-        internal void AddUnknownWord(List<CharWithIndex> w, Paragraph paragraph, StyleDescriptor style, int charIndex, ref Line line, ref Word word, ref float width, ref int tabIndex)
-        {
-            if (w[0].Char == ' ')
-            {
-                if (word == null || word.Type == WordType.Normal)
+                line.CalcMetrics();
+                height += line.Height;
+                if (charsFit < 0 && height > displayHeight)
                 {
-                    word = new Word(this, line, WordType.WhiteSpace);
-                    line.Words.Add(word);
+                    charsFit = line.OriginalCharIndex;
                 }
-                Run r = new RunText(this, word, style, w, width, charIndex);
-                word.Runs.Add(r);
-                width += r.Width;
-                if (width > displayRect.Width)
-                    line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
+                height += lineSpacing = line.LineSpacing;
+            }
+        }
+        if (!keepLastSpace) // It looks like TextProcessors keep this value for every line. 
+            height -= lineSpacing;
+
+        if (charsFit < 0)
+            charsFit = text.Length;
+        return height;
+    }
+
+    /// <summary>
+    /// Gets the text width.
+    /// </summary>
+    /// <returns>The text width.</returns>
+    public float CalcWidth()
+    {
+        float width = 0;
+
+        foreach (Paragraph paragraph in paragraphs)
+        {
+            foreach (Line line in paragraph.Lines)
+            {
+                if (width < line.Width)
+                    width = line.Width;
+            }
+        }
+        return width;
+    }
+
+    #endregion Public Methods
+
+    #region Internal Methods
+
+    /// <summary>
+    /// Returns splited string
+    /// </summary>
+    /// <param name="text">text for splitting</param>
+    /// <param name="charactersFitted">index of first character of second string</param>
+    /// <param name="result">second part of string</param>
+    /// <param name="endOnEnter">returns true if ends on enter</param>
+    /// <returns>first part of string</returns>
+    internal static string BreakHtml(string text, int charactersFitted, out string result, out bool endOnEnter)
+    {
+        endOnEnter = false;
+        Stack<SimpleFastReportHtmlElement> elements = new Stack<SimpleFastReportHtmlElement>();
+        SimpleFastReportHtmlReader reader = new SimpleFastReportHtmlReader(text);
+        while (reader.IsNotEOF)
+        {
+            if (reader.Position >= charactersFitted)
+            {
+                StringBuilder firstPart = new StringBuilder();
+                if (reader.Character.Char == SOFT_ENTER)
+                    firstPart.Append(text.Substring(0, reader.LastPosition));
+                else
+                    firstPart.Append(text.Substring(0, reader.Position));
+                foreach (SimpleFastReportHtmlElement el in elements)
+                {
+                    SimpleFastReportHtmlElement el2 = new SimpleFastReportHtmlElement(el.name, true);
+                    firstPart.Append(el2.ToString());
+                }
+
+                SimpleFastReportHtmlElement[] arr = elements.ToArray();
+
+                StringBuilder secondPart = new StringBuilder();
+                for (int i = arr.Length - 1; i >= 0; i--)
+                    secondPart.Append(arr[i].ToString());
+                secondPart.Append(text.Substring(reader.Position));
+                endOnEnter = reader.Character.Char == '\n';
+                result = secondPart.ToString();
+                return firstPart.ToString();
+            }
+            if (!reader.Read())
+            {
+                if (reader.Element.isEnd)
+                {
+                    int enumIndex = 1;
+                    using (Stack<SimpleFastReportHtmlElement>.Enumerator enumerator = elements.GetEnumerator())
+                    {
+                        while (enumerator.MoveNext())
+                        {
+                            SimpleFastReportHtmlElement el = enumerator.Current;
+                            if (el.name == reader.Element.name)
+                            {
+                                for (int i = 0; i < enumIndex; i++)
+                                    elements.Pop();
+                                break;
+                            }
+                            else
+                                enumIndex++;
+                        }
+                    }
+                }
+                else if (!reader.Element.IsSelfClosed) elements.Push(reader.Element);
+            }
+        }
+        result = "";
+        return text;
+    }
+
+    internal void Draw()
+    {
+        // set clipping
+        IGraphicsState state = graphics.Save();
+        SKRect dRect = displayRect;
+        // round x and y to an integer to avoid clipping the characters of the first line
+        dRect.Inflate(displayRect.Left % 1, displayRect.Top % 1);
+        graphics.SetClip(dRect, SKClipOperation.Intersect);
+
+        if (Angle != 0)
+        {
+            SKPoint center = new SKPoint(displayRect.Left + displayRect.Width / 2, displayRect.Top + displayRect.Height / 2);
+
+            // Translate the origin to the center of the rectangle
+            graphics.TranslateTransform(center.X, center.Y);
+
+            // Rotate the graphics by the specified angle
+            graphics.RotateTransform(Angle);
+
+            // Translate the origin back to the original position
+            graphics.TranslateTransform(-center.X, -center.Y);
+        }
+
+        // reset alignment
+        //StringAlignment saveAlign = FFormat.Alignment;
+        //StringAlignment saveLineAlign = FFormat.LineAlignment;
+        //FFormat.Alignment = StringAlignment.Near;
+        //FFormat.LineAlignment = StringAlignment.Near;
+
+        //if (FRightToLeft)
+        //    foreach (RectangleFColor rect in FBackgrounds)
+        //        using (Brush brush = new SolidBrush(rect.Color))
+        //            FGraphics.FillRectangle(brush, rect.Left - rect.Width, rect.Top, rect.Width, rect.Height);
+        //else
+        foreach (RectangleFColor rect in backgrounds)
+            using (SKPaint brush = new SKPaint { Color = rect.Color, Style = SKPaintStyle.Fill })
+                graphics.FillRectangle(brush, rect.Left, rect.Top, rect.Width, rect.Height);
+
+        foreach (Paragraph p in paragraphs)
+            foreach (Line l in p.Lines)
+            {
+                //#if DEBUG
+                //                    FGraphics.DrawRectangle(Pens.Blue, FDisplayRect.Left, l.Top, FDisplayRect.Width, l.Height);
+                //#endif
+                foreach (Word w in l.Words)
+                    switch (w.Type)
+                    {
+                        case WordType.Normal:
+                            foreach (Run r in w.Runs)
+                            {
+                                r.Draw();
+                            }
+                            break;
+                    }
+            }
+
+        //if (RightToLeft)
+        //{
+        //    foreach (LineFColor line in FUnderlines)
+        //        using (Pen pen = new Pen(line.Color, line.Width))
+        //            FGraphics.DrawLine(pen, 2 * line.Left - line.Right, line.Top, line.Left, line.Top);
+
+        //    foreach (LineFColor line in FStrikeouts)
+        //        using (Pen pen = new Pen(line.Color, line.Width))
+        //            FGraphics.DrawLine(pen, 2 * line.Left - line.Right, line.Top, line.Left, line.Top);
+        //}
+        //else
+        //{
+        foreach (LineFColor line in underlines)
+            using (SKPaint pen = new SKPaint { Color = line.Color, StrokeWidth = line.Width, Style = SKPaintStyle.Stroke })
+                graphics.DrawLine(pen, line.Left, line.Top, line.Right, line.Top);
+
+        foreach (LineFColor line in strikeouts)
+            using (SKPaint pen = new SKPaint { Color = line.Color, StrokeWidth = line.Width, Style = SKPaintStyle.Stroke })
+                graphics.DrawLine(pen, line.Left, line.Top, line.Right, line.Top);
+        //}
+
+        // restore alignment and clipping
+        //FFormat.Alignment = saveAlign;
+        //FFormat.LineAlignment = saveLineAlign;
+        graphics.Restore(state);
+    }
+
+    #endregion Internal Methods
+
+    #region Private Methods
+
+    private void AdjustParagraphLines()
+    {
+        // calculate text height
+        float height = 0;
+        height = CalcHeight();
+
+        // calculate Y offset
+        float offsetY = displayRect.Top;
+        if (vertAlign == VertAlign.Center)
+            offsetY += (displayRect.Height - height) / 2;
+        else if (vertAlign == VertAlign.Bottom)
+            offsetY += (displayRect.Height - height) - 1;
+
+        for (int i = 0; i < paragraphs.Count; i++)
+        {
+            Paragraph paragraph = paragraphs[i];
+            paragraph.AlignLines(i == paragraphs.Count - 1 && forceJustify);
+
+            // adjust line tops
+            foreach (Line line in paragraph.Lines)
+            {
+                line.Top = offsetY;
+                line.MakeUnderlines();
+                line.MakeStrikeouts();
+                line.MakeBackgrounds();
+                offsetY += line.Height + line.LineSpacing;
+            }
+        }
+    }
+
+    private void CssStyle(StyleDescriptor style, Dictionary<string, string> dict)
+    {
+        if (dict == null)
+            return;
+        string tStr;
+
+        // If "font-style" contains "italic" or "oblique", apply the Italic style to the text.
+        if (dict.TryGetValue("font-style", out tStr))
+        {
+            if (tStr.Contains("italic") || tStr.Contains("oblique"))
+                style.FontStyle |= FontStyle.Italic;
+        }
+
+        // If "font-weight" contains "bold", apply the Bold style to the text.
+        if (dict.TryGetValue("font-weight", out tStr))
+        {
+            if (tStr.Contains("bold"))
+                style.FontStyle |= FontStyle.Bold;
+        }
+
+        // If "text-decoration" contains both "underline" and "line-through", apply both styles to the text.
+        // Otherwise, check and apply each style individually.
+        if (dict.TryGetValue("text-decoration", out tStr))
+        {
+            if (tStr.Contains("underline") && tStr.Contains("line-through"))
+                style.FontStyle |= FontStyle.Underline | FontStyle.Strikeout;
+            else
+            {
+                if (tStr.Contains("underline"))
+                    style.FontStyle |= FontStyle.Underline;
+                if (tStr.Contains("line-through"))
+                    style.FontStyle |= FontStyle.Strikeout;
+            }
+        }
+
+        if (dict.TryGetValue("font-size", out tStr))
+        {
+            if (EndsWith(tStr, "px"))
+                try { style.Size = fontScale * 0.75f * Single.Parse(tStr.Substring(0, tStr.Length - 2), CultureInfo); } catch { }
+            else if (EndsWith(tStr, "pt"))
+                try { style.Size = fontScale * Single.Parse(tStr.Substring(0, tStr.Length - 2), CultureInfo); } catch { }
+            else if (EndsWith(tStr, "em"))
+                try { style.Size *= Single.Parse(tStr.Substring(0, tStr.Length - 2), CultureInfo); } catch { }
+        }
+        if (dict.TryGetValue("font-family", out tStr))
+        {
+            // checks if there are single quotation marks in the font name
+            if (tStr.Contains("'"))
+                tStr = tStr.Replace("'", ""); // Removes all single quotes
+            style.Font = new FontFamily(tStr);
+        }
+
+        if (dict.TryGetValue("color", out tStr))
+        {
+            if (StartsWith(tStr, "#"))
+                try { style.Color = ColorHelper.FromString(tStr) ?? style.Color; } catch { }
+            else if (StartsWith(tStr, "rgba"))
+            {
+                int i1 = tStr.IndexOf('(');
+                int i2 = tStr.IndexOf(')');
+                string[] strs = tStr.Substring(i1 + 1, i2 - i1 - 1).Split(',');
+                if (strs.Length == 4)
+                {
+                    float r, g, b, a;
+                    try
+                    {
+                        r = Single.Parse(strs[0], CultureInfo);
+                        g = Single.Parse(strs[1], CultureInfo);
+                        b = Single.Parse(strs[2], CultureInfo);
+                        a = Single.Parse(strs[3], CultureInfo);
+                        style.Color = new SKColor((byte)r, (byte)g, (byte)b, (byte)(a * 0xFF));
+                    }
+                    catch { }
+                }
+            }
+            else if (StartsWith(tStr, "rgb"))
+            {
+                int i1 = tStr.IndexOf('(');
+                int i2 = tStr.IndexOf(')');
+                string[] strs = tStr.Substring(i1 + 1, i2 - i1 - 1).Split(',');
+                if (strs.Length == 3)
+                {
+                    float r, g, b;
+                    try
+                    {
+                        r = Single.Parse(strs[0], CultureInfo);
+                        g = Single.Parse(strs[1], CultureInfo);
+                        b = Single.Parse(strs[2], CultureInfo);
+                        style.Color = new SKColor((byte)r, (byte)g, (byte)b);
+                    }
+                    catch { }
+                }
+            }
+            else style.Color = ColorHelper.FromString(tStr) ?? style.Color;
+        }
+
+        if (dict.TryGetValue("background-color", out tStr))
+        {
+            if (StartsWith(tStr, "#"))
+                try { style.BackgroundColor = ColorHelper.FromString(tStr) ?? style.BackgroundColor; } catch { }
+            else if (StartsWith(tStr, "rgba"))
+            {
+                int i1 = tStr.IndexOf('(');
+                int i2 = tStr.IndexOf(')');
+                string[] strs = tStr.Substring(i1 + 1, i2 - i1 - 1).Split(',');
+                if (strs.Length == 4)
+                {
+                    float r, g, b, a;
+                    try
+                    {
+                        r = Single.Parse(strs[0], CultureInfo);
+                        g = Single.Parse(strs[1], CultureInfo);
+                        b = Single.Parse(strs[2], CultureInfo);
+                        a = Single.Parse(strs[3], CultureInfo);
+                        style.BackgroundColor = new SKColor((byte)r, (byte)g, (byte)b, (byte)(a * 0xFF));
+                    }
+                    catch { }
+                }
+            }
+            else if (StartsWith(tStr, "rgb"))
+            {
+                int i1 = tStr.IndexOf('(');
+                int i2 = tStr.IndexOf(')');
+                string[] strs = tStr.Substring(i1 + 1, i2 - i1 - 1).Split(',');
+                if (strs.Length == 3)
+                {
+                    float r, g, b;
+                    try
+                    {
+                        r = Single.Parse(strs[0], CultureInfo);
+                        g = Single.Parse(strs[1], CultureInfo);
+                        b = Single.Parse(strs[2], CultureInfo);
+                        style.BackgroundColor = new SKColor((byte)r, (byte)g, (byte)b);
+                    }
+                    catch { }
+                }
+            }
+            else style.BackgroundColor = ColorHelper.FromString(tStr) ?? style.BackgroundColor;
+        }
+    }
+
+    private bool EndsWith(string str1, string str2)
+    {
+        int len1 = str1.Length;
+        int len2 = str2.Length;
+        if (len1 < len2) return false;
+        switch (len2)
+        {
+            case 0: return true;
+            case 1: return str1[len1 - 1] == str2[len2 - 1];
+            case 2: return str1[len1 - 1] == str2[len2 - 1] && str1[len1 - 2] == str2[len2 - 2];
+            case 3: return str1[len1 - 1] == str2[len2 - 1] && str1[len1 - 2] == str2[len2 - 2] && str1[len1 - 3] == str2[len2 - 3];
+            case 4: return str1[len1 - 1] == str2[len2 - 1] && str1[len1 - 2] == str2[len2 - 2] && str1[len1 - 3] == str2[len2 - 3] && str1[len1 - 4] == str2[len2 - 4];
+            default: return str1.EndsWith(str2);
+        }
+    }
+
+    private float GetTabPosition(float pos)
+    {
+        float tabOffset = TabOffset;
+        float tabSize = TabSize;
+        int tabPosition = (int)((pos - tabOffset) / tabSize);
+        if (pos < tabOffset)
+            return tabOffset;
+        return (tabPosition + 1) * tabSize + tabOffset;
+    }
+
+    private float GetTabPosition(float pos, int tabIndex)
+    {
+        float tabOffset = 0;
+        float tabSize;
+        float firstTabOffset;
+        float[] tabsPos = format.GetTabStops(out firstTabOffset);
+        if (tabIndex <= 1)
+        {
+            tabOffset = TabOffset;
+            tabSize = TabSize;
+        }
+        else
+        {
+            for (int i = 0; i < tabIndex; i++)
+            {
+                tabOffset += tabsPos[i];
+            }
+            tabSize = tabsPos[tabIndex];
+        }
+        int tabPosition = (int)((pos - tabOffset) / tabSize);
+        if (pos < tabOffset)
+            return tabOffset;
+        return (tabPosition + 1) * tabSize + tabOffset;
+    }
+
+    private void SplitToParagraphs(string text)
+    {
+        Stack<SimpleFastReportHtmlElement> elements = new Stack<SimpleFastReportHtmlElement>();
+        SimpleFastReportHtmlReader reader = new SimpleFastReportHtmlReader(this.text);
+        List<CharWithIndex> currentWord = new List<CharWithIndex>();
+        float width = paragraphFormat.SkipFirstLineIndent ? 0 : GetStartPosition(true);
+        Paragraph paragraph = new Paragraph(this);
+        int charIndex = 0;
+        int tabIndex = 0;
+        Line line = new Line(this, paragraph, charIndex);
+        paragraph.Lines.Add(line);
+        paragraphs.Add(paragraph);
+        Word word = null;
+        StyleDescriptor style = new StyleDescriptor(initalStyle);
+        //bool softReturn = false;
+        //CharWithIndex softReturnChar = new CharWithIndex();
+
+        while (reader.IsNotEOF)
+        {
+            if (reader.Read())
+            {
+                switch (reader.Character.Char)
+                {
+                    case ' ':
+                        if (word == null)
+                        {
+                            word = new Word(this, line, WordType.WhiteSpace);
+                            line.Words.Add(word);
+                        }
+                        if (word.Type == WordType.WhiteSpace)
+                            currentWord.Add(reader.Character);
+                        else
+                        {
+                            if (currentWord.Count > 0)
+                            {
+                                Run r = new RunText(this, word, style, currentWord, width, charIndex);
+                                word.Runs.Add(r);
+                                currentWord.Clear();
+                                width += r.Width;
+                                if (width > displayRect.Width)
+                                    line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
+                            }
+                            currentWord.Add(reader.Character);
+                            word = new Word(this, line, WordType.WhiteSpace);
+                            line.Words.Add(word);
+                            charIndex = reader.LastPosition;
+                        }
+                        break;
+
+                    case '\t':
+                        if (word != null)
+                        {
+                            if (currentWord.Count > 0)
+                            {
+                                Run r = new RunText(this, word, style, currentWord, width, charIndex);
+                                word.Runs.Add(r);
+                                currentWord.Clear();
+                                width += r.Width;
+                                if (width > displayRect.Width)
+                                    line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
+                            }
+                        }
+                        else
+                        {
+                            if (currentWord.Count > 0)
+                            {
+                                AddUnknownWord(currentWord, paragraph, style, charIndex, ref line, ref word, ref width, ref tabIndex);
+                            }
+                        }
+                        charIndex = reader.LastPosition;
+
+                        word = new Word(this, line, WordType.Tab);
+
+                        Run tabRun = new RunText(this, word, style, new List<CharWithIndex>(new CharWithIndex[] { reader.Character }), width, charIndex);
+                        word.Runs.Add(tabRun);
+                        float width2 = GetTabPosition(width);
+                        if (isDifferentTabPositions)
+                        {
+                            width2 = GetTabPosition(width, tabIndex);
+                        }
+                        if (width2 < width) width2 = width;
+                        if (line.Words.Count > 0 && width2 > displayRect.Width)
+                        {
+                            tabRun.Left = 0;
+                            line = new Line(this, paragraph, charIndex);
+                            tabIndex = 0;
+                            paragraph.Lines.Add(line);
+                            width = 0;
+                            width2 = GetTabPosition(width);
+                            if (isDifferentTabPositions)
+                            {
+                                width2 = GetTabPosition(width, tabIndex);
+                            }
+                        }
+                        // decrease by (DrawUtils.ScreenDpi / 96f) repeats the work of the Word, if the next tab position is a pixel further than the left indent,
+                        // then the tab stop occurs in the tab position, otherwise the stop will be in the place of the left indentation
+                        if (width < -paragraphFormat.FirstLineIndent && width2 - (DrawUtils.ScreenDpi / 96f) > -paragraphFormat.FirstLineIndent)
+                        {
+                            width2 = -paragraphFormat.FirstLineIndent;
+                        }
+
+                        tabIndex++;
+                        line.Words.Add(word);
+                        tabRun.Width = width2 - width;
+                        width = width2;
+                        word = null;
+                        break;
+
+                    case SOFT_ENTER://soft enter
+                        if (word != null)
+                        {
+                            if (currentWord.Count > 0)
+                            {
+                                Run r = new RunText(this, word, style, currentWord, width, charIndex);
+                                word.Runs.Add(r);
+                                currentWord.Clear();
+                                width += r.Width;
+                                if (width > displayRect.Width)
+                                    line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
+                            }
+                        }
+                        else
+                        {
+                            if (currentWord.Count > 0)
+                            {
+                                AddUnknownWord(currentWord, paragraph, style, charIndex, ref line, ref word, ref width, ref tabIndex);
+                            }
+                        }
+                        charIndex = reader.Position;
+                        //currentWord.Append(' ')
+                        //RunText runText = new RunText(this, word, style, new List<CharWithIndex>(new CharWithIndex[] { reader.Character }), width, charIndex);
+                        //runText.Width = 0;
+                        //word.Runs.Add(runText);
+                        line = new Line(this, paragraph, charIndex);
+                        word = null;
+                        width = GetStartPosition();
+                        currentWord.Clear();
+                        paragraph.Lines.Add(line);
+                        break;
+                    case '\v':
+                    case '\n':
+                        if (word != null)
+                        {
+                            if (currentWord.Count > 0)
+                            {
+                                Run r = new RunText(this, word, style, currentWord, width, charIndex);
+                                word.Runs.Add(r);
+                                currentWord.Clear();
+                                width += r.Width;
+                                if (width > displayRect.Width)
+                                    line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
+                            }
+                        }
+                        else
+                        {
+                            if (currentWord.Count > 0)
+                            {
+                                AddUnknownWord(currentWord, paragraph, style, charIndex, ref line, ref word, ref width, ref tabIndex);
+                            }
+                        }
+                        charIndex = reader.Position;
+
+                        paragraph = new Paragraph(this);
+                        paragraphs.Add(paragraph);
+                        line = new Line(this, paragraph, charIndex);
+                        word = null;
+                        width = GetStartPosition(true);
+                        paragraph.Lines.Add(line);
+                        break;
+
+                    case '\r'://ignore
+                        break;
+
+                    default:
+                        if (word == null)
+                        {
+                            word = new Word(this, line, WordType.Normal);
+                            line.Words.Add(word);
+                        }
+                        if (word.Type == WordType.Normal)
+                            currentWord.Add(reader.Character);
+                        else
+                        {
+                            if (currentWord.Count > 0)
+                            {
+                                Run r = new RunText(this, word, style, currentWord, width, charIndex);
+                                word.Runs.Add(r);
+                                currentWord.Clear();
+                                width += r.Width;
+                                if (width > displayRect.Width)
+                                    line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
+                            }
+                            currentWord.Add(reader.Character);
+                            word = new Word(this, line, WordType.Normal);
+                            line.Words.Add(word);
+                            charIndex = reader.LastPosition;
+                        }
+                        break;
+                }
             }
             else
             {
-                if (word == null || word.Type != WordType.Normal)
+                StyleDescriptor newStyle = new StyleDescriptor(initalStyle);
+                SimpleFastReportHtmlElement element = reader.Element;
+
+                if (!element.IsSelfClosed)
                 {
-                    word = new Word(this, line, WordType.Normal);
-                    line.Words.Add(word);
-                }
-                Run r = new RunText(this, word, style, w, width, charIndex);
-                word.Runs.Add(r);
-                width += r.Width;
-                if (width > displayRect.Width)
-                    line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
-            }
-        }
-
-        /// <summary>
-        /// Gets the text height.
-        /// </summary>
-        /// <returns>The text height.</returns>
-        public float CalcHeight()
-        {
-            int charsFit = 0;
-            return CalcHeight(out charsFit);
-        }
-
-        /// <summary>
-        /// Gets the text height.
-        /// </summary>
-        /// <param name="charsFit">The number of chars fitted.</param>
-        /// <returns>The text height.</returns>
-        public float CalcHeight(out int charsFit)
-        {
-            charsFit = -1;
-            float height = 0;
-            float displayHeight = displayRect.Height;
-            float lineSpacing = 0;
-
-            foreach (Paragraph paragraph in paragraphs)
-            {
-                foreach (Line line in paragraph.Lines)
-                {
-                    line.CalcMetrics();
-                    height += line.Height;
-                    if (charsFit < 0 && height > displayHeight)
-                    {
-                        charsFit = line.OriginalCharIndex;
-                    }
-                    height += lineSpacing = line.LineSpacing;
-                }
-            }
-            if (!keepLastSpace) // It looks like TextProcessors keep this value for every line. 
-                height -= lineSpacing;
-
-            if (charsFit < 0)
-                charsFit = text.Length;
-            return height;
-        }
-
-        /// <summary>
-        /// Gets the text width.
-        /// </summary>
-        /// <returns>The text width.</returns>
-        public float CalcWidth()
-        {
-            float width = 0;
-
-            foreach (Paragraph paragraph in paragraphs)
-            {
-                foreach (Line line in paragraph.Lines)
-                {
-                    if (width < line.Width)
-                        width = line.Width;
-                }
-            }
-            return width;
-        }
-
-        #endregion Public Methods
-
-        #region Internal Methods
-
-        /// <summary>
-        /// Returns splited string
-        /// </summary>
-        /// <param name="text">text for splitting</param>
-        /// <param name="charactersFitted">index of first character of second string</param>
-        /// <param name="result">second part of string</param>
-        /// <param name="endOnEnter">returns true if ends on enter</param>
-        /// <returns>first part of string</returns>
-        internal static string BreakHtml(string text, int charactersFitted, out string result, out bool endOnEnter)
-        {
-            endOnEnter = false;
-            Stack<SimpleFastReportHtmlElement> elements = new Stack<SimpleFastReportHtmlElement>();
-            SimpleFastReportHtmlReader reader = new SimpleFastReportHtmlReader(text);
-            while (reader.IsNotEOF)
-            {
-                if (reader.Position >= charactersFitted)
-                {
-                    StringBuilder firstPart = new StringBuilder();
-                    if (reader.Character.Char == SOFT_ENTER)
-                        firstPart.Append(text.Substring(0, reader.LastPosition));
-                    else
-                        firstPart.Append(text.Substring(0, reader.Position));
-                    foreach (SimpleFastReportHtmlElement el in elements)
-                    {
-                        SimpleFastReportHtmlElement el2 = new SimpleFastReportHtmlElement(el.name, true);
-                        firstPart.Append(el2.ToString());
-                    }
-
-                    SimpleFastReportHtmlElement[] arr = elements.ToArray();
-
-                    StringBuilder secondPart = new StringBuilder();
-                    for (int i = arr.Length - 1; i >= 0; i--)
-                        secondPart.Append(arr[i].ToString());
-                    secondPart.Append(text.Substring(reader.Position));
-                    endOnEnter = reader.Character.Char == '\n';
-                    result = secondPart.ToString();
-                    return firstPart.ToString();
-                }
-                if (!reader.Read())
-                {
-                    if (reader.Element.isEnd)
+                    if (element.isEnd)
                     {
                         int enumIndex = 1;
                         using (Stack<SimpleFastReportHtmlElement>.Enumerator enumerator = elements.GetEnumerator())
@@ -529,7 +1072,7 @@ namespace FastReport.Utils
                             while (enumerator.MoveNext())
                             {
                                 SimpleFastReportHtmlElement el = enumerator.Current;
-                                if (el.name == reader.Element.name)
+                                if (el.name == element.name)
                                 {
                                     for (int i = 0; i < enumIndex; i++)
                                         elements.Pop();
@@ -540,777 +1083,235 @@ namespace FastReport.Utils
                             }
                         }
                     }
-                    else if (!reader.Element.IsSelfClosed) elements.Push(reader.Element);
-                }
-            }
-            result = "";
-            return text;
-        }
+                    else elements.Push(element);
 
-        internal void Draw()
-        {
-            // set clipping
-            IGraphicsState state = graphics.Save();
-            SKRect dRect = displayRect;
-            // round x and y to an integer to avoid clipping the characters of the first line
-            dRect.Inflate(displayRect.Left % 1, displayRect.Top % 1);
-            graphics.SetClip(dRect, SKClipOperation.Intersect);
-
-            if (Angle != 0)
-            {
-                SKPoint center = new SKPoint(displayRect.Left + displayRect.Width / 2, displayRect.Top + displayRect.Height / 2);
-
-                // Translate the origin to the center of the rectangle
-                graphics.TranslateTransform(center.X, center.Y);
-
-                // Rotate the graphics by the specified angle
-                graphics.RotateTransform(Angle);
-
-                // Translate the origin back to the original position
-                graphics.TranslateTransform(-center.X, -center.Y);
-            }
-
-            // reset alignment
-            //StringAlignment saveAlign = FFormat.Alignment;
-            //StringAlignment saveLineAlign = FFormat.LineAlignment;
-            //FFormat.Alignment = StringAlignment.Near;
-            //FFormat.LineAlignment = StringAlignment.Near;
-
-            //if (FRightToLeft)
-            //    foreach (RectangleFColor rect in FBackgrounds)
-            //        using (Brush brush = new SolidBrush(rect.Color))
-            //            FGraphics.FillRectangle(brush, rect.Left - rect.Width, rect.Top, rect.Width, rect.Height);
-            //else
-            foreach (RectangleFColor rect in backgrounds)
-                using (SKPaint brush = new SKPaint { Color = rect.Color, Style = SKPaintStyle.Fill })
-                    graphics.FillRectangle(brush, rect.Left, rect.Top, rect.Width, rect.Height);
-
-            foreach (Paragraph p in paragraphs)
-                foreach (Line l in p.Lines)
-                {
-                    //#if DEBUG
-                    //                    FGraphics.DrawRectangle(Pens.Blue, FDisplayRect.Left, l.Top, FDisplayRect.Width, l.Height);
-                    //#endif
-                    foreach (Word w in l.Words)
-                        switch (w.Type)
+                    SimpleFastReportHtmlElement[] arr = elements.ToArray();
+                    for (int i = arr.Length - 1; i >= 0; i--)
+                    {
+                        SimpleFastReportHtmlElement el = arr[i];
+                        switch (el.name)
                         {
-                            case WordType.Normal:
-                                foreach (Run r in w.Runs)
-                                {
-                                    r.Draw();
-                                }
+                            case "b":
+                                newStyle.FontStyle |= FontStyle.Bold;
                                 break;
+
+                            case "i":
+                                newStyle.FontStyle |= FontStyle.Italic;
+                                break;
+
+                            case "u":
+                                newStyle.FontStyle |= FontStyle.Underline;
+                                break;
+
+                            case "sub":
+                                newStyle.BaseLine = BaseLine.Subscript;
+                                break;
+
+                            case "sup":
+                                newStyle.BaseLine = BaseLine.Superscript;
+                                break;
+
+                            case "strike":
+                                newStyle.FontStyle |= FontStyle.Strikeout;
+                                break;
+                                //case "font":
+                                //    {
+                                //        string color = null;
+                                //        string face = null;
+                                //        string size = null;
+                                //        if (el.Attributes != null)
+                                //        {
+                                //            el.Attributes.TryGetValue("color", out color);
+                                //            el.Attributes.TryGetValue("face", out face);
+                                //            el.Attributes.TryGetValue("size", out size);
+                                //        }
+
+                                //        if (color != null)
+                                //        {
+                                //            if (color.StartsWith("\"") && color.EndsWith("\""))
+                                //                color = color.Substring(1, color.Length - 2);
+                                //            if (color.StartsWith("#"))
+                                //            {
+                                //                newStyle.Color = Color.FromArgb((int)(0xFF000000 + uint.Parse(color.Substring(1), System.Globalization.NumberStyles.HexNumber)));
+                                //            }
+                                //            else
+                                //            {
+                                //                newStyle.Color = Color.FromName(color);
+                                //            }
+                                //        }
+                                //        if (face != null)
+                                //            newStyle.Font = face;
+                                //        if (size != null)
+                                //        {
+                                //            try
+                                //            {
+                                //                size = size.Trim(' ');
+                                //                newStyle.Size = (float)Converter.FromString(typeof(float), size) * FFontScale;
+                                //            }
+                                //            catch
+                                //            {
+                                //                newStyle.Size = FSize * FFontScale;
+                                //            }
+                                //        }
+                                //    }
+                                //    break;
                         }
-                }
-
-            //if (RightToLeft)
-            //{
-            //    foreach (LineFColor line in FUnderlines)
-            //        using (Pen pen = new Pen(line.Color, line.Width))
-            //            FGraphics.DrawLine(pen, 2 * line.Left - line.Right, line.Top, line.Left, line.Top);
-
-            //    foreach (LineFColor line in FStrikeouts)
-            //        using (Pen pen = new Pen(line.Color, line.Width))
-            //            FGraphics.DrawLine(pen, 2 * line.Left - line.Right, line.Top, line.Left, line.Top);
-            //}
-            //else
-            //{
-            foreach (LineFColor line in underlines)
-                using (SKPaint pen = new SKPaint { Color = line.Color, StrokeWidth = line.Width, Style = SKPaintStyle.Stroke })
-                    graphics.DrawLine(pen, line.Left, line.Top, line.Right, line.Top);
-
-            foreach (LineFColor line in strikeouts)
-                using (SKPaint pen = new SKPaint { Color = line.Color, StrokeWidth = line.Width, Style = SKPaintStyle.Stroke })
-                    graphics.DrawLine(pen, line.Left, line.Top, line.Right, line.Top);
-            //}
-
-            // restore alignment and clipping
-            //FFormat.Alignment = saveAlign;
-            //FFormat.LineAlignment = saveLineAlign;
-            graphics.Restore(state);
-        }
-
-        #endregion Internal Methods
-
-        #region Private Methods
-
-        private void AdjustParagraphLines()
-        {
-            // calculate text height
-            float height = 0;
-            height = CalcHeight();
-
-            // calculate Y offset
-            float offsetY = displayRect.Top;
-            if (vertAlign == VertAlign.Center)
-                offsetY += (displayRect.Height - height) / 2;
-            else if (vertAlign == VertAlign.Bottom)
-                offsetY += (displayRect.Height - height) - 1;
-
-            for (int i = 0; i < paragraphs.Count; i++)
-            {
-                Paragraph paragraph = paragraphs[i];
-                paragraph.AlignLines(i == paragraphs.Count - 1 && forceJustify);
-
-                // adjust line tops
-                foreach (Line line in paragraph.Lines)
-                {
-                    line.Top = offsetY;
-                    line.MakeUnderlines();
-                    line.MakeStrikeouts();
-                    line.MakeBackgrounds();
-                    offsetY += line.Height + line.LineSpacing;
-                }
-            }
-        }
-
-        private void CssStyle(StyleDescriptor style, Dictionary<string, string> dict)
-        {
-            if (dict == null)
-                return;
-            string tStr;
-
-            // If "font-style" contains "italic" or "oblique", apply the Italic style to the text.
-            if (dict.TryGetValue("font-style", out tStr))
-            {
-                if (tStr.Contains("italic") || tStr.Contains("oblique"))
-                    style.FontStyle |= FontStyle.Italic;
-            }
-
-            // If "font-weight" contains "bold", apply the Bold style to the text.
-            if (dict.TryGetValue("font-weight", out tStr))
-            {
-                if (tStr.Contains("bold"))
-                    style.FontStyle |= FontStyle.Bold;
-            }
-
-            // If "text-decoration" contains both "underline" and "line-through", apply both styles to the text.
-            // Otherwise, check and apply each style individually.
-            if (dict.TryGetValue("text-decoration", out tStr))
-            {
-                if (tStr.Contains("underline") && tStr.Contains("line-through"))
-                    style.FontStyle |= FontStyle.Underline | FontStyle.Strikeout;
-                else
-                {
-                    if (tStr.Contains("underline"))
-                        style.FontStyle |= FontStyle.Underline;
-                    if (tStr.Contains("line-through"))
-                        style.FontStyle |= FontStyle.Strikeout;
-                }
-            }
-
-            if (dict.TryGetValue("font-size", out tStr))
-            {
-                if (EndsWith(tStr, "px"))
-                    try { style.Size = fontScale * 0.75f * Single.Parse(tStr.Substring(0, tStr.Length - 2), CultureInfo); } catch { }
-                else if (EndsWith(tStr, "pt"))
-                    try { style.Size = fontScale * Single.Parse(tStr.Substring(0, tStr.Length - 2), CultureInfo); } catch { }
-                else if (EndsWith(tStr, "em"))
-                    try { style.Size *= Single.Parse(tStr.Substring(0, tStr.Length - 2), CultureInfo); } catch { }
-            }
-            if (dict.TryGetValue("font-family", out tStr))
-            {
-                // checks if there are single quotation marks in the font name
-                if (tStr.Contains("'"))
-                    tStr = tStr.Replace("'", ""); // Removes all single quotes
-                style.Font = new FontFamily(tStr);
-            }
-   
-            if (dict.TryGetValue("color", out tStr))
-            {
-                if (StartsWith(tStr, "#"))
-                    try { style.Color = ColorHelper.FromString(tStr) ?? style.Color; } catch { }
-                else if (StartsWith(tStr, "rgba"))
-                {
-                    int i1 = tStr.IndexOf('(');
-                    int i2 = tStr.IndexOf(')');
-                    string[] strs = tStr.Substring(i1 + 1, i2 - i1 - 1).Split(',');
-                    if (strs.Length == 4)
-                    {
-                        float r, g, b, a;
-                        try
-                        {
-                            r = Single.Parse(strs[0], CultureInfo);
-                            g = Single.Parse(strs[1], CultureInfo);
-                            b = Single.Parse(strs[2], CultureInfo);
-                            a = Single.Parse(strs[3], CultureInfo);
-                            style.Color = new SKColor((byte)r, (byte)g, (byte)b, (byte)(a * 0xFF));
-                        }
-                        catch { }
+                        CssStyle(newStyle, el.Style);
                     }
-                }
-                else if (StartsWith(tStr, "rgb"))
-                {
-                    int i1 = tStr.IndexOf('(');
-                    int i2 = tStr.IndexOf(')');
-                    string[] strs = tStr.Substring(i1 + 1, i2 - i1 - 1).Split(',');
-                    if (strs.Length == 3)
+
+                    if (currentWord.Count > 0)
                     {
-                        float r, g, b;
-                        try
-                        {
-                            r = Single.Parse(strs[0], CultureInfo);
-                            g = Single.Parse(strs[1], CultureInfo);
-                            b = Single.Parse(strs[2], CultureInfo);
-                            style.Color = new SKColor((byte)r, (byte)g, (byte)b);
-                        }
-                        catch { }
+                        AddUnknownWord(currentWord, paragraph, style, charIndex, ref line, ref word, ref width, ref tabIndex);
+                        currentWord.Clear();
+                        charIndex = reader.LastPosition;
                     }
-                }
-                else style.Color = ColorHelper.FromString(tStr) ?? style.Color;
-            }
 
-            if (dict.TryGetValue("background-color", out tStr))
-            {
-                if (StartsWith(tStr, "#"))
-                    try { style.BackgroundColor = ColorHelper.FromString(tStr) ?? style.BackgroundColor; } catch { }
-                else if (StartsWith(tStr, "rgba"))
-                {
-                    int i1 = tStr.IndexOf('(');
-                    int i2 = tStr.IndexOf(')');
-                    string[] strs = tStr.Substring(i1 + 1, i2 - i1 - 1).Split(',');
-                    if (strs.Length == 4)
-                    {
-                        float r, g, b, a;
-                        try
-                        {
-                            r = Single.Parse(strs[0], CultureInfo);
-                            g = Single.Parse(strs[1], CultureInfo);
-                            b = Single.Parse(strs[2], CultureInfo);
-                            a = Single.Parse(strs[3], CultureInfo);
-                            style.BackgroundColor = new SKColor((byte)r, (byte)g, (byte)b, (byte)(a * 0xFF));
-                        }
-                        catch { }
-                    }
-                }
-                else if (StartsWith(tStr, "rgb"))
-                {
-                    int i1 = tStr.IndexOf('(');
-                    int i2 = tStr.IndexOf(')');
-                    string[] strs = tStr.Substring(i1 + 1, i2 - i1 - 1).Split(',');
-                    if (strs.Length == 3)
-                    {
-                        float r, g, b;
-                        try
-                        {
-                            r = Single.Parse(strs[0], CultureInfo);
-                            g = Single.Parse(strs[1], CultureInfo);
-                            b = Single.Parse(strs[2], CultureInfo);
-                            style.BackgroundColor = new SKColor((byte)r, (byte)g, (byte)b);
-                        }
-                        catch { }
-                    }
-                }
-                else style.BackgroundColor = ColorHelper.FromString(tStr) ?? style.BackgroundColor;
-            }
-        }
-
-        private bool EndsWith(string str1, string str2)
-        {
-            int len1 = str1.Length;
-            int len2 = str2.Length;
-            if (len1 < len2) return false;
-            switch (len2)
-            {
-                case 0: return true;
-                case 1: return str1[len1 - 1] == str2[len2 - 1];
-                case 2: return str1[len1 - 1] == str2[len2 - 1] && str1[len1 - 2] == str2[len2 - 2];
-                case 3: return str1[len1 - 1] == str2[len2 - 1] && str1[len1 - 2] == str2[len2 - 2] && str1[len1 - 3] == str2[len2 - 3];
-                case 4: return str1[len1 - 1] == str2[len2 - 1] && str1[len1 - 2] == str2[len2 - 2] && str1[len1 - 3] == str2[len2 - 3] && str1[len1 - 4] == str2[len2 - 4];
-                default: return str1.EndsWith(str2);
-            }
-        }
-
-        private float GetTabPosition(float pos)
-        {
-            float tabOffset = TabOffset;
-            float tabSize = TabSize;
-            int tabPosition = (int)((pos - tabOffset) / tabSize);
-            if (pos < tabOffset)
-                return tabOffset;
-            return (tabPosition + 1) * tabSize + tabOffset;
-        }
-
-        private float GetTabPosition(float pos, int tabIndex)
-        {
-            float tabOffset = 0;
-            float tabSize;
-            float firstTabOffset;
-            float[] tabsPos = format.GetTabStops(out firstTabOffset);
-            if (tabIndex <= 1)
-            {
-                tabOffset = TabOffset;
-                tabSize = TabSize;
-            }
-            else
-            {
-                for (int i = 0; i < tabIndex; i++)
-                {
-                    tabOffset += tabsPos[i];
-                }
-                tabSize = tabsPos[tabIndex];
-            }
-            int tabPosition = (int)((pos - tabOffset) / tabSize);
-            if (pos < tabOffset)
-                return tabOffset;
-            return (tabPosition + 1) * tabSize + tabOffset;
-        }
-
-        private void SplitToParagraphs(string text)
-        {
-            Stack<SimpleFastReportHtmlElement> elements = new Stack<SimpleFastReportHtmlElement>();
-            SimpleFastReportHtmlReader reader = new SimpleFastReportHtmlReader(this.text);
-            List<CharWithIndex> currentWord = new List<CharWithIndex>();
-            float width = paragraphFormat.SkipFirstLineIndent ? 0 : GetStartPosition(true);
-            Paragraph paragraph = new Paragraph(this);
-            int charIndex = 0;
-            int tabIndex = 0;
-            Line line = new Line(this, paragraph, charIndex);
-            paragraph.Lines.Add(line);
-            paragraphs.Add(paragraph);
-            Word word = null;
-            StyleDescriptor style = new StyleDescriptor(initalStyle);
-            //bool softReturn = false;
-            //CharWithIndex softReturnChar = new CharWithIndex();
-
-            while (reader.IsNotEOF)
-            {
-                if (reader.Read())
-                {
-                    switch (reader.Character.Char)
-                    {
-                        case ' ':
-                            if (word == null)
-                            {
-                                word = new Word(this, line, WordType.WhiteSpace);
-                                line.Words.Add(word);
-                            }
-                            if (word.Type == WordType.WhiteSpace)
-                                currentWord.Add(reader.Character);
-                            else
-                            {
-                                if (currentWord.Count > 0)
-                                {
-                                    Run r = new RunText(this, word, style, currentWord, width, charIndex);
-                                    word.Runs.Add(r);
-                                    currentWord.Clear();
-                                    width += r.Width;
-                                    if (width > displayRect.Width)
-                                        line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
-                                }
-                                currentWord.Add(reader.Character);
-                                word = new Word(this, line, WordType.WhiteSpace);
-                                line.Words.Add(word);
-                                charIndex = reader.LastPosition;
-                            }
-                            break;
-
-                        case '\t':
-                            if (word != null)
-                            {
-                                if (currentWord.Count > 0)
-                                {
-                                    Run r = new RunText(this, word, style, currentWord, width, charIndex);
-                                    word.Runs.Add(r);
-                                    currentWord.Clear();
-                                    width += r.Width;
-                                    if (width > displayRect.Width)
-                                        line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
-                                }
-                            }
-                            else
-                            {
-                                if (currentWord.Count > 0)
-                                {
-                                    AddUnknownWord(currentWord, paragraph, style, charIndex, ref line, ref word, ref width, ref tabIndex);
-                                }
-                            }
-                            charIndex = reader.LastPosition;
-
-                            word = new Word(this, line, WordType.Tab);
-
-                            Run tabRun = new RunText(this, word, style, new List<CharWithIndex>(new CharWithIndex[] { reader.Character }), width, charIndex);
-                            word.Runs.Add(tabRun);
-                            float width2 = GetTabPosition(width);
-                            if (isDifferentTabPositions)
-                            {
-                                width2 = GetTabPosition(width, tabIndex);
-                            }
-                            if (width2 < width) width2 = width;
-                            if (line.Words.Count > 0 && width2 > displayRect.Width)
-                            {
-                                tabRun.Left = 0;
-                                line = new Line(this, paragraph, charIndex);
-                                tabIndex = 0;
-                                paragraph.Lines.Add(line);
-                                width = 0;
-                                width2 = GetTabPosition(width);
-                                if (isDifferentTabPositions)
-                                {
-                                    width2 = GetTabPosition(width, tabIndex);
-                                }
-                            }
-                            // decrease by (DrawUtils.ScreenDpi / 96f) repeats the work of the Word, if the next tab position is a pixel further than the left indent,
-                            // then the tab stop occurs in the tab position, otherwise the stop will be in the place of the left indentation
-                            if (width < -paragraphFormat.FirstLineIndent && width2 - (DrawUtils.ScreenDpi / 96f) > -paragraphFormat.FirstLineIndent)
-                            {
-                                width2 = -paragraphFormat.FirstLineIndent;
-                            }
-
-                            tabIndex++;
-                            line.Words.Add(word);
-                            tabRun.Width = width2 - width;
-                            width = width2;
-                            word = null;
-                            break;
-
-                        case SOFT_ENTER://soft enter
-                            if (word != null)
-                            {
-                                if (currentWord.Count > 0)
-                                {
-                                    Run r = new RunText(this, word, style, currentWord, width, charIndex);
-                                    word.Runs.Add(r);
-                                    currentWord.Clear();
-                                    width += r.Width;
-                                    if (width > displayRect.Width)
-                                        line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
-                                }
-                            }
-                            else
-                            {
-                                if (currentWord.Count > 0)
-                                {
-                                    AddUnknownWord(currentWord, paragraph, style, charIndex, ref line, ref word, ref width, ref tabIndex);
-                                }
-                            }
-                            charIndex = reader.Position;
-                            //currentWord.Append(' ')
-                            //RunText runText = new RunText(this, word, style, new List<CharWithIndex>(new CharWithIndex[] { reader.Character }), width, charIndex);
-                            //runText.Width = 0;
-                            //word.Runs.Add(runText);
-                            line = new Line(this, paragraph, charIndex);
-                            word = null;
-                            width = GetStartPosition();
-                            currentWord.Clear();
-                            paragraph.Lines.Add(line);
-                            break;
-                        case '\v':
-                        case '\n':
-                            if (word != null)
-                            {
-                                if (currentWord.Count > 0)
-                                {
-                                    Run r = new RunText(this, word, style, currentWord, width, charIndex);
-                                    word.Runs.Add(r);
-                                    currentWord.Clear();
-                                    width += r.Width;
-                                    if (width > displayRect.Width)
-                                        line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
-                                }
-                            }
-                            else
-                            {
-                                if (currentWord.Count > 0)
-                                {
-                                    AddUnknownWord(currentWord, paragraph, style, charIndex, ref line, ref word, ref width, ref tabIndex);
-                                }
-                            }
-                            charIndex = reader.Position;
-
-                            paragraph = new Paragraph(this);
-                            paragraphs.Add(paragraph);
-                            line = new Line(this, paragraph, charIndex);
-                            word = null;
-                            width = GetStartPosition(true);
-                            paragraph.Lines.Add(line);
-                            break;
-
-                        case '\r'://ignore
-                            break;
-
-                        default:
-                            if (word == null)
-                            {
-                                word = new Word(this, line, WordType.Normal);
-                                line.Words.Add(word);
-                            }
-                            if (word.Type == WordType.Normal)
-                                currentWord.Add(reader.Character);
-                            else
-                            {
-                                if (currentWord.Count > 0)
-                                {
-                                    Run r = new RunText(this, word, style, currentWord, width, charIndex);
-                                    word.Runs.Add(r);
-                                    currentWord.Clear();
-                                    width += r.Width;
-                                    if (width > displayRect.Width)
-                                        line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
-                                }
-                                currentWord.Add(reader.Character);
-                                word = new Word(this, line, WordType.Normal);
-                                line.Words.Add(word);
-                                charIndex = reader.LastPosition;
-                            }
-                            break;
-                    }
+                    style = newStyle;
                 }
                 else
                 {
-                    StyleDescriptor newStyle = new StyleDescriptor(initalStyle);
-                    SimpleFastReportHtmlElement element = reader.Element;
-
-                    if (!element.IsSelfClosed)
+                    switch (element.name)
                     {
-                        if (element.isEnd)
-                        {
-                            int enumIndex = 1;
-                            using (Stack<SimpleFastReportHtmlElement>.Enumerator enumerator = elements.GetEnumerator())
+                        case "img":
+                            if (element.attributes != null && element.attributes.ContainsKey("src"))
                             {
-                                while (enumerator.MoveNext())
+                                float img_width = -1;
+                                float img_height = -1;
+                                string tStr;
+
+                                if (element.attributes.TryGetValue("width", out tStr))
+                                    try { img_width = Single.Parse(tStr, System.Globalization.CultureInfo.InstalledUICulture); } catch { }
+                                if (element.attributes.TryGetValue("height", out tStr))
+                                    try { img_height = Single.Parse(tStr, System.Globalization.CultureInfo.InstalledUICulture); } catch { }
+
+                                if (currentWord.Count > 0)
                                 {
-                                    SimpleFastReportHtmlElement el = enumerator.Current;
-                                    if (el.name == element.name)
-                                    {
-                                        for (int i = 0; i < enumIndex; i++)
-                                            elements.Pop();
-                                        break;
-                                    }
-                                    else
-                                        enumIndex++;
+                                    AddUnknownWord(currentWord, paragraph, style, charIndex, ref line, ref word, ref width, ref tabIndex);
+                                    currentWord.Clear();
                                 }
-                            }
-                        }
-                        else elements.Push(element);
-
-                        SimpleFastReportHtmlElement[] arr = elements.ToArray();
-                        for (int i = arr.Length - 1; i >= 0; i--)
-                        {
-                            SimpleFastReportHtmlElement el = arr[i];
-                            switch (el.name)
-                            {
-                                case "b":
-                                    newStyle.FontStyle |= FontStyle.Bold;
-                                    break;
-
-                                case "i":
-                                    newStyle.FontStyle |= FontStyle.Italic;
-                                    break;
-
-                                case "u":
-                                    newStyle.FontStyle |= FontStyle.Underline;
-                                    break;
-
-                                case "sub":
-                                    newStyle.BaseLine = BaseLine.Subscript;
-                                    break;
-
-                                case "sup":
-                                    newStyle.BaseLine = BaseLine.Superscript;
-                                    break;
-
-                                case "strike":
-                                    newStyle.FontStyle |= FontStyle.Strikeout;
-                                    break;
-                                    //case "font":
-                                    //    {
-                                    //        string color = null;
-                                    //        string face = null;
-                                    //        string size = null;
-                                    //        if (el.Attributes != null)
-                                    //        {
-                                    //            el.Attributes.TryGetValue("color", out color);
-                                    //            el.Attributes.TryGetValue("face", out face);
-                                    //            el.Attributes.TryGetValue("size", out size);
-                                    //        }
-
-                                    //        if (color != null)
-                                    //        {
-                                    //            if (color.StartsWith("\"") && color.EndsWith("\""))
-                                    //                color = color.Substring(1, color.Length - 2);
-                                    //            if (color.StartsWith("#"))
-                                    //            {
-                                    //                newStyle.Color = Color.FromArgb((int)(0xFF000000 + uint.Parse(color.Substring(1), System.Globalization.NumberStyles.HexNumber)));
-                                    //            }
-                                    //            else
-                                    //            {
-                                    //                newStyle.Color = Color.FromName(color);
-                                    //            }
-                                    //        }
-                                    //        if (face != null)
-                                    //            newStyle.Font = face;
-                                    //        if (size != null)
-                                    //        {
-                                    //            try
-                                    //            {
-                                    //                size = size.Trim(' ');
-                                    //                newStyle.Size = (float)Converter.FromString(typeof(float), size) * FFontScale;
-                                    //            }
-                                    //            catch
-                                    //            {
-                                    //                newStyle.Size = FSize * FFontScale;
-                                    //            }
-                                    //        }
-                                    //    }
-                                    //    break;
-                            }
-                            CssStyle(newStyle, el.Style);
-                        }
-
-                        if (currentWord.Count > 0)
-                        {
-                            AddUnknownWord(currentWord, paragraph, style, charIndex, ref line, ref word, ref width, ref tabIndex);
-                            currentWord.Clear();
-                            charIndex = reader.LastPosition;
-                        }
-
-                        style = newStyle;
-                    }
-                    else
-                    {
-                        switch (element.name)
-                        {
-                            case "img":
-                                if (element.attributes != null && element.attributes.ContainsKey("src"))
+                                if (word == null || word.Type != WordType.Normal)
                                 {
-                                    float img_width = -1;
-                                    float img_height = -1;
-                                    string tStr;
-
-                                    if (element.attributes.TryGetValue("width", out tStr))
-                                        try { img_width = Single.Parse(tStr, System.Globalization.CultureInfo.InstalledUICulture); } catch { }
-                                    if (element.attributes.TryGetValue("height", out tStr))
-                                        try { img_height = Single.Parse(tStr, System.Globalization.CultureInfo.InstalledUICulture); } catch { }
-
-                                    if (currentWord.Count > 0)
-                                    {
-                                        AddUnknownWord(currentWord, paragraph, style, charIndex, ref line, ref word, ref width, ref tabIndex);
-                                        currentWord.Clear();
-                                    }
-                                    if (word == null || word.Type != WordType.Normal)
-                                    {
-                                        word = new Word(this, line, WordType.Normal);
-                                        line.Words.Add(word);
-                                        charIndex = reader.LastPosition;
-                                    }
-
-                                    Run r = new RunImage(this, word, element.attributes["src"], style, width, reader.LastPosition, img_width, img_height);
-                                    word.Runs.Add(r);
-                                    width += r.Width;
-                                    if (width > displayRect.Width)
-                                        line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
+                                    word = new Word(this, line, WordType.Normal);
+                                    line.Words.Add(word);
+                                    charIndex = reader.LastPosition;
                                 }
-                                break;
-                        }
+
+                                Run r = new RunImage(this, word, element.attributes["src"], style, width, reader.LastPosition, img_width, img_height);
+                                word.Runs.Add(r);
+                                width += r.Width;
+                                if (width > displayRect.Width)
+                                    line = WrapLine(paragraph, line, charIndex, displayRect.Width, ref width, ref word, ref tabIndex);
+                            }
+                            break;
                     }
                 }
             }
-
-            if (currentWord.Count > 0)
-            {
-                AddUnknownWord(currentWord, paragraph, style, charIndex, ref line, ref word, ref width, ref tabIndex);
-            }
         }
 
-        private bool StartsWith(string str1, string str2)
+        if (currentWord.Count > 0)
         {
-            if (str1.Length < str2.Length) return false;
-            switch (str2.Length)
-            {
-                case 0: return true;
-                case 1: return str1[0] == str2[0];
-                case 2: return str1[0] == str2[0] && str1[1] == str2[1];
-                case 3: return str1[0] == str2[0] && str1[1] == str2[1] && str1[2] == str2[2];
-                case 4: return str1[0] == str2[0] && str1[1] == str2[1] && str1[2] == str2[2] && str1[3] == str2[3];
-                default: return str1.StartsWith(str2);
-            }
+            AddUnknownWord(currentWord, paragraph, style, charIndex, ref line, ref word, ref width, ref tabIndex);
         }
+    }
 
-        /// <summary>
-        /// Check the line, and if last word is able to move next line, move it.
-        /// e.g. white space won't move to next line.
-        /// If word is not moved return current line.
-        /// else return new line
-        /// </summary>
-        /// <param name="paragraph">the paragraph for lines</param>
-        /// <param name="line">the line with extra words</param>
-        /// <param name="wordCharIndex">the index of start last word in this line</param>
-        /// <param name="availableWidth">width to place words</param>
-        /// <param name="newWidth">ref to current line width</param>
-        /// <param name="currentWord">ref to current word</param>
-        /// <param name="tabIndex">ref to tab index</param>
-        /// <returns>a Line</returns>
-        private Line WrapLine(Paragraph paragraph, Line line, int wordCharIndex, float availableWidth, ref float newWidth, ref Word currentWord, ref int tabIndex)
+    private bool StartsWith(string str1, string str2)
+    {
+        if (str1.Length < str2.Length) return false;
+        switch (str2.Length)
         {
-            if (line.Words.Count == 0)
+            case 0: return true;
+            case 1: return str1[0] == str2[0];
+            case 2: return str1[0] == str2[0] && str1[1] == str2[1];
+            case 3: return str1[0] == str2[0] && str1[1] == str2[1] && str1[2] == str2[2];
+            case 4: return str1[0] == str2[0] && str1[1] == str2[1] && str1[2] == str2[2] && str1[3] == str2[3];
+            default: return str1.StartsWith(str2);
+        }
+    }
+
+    /// <summary>
+    /// Check the line, and if last word is able to move next line, move it.
+    /// e.g. white space won't move to next line.
+    /// If word is not moved return current line.
+    /// else return new line
+    /// </summary>
+    /// <param name="paragraph">the paragraph for lines</param>
+    /// <param name="line">the line with extra words</param>
+    /// <param name="wordCharIndex">the index of start last word in this line</param>
+    /// <param name="availableWidth">width to place words</param>
+    /// <param name="newWidth">ref to current line width</param>
+    /// <param name="currentWord">ref to current word</param>
+    /// <param name="tabIndex">ref to tab index</param>
+    /// <returns>a Line</returns>
+    private Line WrapLine(Paragraph paragraph, Line line, int wordCharIndex, float availableWidth, ref float newWidth, ref Word currentWord, ref int tabIndex)
+    {
+        if (line.Words.Count == 0)
+        {
+            return line;
+        }
+        if (line.Words.Count == 1 && line.Words[0].Type == WordType.Normal)
+        {
+            Word word = line.Words[0];
+            float width = word.Runs.Count > 0 ? word.Runs[0].Left : 0;
+            /* Foreach runs, while run in available space next run
+             * if run begger then space split run and generate new word and run
+             */
+            Word newWord = new Word(word.Renderer, line, word.Type);
+            line.Words.Clear();
+            line.Words.Add(newWord);
+            currentWord = newWord;
+            foreach (Run run in word.Runs)
             {
-                return line;
-            }
-            if (line.Words.Count == 1 && line.Words[0].Type == WordType.Normal)
-            {
-                Word word = line.Words[0];
-                float width = word.Runs.Count > 0 ? word.Runs[0].Left : 0;
-                /* Foreach runs, while run in available space next run
-                 * if run begger then space split run and generate new word and run
-                 */
-                Word newWord = new Word(word.Renderer, line, word.Type);
-                line.Words.Clear();
-                line.Words.Add(newWord);
-                currentWord = newWord;
-                foreach (Run run in word.Runs)
+                width += run.Width;
+                if (width <= availableWidth || availableWidth < 0)
                 {
-                    width += run.Width;
-                    if (width <= availableWidth || availableWidth < 0)
+                    newWord.Runs.Add(run);
+                    run.Word = newWord;
+                }
+                else
+                {
+                    Run secondPart = run;
+                    int step = 0;
+                    while (secondPart != null)
                     {
-                        newWord.Runs.Add(run);
-                        run.Word = newWord;
-                    }
-                    else
-                    {
-                        Run secondPart = run;
-                        int step = 0;
-                        while (secondPart != null)
+                        Run firstPart = secondPart.Split(availableWidth - secondPart.Left, out secondPart);
+                        if (firstPart != null)
                         {
-                            Run firstPart = secondPart.Split(availableWidth - secondPart.Left, out secondPart);
-                            if (firstPart != null)
+                            if (step > 0)
+                                newWord.Runs.Clear();
+                            newWord.Runs.Add(firstPart);
+                            firstPart.Word = newWord;
+                        }
+                        else if (newWord.Runs.Count == 0)
+                        {
+                            newWord.Runs.Add(secondPart);
+                            secondPart.Word = newWord;
+                            secondPart = null;
+                        }
+                        if (secondPart != null)
+                        {
+                            line = new Line(line.Renderer, paragraph, secondPart.CharIndex);
+                            paragraph.Lines.Add(line);
+                            newWord = new Word(newWord.Renderer, line, newWord.Type);
+                            line.Words.Add(newWord);
+                            secondPart.Left = GetStartPosition();
+                            width = secondPart.Width;
+                            currentWord = newWord;
+                            if (width < availableWidth)
                             {
-                                if (step > 0)
-                                    newWord.Runs.Clear();
-                                newWord.Runs.Add(firstPart);
-                                firstPart.Word = newWord;
-                            }
-                            else if (newWord.Runs.Count == 0)
-                            {
-                                newWord.Runs.Add(secondPart);
                                 secondPart.Word = newWord;
+                                newWord.Runs.Add(secondPart);
                                 secondPart = null;
                             }
-                            if (secondPart != null)
-                            {
-                                line = new Line(line.Renderer, paragraph, secondPart.CharIndex);
-                                paragraph.Lines.Add(line);
-                                newWord = new Word(newWord.Renderer, line, newWord.Type);
-                                line.Words.Add(newWord);
-                                secondPart.Left = GetStartPosition();
-                                width = secondPart.Width;
-                                currentWord = newWord;
-                                if (width < availableWidth)
-                                {
-                                    secondPart.Word = newWord;
-                                    newWord.Runs.Add(secondPart);
-                                    secondPart = null;
-                                }
-                            }
-                            step++;
                         }
+                        step++;
                     }
                 }
-
-                newWidth = width;
-                return line;
             }
-            else
+
+            newWidth = width;
+            return line;
+        }
+        else
             if (line.Words[line.Words.Count - 1].Type == WordType.WhiteSpace)
             {
                 return line;
@@ -1357,2049 +1358,2048 @@ namespace FastReport.Utils
                 //perhaps need to continue the breakdown
                 return WrapLine(paragraph, result, wordCharIndex, availableWidth, ref newWidth, ref currentWord, ref tabIndex);
             }
+    }
+
+    /// <summary>
+    /// Get start position of line. 
+    /// </summary>
+    /// <param name="isNewParagraph">
+    /// if this parameter is true, the starting position of the line in the new paragraph will be returned
+    /// </param>
+    /// <returns></returns>
+    private float GetStartPosition(bool isNewParagraph = false)
+    {
+        // if we have a back indent, we take it as zero and shift all the initial positions of the text in the lines by the size of this indent.
+        if (isNewParagraph && paragraphFormat.FirstLineIndent > 0)
+            return paragraphFormat.FirstLineIndent;
+
+        if (paragraphFormat.FirstLineIndent < 0 && !isNewParagraph)
+            return -paragraphFormat.FirstLineIndent;
+        return 0;
+    }
+
+    #endregion Private Methods
+
+    #region Public Enums
+
+    /// <summary>
+    /// The type of word.
+    /// </summary>
+    public enum WordType
+    {
+        /// <summary>
+        /// Regular word.
+        /// </summary>
+        Normal,
+        /// <summary>
+        /// Whitespace.
+        /// </summary>
+        WhiteSpace,
+        /// <summary>
+        /// Tab symbol.
+        /// </summary>
+        Tab,
+    }
+
+    #endregion Public Enums
+
+    #region Internal Enums
+
+    /// <summary>
+    /// Represents character placement.
+    /// </summary>
+    public enum BaseLine
+    {
+        /// <summary>
+        /// Normal baseline.
+        /// </summary>
+        Normal,
+        /// <summary>
+        /// Subscript.
+        /// </summary>
+        Subscript,
+        /// <summary>
+        /// Superscript.
+        /// </summary>
+        Superscript
+    }
+
+    #endregion Internal Enums
+
+    #region Public Structs
+
+    /// <summary>
+    /// Contains Char/position pair.
+    /// </summary>
+    public struct CharWithIndex
+    {
+        #region Public Fields
+
+        /// <summary>
+        /// Gets the char.
+        /// </summary>
+        public char Char { get; internal set; }
+
+        /// <summary>
+        /// Gets the index.
+        /// </summary>
+        public int Index { get; }
+
+        #endregion Public Fields
+
+        #region Public Constructors
+
+        internal CharWithIndex(char v, int fPosition)
+        {
+            this.Char = v;
+            this.Index = fPosition;
+        }
+
+        #endregion Public Constructors
+    }
+
+    /// <summary>
+    /// Represents colored line segment used for underlines/strikeouts.
+    /// </summary>
+    public readonly struct LineFColor
+    {
+        #region Public Fields
+
+        /// <summary>
+        /// Gets the color.
+        /// </summary>
+        public readonly SKColor Color;
+
+        /// <summary>
+        /// Gets the left coordinate.
+        /// </summary>
+        public readonly float Left;
+        /// <summary>
+        /// Gets the right coordinate.
+        /// </summary>
+        public readonly float Right;
+        /// <summary>
+        /// Gets the top coordinate.
+        /// </summary>
+        public readonly float Top;
+        /// <summary>
+        /// Gets the width.
+        /// </summary>
+        public readonly float Width;
+
+        #endregion Public Fields
+
+        #region Public Constructors
+
+        internal LineFColor(float left, float top, float right, float width, SKColor color)
+        {
+            this.Left = left;
+            this.Top = top;
+            this.Right = right;
+            this.Width = width;
+            this.Color = color;
+        }
+
+        internal LineFColor(float left, float top, float right, float width, byte R, byte G, byte B)
+            : this(left, top, right, width, new SKColor(R, G, B))
+        {
+        }
+
+        internal LineFColor(float left, float top, float right, float width, byte R, byte G, byte B, byte A)
+            : this(left, top, right, width, new SKColor(R, G, B, A))
+        {
+        }
+
+        internal LineFColor(float left, float top, float right, float width, int R, int G, int B)
+          : this(left, top, right, width, new SKColor((byte)R, (byte)G, (byte)B))
+        {
+        }
+
+        internal LineFColor(float left, float top, float right, float width, int R, int G, int B, int A)
+            : this(left, top, right, width, new SKColor((byte)R, (byte)G, (byte)B, (byte)A))
+        {
+        }
+
+        #endregion Public Constructors
+    }
+
+    /// <summary>
+    /// Represents colored rectangle used for drawing text background.
+    /// </summary>
+    public readonly struct RectangleFColor
+    {
+        #region Public Fields
+
+        /// <summary>
+        /// Gets the color.
+        /// </summary>
+        public readonly SKColor Color;
+        /// <summary>
+        /// Gets the height.
+        /// </summary>
+        public readonly float Height;
+        /// <summary>
+        /// Gets the left coordinate.
+        /// </summary>
+        public readonly float Left;
+        /// <summary>
+        /// Gets the top coordinate.
+        /// </summary>
+        public readonly float Top;
+        /// <summary>
+        /// Gets the width.
+        /// </summary>
+        public readonly float Width;
+
+        #endregion Public Fields
+
+        #region Public Constructors
+
+        internal RectangleFColor(float left, float top, float width, float height, SKColor color)
+        {
+            this.Left = left;
+            this.Top = top;
+            this.Width = width;
+            this.Height = height;
+            this.Color = color;
+        }
+
+        internal RectangleFColor(float left, float top, float width, float height, byte R, byte G, byte B)
+            : this(left, top, width, height, new SKColor(R, G, B))
+        {
+        }
+
+        internal RectangleFColor(float left, float top, float width, float height, byte R, byte G, byte B, byte A)
+            : this(left, top, width, height, new SKColor(R, G, B, A))
+        {
+        }
+
+        internal RectangleFColor(float left, float top, float width, float height, int R, int G, int B)
+          : this(left, top, width, height, new SKColor((byte)R, (byte)G, (byte)B))
+        {
+        }
+
+        internal RectangleFColor(float left, float top, float width, float height, int R, int G, int B, int A)
+            : this(left, top, width, height, new SKColor((byte)R, (byte)G, (byte)B, (byte)A))
+        {
+        }
+
+        #endregion Public Constructors
+    }
+
+    #endregion Public Structs
+
+    #region Public Classes
+
+    /// <summary>
+    /// Represents the line of a text.
+    /// </summary>
+    public class Line
+    {
+        #region Private Fields
+
+        private float baseLine;
+        private float height;
+        private HorzAlign horzAlign;
+        private float lineSpacing;
+        private int originalCharIndex;
+        private Paragraph paragraph;
+        private HtmlTextRenderer renderer;
+        private float top;
+        private float width;
+        private List<Word> words;
+
+        #endregion Private Fields
+
+        #region Public Properties
+
+        /// <summary>
+        /// Gets baseline.
+        /// </summary>
+        public float BaseLine
+        {
+            get { return baseLine; }
         }
 
         /// <summary>
-        /// Get start position of line. 
+        /// Gets line height.
         /// </summary>
-        /// <param name="isNewParagraph">
-        /// if this parameter is true, the starting position of the line in the new paragraph will be returned
-        /// </param>
-        /// <returns></returns>
-        private float GetStartPosition(bool isNewParagraph = false)
+        public float Height
         {
-            // if we have a back indent, we take it as zero and shift all the initial positions of the text in the lines by the size of this indent.
-            if (isNewParagraph && paragraphFormat.FirstLineIndent > 0)
-                return paragraphFormat.FirstLineIndent;
-
-            if (paragraphFormat.FirstLineIndent < 0 && !isNewParagraph)
-                return -paragraphFormat.FirstLineIndent;
-            return 0;
-        }
-
-        #endregion Private Methods
-
-        #region Public Enums
-
-        /// <summary>
-        /// The type of word.
-        /// </summary>
-        public enum WordType
-        {
-            /// <summary>
-            /// Regular word.
-            /// </summary>
-            Normal,
-            /// <summary>
-            /// Whitespace.
-            /// </summary>
-            WhiteSpace,
-            /// <summary>
-            /// Tab symbol.
-            /// </summary>
-            Tab,
-        }
-
-        #endregion Public Enums
-
-        #region Internal Enums
-
-        /// <summary>
-        /// Represents character placement.
-        /// </summary>
-        public enum BaseLine
-        {
-            /// <summary>
-            /// Normal baseline.
-            /// </summary>
-            Normal,
-            /// <summary>
-            /// Subscript.
-            /// </summary>
-            Subscript,
-            /// <summary>
-            /// Superscript.
-            /// </summary>
-            Superscript
-        }
-
-        #endregion Internal Enums
-
-        #region Public Structs
-
-        /// <summary>
-        /// Contains Char/position pair.
-        /// </summary>
-        public struct CharWithIndex
-        {
-            #region Public Fields
-
-            /// <summary>
-            /// Gets the char.
-            /// </summary>
-            public char Char { get; internal set; }
-            
-            /// <summary>
-            /// Gets the index.
-            /// </summary>
-            public int Index { get; }
-
-            #endregion Public Fields
-
-            #region Public Constructors
-
-            internal CharWithIndex(char v, int fPosition)
-            {
-                this.Char = v;
-                this.Index = fPosition;
-            }
-
-            #endregion Public Constructors
+            get { return height; }
         }
 
         /// <summary>
-        /// Represents colored line segment used for underlines/strikeouts.
+        /// Gets horizontal alignment.
         /// </summary>
-public readonly struct LineFColor
+        public HorzAlign HorzAlign
         {
-            #region Public Fields
-
-            /// <summary>
-            /// Gets the color.
-            /// </summary>
-            public readonly SKColor Color;
-
-            /// <summary>
-            /// Gets the left coordinate.
-            /// </summary>
-            public readonly float Left;
-            /// <summary>
-            /// Gets the right coordinate.
-            /// </summary>
-            public readonly float Right;
-            /// <summary>
-            /// Gets the top coordinate.
-            /// </summary>
-            public readonly float Top;
-            /// <summary>
-            /// Gets the width.
-            /// </summary>
-            public readonly float Width;
-
-            #endregion Public Fields
-
-            #region Public Constructors
-
-            internal LineFColor(float left, float top, float right, float width, SKColor color)
-            {
-                this.Left = left;
-                this.Top = top;
-                this.Right = right;
-                this.Width = width;
-                this.Color = color;
-            }
-
-            internal LineFColor(float left, float top, float right, float width, byte R, byte G, byte B)
-                : this(left, top, right, width, new SKColor(R, G, B))
-            {
-            }
-
-            internal LineFColor(float left, float top, float right, float width, byte R, byte G, byte B, byte A)
-                : this(left, top, right, width, new SKColor(R, G, B, A))
-            {
-            }
-
-            internal LineFColor(float left, float top, float right, float width, int R, int G, int B)
-              : this(left, top, right, width, new SKColor((byte)R, (byte)G, (byte)B))
-            {
-            }
-
-            internal LineFColor(float left, float top, float right, float width, int R, int G, int B, int A)
-                : this(left, top, right, width, new SKColor((byte)R, (byte)G, (byte)B, (byte)A))
-            {
-            }
-
-            #endregion Public Constructors
+            get { return horzAlign; }
         }
 
         /// <summary>
-        /// Represents colored rectangle used for drawing text background.
+        /// Gets line spacing.
         /// </summary>
-public readonly struct RectangleFColor
+        public float LineSpacing
         {
-            #region Public Fields
-
-            /// <summary>
-            /// Gets the color.
-            /// </summary>
-            public readonly SKColor Color;
-            /// <summary>
-            /// Gets the height.
-            /// </summary>
-            public readonly float Height;
-            /// <summary>
-            /// Gets the left coordinate.
-            /// </summary>
-            public readonly float Left;
-            /// <summary>
-            /// Gets the top coordinate.
-            /// </summary>
-            public readonly float Top;
-            /// <summary>
-            /// Gets the width.
-            /// </summary>
-            public readonly float Width;
-
-            #endregion Public Fields
-
-            #region Public Constructors
-
-            internal RectangleFColor(float left, float top, float width, float height, SKColor color)
-            {
-                this.Left = left;
-                this.Top = top;
-                this.Width = width;
-                this.Height = height;
-                this.Color = color;
-            }
-
-            internal RectangleFColor(float left, float top, float width, float height, byte R, byte G, byte B)
-                : this(left, top, width, height, new SKColor(R, G, B))
-            {
-            }
-
-            internal RectangleFColor(float left, float top, float width, float height, byte R, byte G, byte B, byte A)
-                : this(left, top, width, height, new SKColor(R, G, B, A))
-            {
-            }
-
-            internal RectangleFColor(float left, float top, float width, float height, int R, int G, int B)
-              : this(left, top, width, height, new SKColor((byte)R, (byte)G, (byte)B))
-            {
-            }
-
-            internal RectangleFColor(float left, float top, float width, float height, int R, int G, int B, int A)
-                : this(left, top, width, height, new SKColor((byte)R, (byte)G, (byte)B, (byte)A))
-            {
-            }
-
-            #endregion Public Constructors
+            get { return lineSpacing; }
         }
 
-        #endregion Public Structs
-
-        #region Public Classes
+        /// <summary>
+        /// Gets original char index.
+        /// </summary>
+        public int OriginalCharIndex
+        {
+            get { return originalCharIndex; }
+        }
 
         /// <summary>
-        /// Represents the line of a text.
+        /// Gets paragraph.
         /// </summary>
-        public class Line
+        public Paragraph Paragraph
         {
-            #region Private Fields
+            get { return paragraph; }
+        }
 
-            private float baseLine;
-            private float height;
-            private HorzAlign horzAlign;
-            private float lineSpacing;
-            private int originalCharIndex;
-            private Paragraph paragraph;
-            private HtmlTextRenderer renderer;
-            private float top;
-            private float width;
-            private List<Word> words;
+        /// <summary>
+        /// Gets renderer.
+        /// </summary>
+        public HtmlTextRenderer Renderer
+        {
+            get { return renderer; }
+        }
 
-            #endregion Private Fields
-
-            #region Public Properties
-
-            /// <summary>
-            /// Gets baseline.
-            /// </summary>
-            public float BaseLine
+        /// <summary>
+        /// Gets the top coordinate.
+        /// </summary>
+        public float Top
+        {
+            get { return top; }
+            internal set
             {
-                get { return baseLine; }
-            }
-
-            /// <summary>
-            /// Gets line height.
-            /// </summary>
-            public float Height
-            {
-                get { return height; }
-            }
-
-            /// <summary>
-            /// Gets horizontal alignment.
-            /// </summary>
-            public HorzAlign HorzAlign
-            {
-                get { return horzAlign; }
-            }
-
-            /// <summary>
-            /// Gets line spacing.
-            /// </summary>
-            public float LineSpacing
-            {
-                get { return lineSpacing; }
-            }
-
-            /// <summary>
-            /// Gets original char index.
-            /// </summary>
-            public int OriginalCharIndex
-            {
-                get { return originalCharIndex; }
-            }
-
-            /// <summary>
-            /// Gets paragraph.
-            /// </summary>
-            public Paragraph Paragraph
-            {
-                get { return paragraph; }
-            }
-
-            /// <summary>
-            /// Gets renderer.
-            /// </summary>
-            public HtmlTextRenderer Renderer
-            {
-                get { return renderer; }
-            }
-
-            /// <summary>
-            /// Gets the top coordinate.
-            /// </summary>
-            public float Top
-            {
-                get { return top; }
-                internal set
+                top = value;
+                foreach (Word w in Words)
                 {
-                    top = value;
-                    foreach (Word w in Words)
+                    foreach (Run r in w.Runs)
                     {
-                        foreach (Run r in w.Runs)
-                        {
-                            float shift = 0;
-                            if (r.Style.BaseLine == HtmlTextRenderer.BaseLine.Subscript)
-                                shift += r.Height * 0.45f;
-                            else if (r.Style.BaseLine == HtmlTextRenderer.BaseLine.Superscript)
-                                shift -= r.BaseLine - r.Height * 0.15f;
-                            r.Top = top + BaseLine - r.BaseLine + shift;
-                        }
+                        float shift = 0;
+                        if (r.Style.BaseLine == HtmlTextRenderer.BaseLine.Subscript)
+                            shift += r.Height * 0.45f;
+                        else if (r.Style.BaseLine == HtmlTextRenderer.BaseLine.Superscript)
+                            shift -= r.BaseLine - r.Height * 0.15f;
+                        r.Top = top + BaseLine - r.BaseLine + shift;
                     }
                 }
             }
+        }
 
-            /// <summary>
-            /// Gets width.
-            /// </summary>
-            public float Width
+        /// <summary>
+        /// Gets width.
+        /// </summary>
+        public float Width
+        {
+            get
             {
-                get
-                {
-                    return width;
-                }
+                return width;
             }
+        }
 
-            /// <summary>
-            /// Gets a list of words.
-            /// </summary>
-            public List<Word> Words
+        /// <summary>
+        /// Gets a list of words.
+        /// </summary>
+        public List<Word> Words
+        {
+            get { return words; }
+        }
+
+        #endregion Public Properties
+
+        #region Public Constructors
+
+        internal Line(HtmlTextRenderer renderer, Paragraph paragraph, int charIndex)
+        {
+            words = new List<Word>();
+            this.renderer = renderer;
+            this.paragraph = paragraph;
+            originalCharIndex = charIndex;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Methods
+
+        /// <inheritdoc/>
+        public override string ToString()
+        {
+            return String.Format("Words[{0}]", Words.Count);
+        }
+
+
+        #endregion Public Methods
+
+        #region Internal Methods
+
+        internal void AlignWords(HorzAlign align)
+        {
+            horzAlign = align;
+            float width = CalcWidth();
+            float left = Words.Count > 0 && Words[0].Runs.Count > 0 ? Words[0].Runs[0].Left : 0;
+            width += left;
+            this.width = width;
+            switch (align)
             {
-                get { return words; }
-            }
+                case HorzAlign.Left:
+                    break;
 
-            #endregion Public Properties
+                case HorzAlign.Right:
+                    {
+                        float delta = Renderer.displayRect.Width - width;
+                        foreach (Word w in Words)
+                            foreach (Run r in w.Runs)
+                                r.Left += delta;
+                    }
+                    break;
 
-            #region Public Constructors
+                case HorzAlign.Center:
+                    {
+                        float delta = (Renderer.displayRect.Width - width) / 2f;
+                        foreach (Word w in Words)
+                            foreach (Run r in w.Runs)
+                                r.Left += delta;
+                    }
+                    break;
 
-            internal Line(HtmlTextRenderer renderer, Paragraph paragraph, int charIndex)
-            {
-                words = new List<Word>();
-                this.renderer = renderer;
-                this.paragraph = paragraph;
-                originalCharIndex = charIndex;
-            }
-
-            #endregion Public Constructors
-
-            #region Public Methods
-
-            /// <inheritdoc/>
-            public override string ToString()
-            {
-                return String.Format("Words[{0}]", Words.Count);
-            }
-
-
-            #endregion Public Methods
-
-            #region Internal Methods
-
-            internal void AlignWords(HorzAlign align)
-            {
-                horzAlign = align;
-                float width = CalcWidth();
-                float left = Words.Count > 0 && Words[0].Runs.Count > 0 ? Words[0].Runs[0].Left : 0;
-                width += left;
-                this.width = width;
-                switch (align)
-                {
-                    case HorzAlign.Left:
-                        break;
-
-                    case HorzAlign.Right:
+                case HorzAlign.Justify:
+                    {
+                        int spaces = 0;
+                        int tab_index = -1;
+                        bool isWordExistAfterTab = true;
+                        for (int i = 0; i < Words.Count - 1; i++)
                         {
-                            float delta = Renderer.displayRect.Width - width;
-                            foreach (Word w in Words)
-                                foreach (Run r in w.Runs)
-                                    r.Left += delta;
-                        }
-                        break;
-
-                    case HorzAlign.Center:
-                        {
-                            float delta = (Renderer.displayRect.Width - width) / 2f;
-                            foreach (Word w in Words)
-                                foreach (Run r in w.Runs)
-                                    r.Left += delta;
-                        }
-                        break;
-
-                    case HorzAlign.Justify:
-                        {
-                            int spaces = 0;
-                            int tab_index = -1;
-                            bool isWordExistAfterTab = true;
-                            for (int i = 0; i < Words.Count - 1; i++)
+                            if (isWordExistAfterTab)
                             {
-                                if (isWordExistAfterTab)
-                                {
-                                    if (Words[i].Type == WordType.WhiteSpace)
-                                        foreach (Run r in Words[i].Runs)
-                                            if (r is RunText)
-                                                spaces += (r as RunText).Text.Length;
-                                }
-                                else if (Words[i].Type == WordType.Normal)
-                                    isWordExistAfterTab = true;
-                                if (Words[i].Type == WordType.Tab)
-                                {
-                                    spaces = 0;
-                                    tab_index = i;
-                                    isWordExistAfterTab = false;
-                                }
+                                if (Words[i].Type == WordType.WhiteSpace)
+                                    foreach (Run r in Words[i].Runs)
+                                        if (r is RunText)
+                                            spaces += (r as RunText).Text.Length;
                             }
-                            if (spaces > 0)
+                            else if (Words[i].Type == WordType.Normal)
+                                isWordExistAfterTab = true;
+                            if (Words[i].Type == WordType.Tab)
                             {
-                                float space_width = (Renderer.displayRect.Width - width) / spaces;
-
-                                for (int i = 0; i < Words.Count; i++)
-                                {
-                                    Word w = Words[i];
-                                    if (w.Type == WordType.WhiteSpace)
-                                        foreach (Run r in w.Runs)
-                                        {
-                                            if (i > tab_index && r is RunText)
-                                                r.Width += space_width * (r as RunText).Text.Length;
-                                            r.Left = left;
-                                            left += r.Width;
-                                        }
-                                    else foreach (Run r in w.Runs)
-                                        {
-                                            r.Left = left;
-                                            left += r.Width;
-                                        }
-                                }
+                                spaces = 0;
+                                tab_index = i;
+                                isWordExistAfterTab = false;
                             }
                         }
+                        if (spaces > 0)
+                        {
+                            float space_width = (Renderer.displayRect.Width - width) / spaces;
 
-                        break;
-                }
-                if (renderer.RightToLeft)
-                {
-                    float rectRight = Renderer.displayRect.Right;
-                    foreach (Word w in Words)
-                        foreach (Run r in w.Runs)
-                            r.Left = rectRight - r.Left;
-                }
-                else
-                {
-                    float rectLeft = Renderer.displayRect.Left;
-                    foreach (Word w in Words)
-                        foreach (Run r in w.Runs)
-                            r.Left += rectLeft;
-                }
+                            for (int i = 0; i < Words.Count; i++)
+                            {
+                                Word w = Words[i];
+                                if (w.Type == WordType.WhiteSpace)
+                                    foreach (Run r in w.Runs)
+                                    {
+                                        if (i > tab_index && r is RunText)
+                                            r.Width += space_width * (r as RunText).Text.Length;
+                                        r.Left = left;
+                                        left += r.Width;
+                                    }
+                                else foreach (Run r in w.Runs)
+                                {
+                                    r.Left = left;
+                                    left += r.Width;
+                                }
+                            }
+                        }
+                    }
+
+                    break;
             }
-
-            internal void CalcMetrics()
+            if (renderer.RightToLeft)
             {
-                baseLine = 0;
-                foreach (Word word in Words)
-                {
-                    word.CalcMetrics();
-                    baseLine = Math.Max(baseLine, word.BaseLine);
-                }
-                height = renderer.fontLineHeight;
-                float decent = 0;
-                foreach (Word word in Words)
-                {
-                    decent = Math.Max(decent, word.Descent);
-                }
-                if (baseLine + decent > 0.01)
-                    height = baseLine + decent;
-                switch (renderer.paragraphFormat.LineSpacingType)
-                {
-                    case LineSpacingType.AtLeast:
-                        if (height < renderer.paragraphFormat.LineSpacing)
-                            lineSpacing = renderer.paragraphFormat.LineSpacing - height;
-                        break;
+                float rectRight = Renderer.displayRect.Right;
+                foreach (Word w in Words)
+                    foreach (Run r in w.Runs)
+                        r.Left = rectRight - r.Left;
+            }
+            else
+            {
+                float rectLeft = Renderer.displayRect.Left;
+                foreach (Word w in Words)
+                    foreach (Run r in w.Runs)
+                        r.Left += rectLeft;
+            }
+        }
 
-                    case LineSpacingType.Single:
-                        break;
-
-                    case LineSpacingType.Multiple:
-                        lineSpacing = height * (renderer.paragraphFormat.LineSpacingMultiple - 1);
-                        break;
-
-                    case LineSpacingType.Exactly:
+        internal void CalcMetrics()
+        {
+            baseLine = 0;
+            foreach (Word word in Words)
+            {
+                word.CalcMetrics();
+                baseLine = Math.Max(baseLine, word.BaseLine);
+            }
+            height = renderer.fontLineHeight;
+            float decent = 0;
+            foreach (Word word in Words)
+            {
+                decent = Math.Max(decent, word.Descent);
+            }
+            if (baseLine + decent > 0.01)
+                height = baseLine + decent;
+            switch (renderer.paragraphFormat.LineSpacingType)
+            {
+                case LineSpacingType.AtLeast:
+                    if (height < renderer.paragraphFormat.LineSpacing)
                         lineSpacing = renderer.paragraphFormat.LineSpacing - height;
-                        break;
-                }
+                    break;
 
+                case LineSpacingType.Single:
+                    break;
 
-                if (lineSpacing < 0)
-                {
-                    // There is a rune in the line with a larger font size than the start font. Line spacing is not needed
-                    lineSpacing = 0;
-                }
+                case LineSpacingType.Multiple:
+                    lineSpacing = height * (renderer.paragraphFormat.LineSpacingMultiple - 1);
+                    break;
+
+                case LineSpacingType.Exactly:
+                    lineSpacing = renderer.paragraphFormat.LineSpacing - height;
+                    break;
             }
 
-            internal void MakeBackgrounds()
+
+            if (lineSpacing < 0)
             {
-                List<RectangleFColor> list = renderer.backgrounds;
-                if (renderer.rightToLeft)
+                // There is a rune in the line with a larger font size than the start font. Line spacing is not needed
+                lineSpacing = 0;
+            }
+        }
+
+        internal void MakeBackgrounds()
+        {
+            List<RectangleFColor> list = renderer.backgrounds;
+            if (renderer.rightToLeft)
+            {
+                foreach (Word word in Words)
+                    foreach (Run run in word.Runs)
+                        if (run.Style.BackgroundColor.Alpha > 0)
+                            list.Add(new RectangleFColor(
+                                run.Left - run.Width, top, run.Width, height, run.Style.BackgroundColor
+                                ));
+            }
+            else
+            {
+                foreach (Word word in Words)
+                    foreach (Run run in word.Runs)
+                        if (run.Style.BackgroundColor.Alpha > 0)
+                            list.Add(new RectangleFColor(
+                                run.Left, top, run.Width, height, run.Style.BackgroundColor
+                                ));
+            }
+        }
+
+        internal void MakeEverUnderlines()
+        {
+            OwnHashSet<StyleDescriptor> styles = new OwnHashSet<StyleDescriptor>();
+            float size = 0;
+            float underline = 0;
+            foreach (Word word in Words)
+                foreach (Run run in word.Runs)
+                    if (!styles.Contains(run.Style))
+                    {
+                        styles.Add(run.Style);
+                        size += run.Style.Size;
+                        underline += run.Descent / 2;
+                    }
+            if (styles.Count == 0 || BaseLine <= 0.01)
+            {
+                using (SKFont ff = renderer.initalStyle.GetFont())
                 {
-                    foreach (Word word in Words)
-                        foreach (Run run in word.Runs)
-                            if (run.Style.BackgroundColor.Alpha > 0)
-                                list.Add(new RectangleFColor(
-                                    run.Left - run.Width, top, run.Width, height, run.Style.BackgroundColor
-                                    ));
-                }
-                else
-                {
-                    foreach (Word word in Words)
-                        foreach (Run run in word.Runs)
-                            if (run.Style.BackgroundColor.Alpha > 0)
-                                list.Add(new RectangleFColor(
-                                    run.Left, top, run.Width, height, run.Style.BackgroundColor
-                                    ));
+                    SKFontMetrics metrics = ff.Metrics;
+                    float lineSpace = metrics.Descent - metrics.Ascent + metrics.Leading;
+                    float ascent = -metrics.Ascent;
+                    baseLine = lineSpace == 0 ? 0 : height * ascent / lineSpace;
+                    float FDescent = height - baseLine;
+                    underline = FDescent / 2;
+                    size = ff.Size;
                 }
             }
+            else
+            {
+                size /= styles.Count;
+                underline /= styles.Count;
+            }
 
-            internal void MakeEverUnderlines()
+            float fixScale = Renderer.Scale / Renderer.FontScale;
+
+            renderer.underlines.Add(new LineFColor(
+                renderer.displayRect.Left, Top + BaseLine + underline, renderer.displayRect.Right, size * 0.1f * fixScale, renderer.underlineColor
+                ));
+        }
+
+        internal void MakeStrikeouts()
+        {
+            List<LineFColor> lines = renderer.strikeouts;
+            float fixScale = Renderer.Scale / Renderer.FontScale;
+            if (renderer.rightToLeft)
+            {
+                foreach (Word word in Words)
+                    foreach (Run r in word.Runs)
+                        if ((r.Style.FontStyle & FontStyle.Strikeout) == FontStyle.Strikeout)
+                            lines.Add(new LineFColor(
+                            r.Left - r.Width, r.Top + r.BaseLine / 3f * 2f, r.Left, r.Style.Size * 0.1f * fixScale,
+                            r.Style.Color));
+            }
+            else
+            {
+                foreach (Word word in Words)
+                    foreach (Run r in word.Runs)
+                        if ((r.Style.FontStyle & FontStyle.Strikeout) == FontStyle.Strikeout)
+                            lines.Add(new LineFColor(
+                            r.Left, r.Top + r.BaseLine / 3f * 2f, r.Left + r.Width, r.Style.Size * 0.1f * fixScale,
+                            r.Style.Color));
+            }
+        }
+
+        internal void MakeUnderlines()
+        {
+            if (renderer.everUnderlines)
+            {
+                MakeEverUnderlines();
+                return;
+            }
+            List<List<Run>> runs = new List<List<Run>>();
+            List<Run> currentRuns = null;
+
+            foreach (Word word in Words)
+                foreach (Run run in word.Runs)
+                {
+                    if ((run.Style.FontStyle & FontStyle.Underline) == FontStyle.Underline)
+                    {
+                        if (currentRuns == null)
+                        {
+                            currentRuns = new List<Run>();
+                            runs.Add(currentRuns);
+                        }
+                        currentRuns.Add(run);
+                    }
+                    else
+                    {
+                        currentRuns = null;
+                    }
+                }
+            List<LineFColor> unerlines = renderer.underlines;
+            float fixScale = Renderer.Scale / Renderer.FontScale;
+
+            foreach (List<Run> cRuns in runs)
             {
                 OwnHashSet<StyleDescriptor> styles = new OwnHashSet<StyleDescriptor>();
                 float size = 0;
                 float underline = 0;
-                foreach (Word word in Words)
-                    foreach (Run run in word.Runs)
-                        if (!styles.Contains(run.Style))
-                        {
-                            styles.Add(run.Style);
-                            size += run.Style.Size;
-                            underline += run.Descent / 2;
-                        }
-                if (styles.Count == 0 || BaseLine <= 0.01)
-                {
-                    using (SKFont ff = renderer.initalStyle.GetFont())
+                foreach (Run r in cRuns)
+                    if (!styles.Contains(r.Style))
                     {
-                        SKFontMetrics metrics = ff.Metrics;
-                        float lineSpace = metrics.Descent - metrics.Ascent + metrics.Leading;
-                        float ascent = -metrics.Ascent;
-                        baseLine = lineSpace == 0 ? 0 : height * ascent / lineSpace;
-                        float FDescent = height - baseLine;
-                        underline = FDescent / 2;
-                        size = ff.Size;
+                        styles.Add(r.Style);
+                        size += r.Style.Size;
+                        underline += r.Descent / 2;
                     }
-                }
-                else
-                {
-                    size /= styles.Count;
-                    underline /= styles.Count;
-                }
 
-                float fixScale = Renderer.Scale / Renderer.FontScale;
+                size /= styles.Count;
+                underline /= styles.Count;
 
-                renderer.underlines.Add(new LineFColor(
-                    renderer.displayRect.Left, Top + BaseLine + underline, renderer.displayRect.Right, size * 0.1f * fixScale, renderer.underlineColor
-                    ));
-            }
-
-            internal void MakeStrikeouts()
-            {
-                List<LineFColor> lines = renderer.strikeouts;
-                float fixScale = Renderer.Scale / Renderer.FontScale;
                 if (renderer.rightToLeft)
-                {
-                    foreach (Word word in Words)
-                        foreach (Run r in word.Runs)
-                            if ((r.Style.FontStyle & FontStyle.Strikeout) == FontStyle.Strikeout)
-                                lines.Add(new LineFColor(
-                                r.Left - r.Width, r.Top + r.BaseLine / 3f * 2f, r.Left, r.Style.Size * 0.1f * fixScale,
-                                r.Style.Color));
-                }
-                else
-                {
-                    foreach (Word word in Words)
-                        foreach (Run r in word.Runs)
-                            if ((r.Style.FontStyle & FontStyle.Strikeout) == FontStyle.Strikeout)
-                                lines.Add(new LineFColor(
-                                r.Left, r.Top + r.BaseLine / 3f * 2f, r.Left + r.Width, r.Style.Size * 0.1f * fixScale,
-                                r.Style.Color));
-                }
-            }
-
-            internal void MakeUnderlines()
-            {
-                if (renderer.everUnderlines)
-                {
-                    MakeEverUnderlines();
-                    return;
-                }
-                List<List<Run>> runs = new List<List<Run>>();
-                List<Run> currentRuns = null;
-
-                foreach (Word word in Words)
-                    foreach (Run run in word.Runs)
-                    {
-                        if ((run.Style.FontStyle & FontStyle.Underline) == FontStyle.Underline)
-                        {
-                            if (currentRuns == null)
-                            {
-                                currentRuns = new List<Run>();
-                                runs.Add(currentRuns);
-                            }
-                            currentRuns.Add(run);
-                        }
-                        else
-                        {
-                            currentRuns = null;
-                        }
-                    }
-                List<LineFColor> unerlines = renderer.underlines;
-                float fixScale = Renderer.Scale / Renderer.FontScale;
-
-                foreach (List<Run> cRuns in runs)
-                {
-                    OwnHashSet<StyleDescriptor> styles = new OwnHashSet<StyleDescriptor>();
-                    float size = 0;
-                    float underline = 0;
                     foreach (Run r in cRuns)
-                        if (!styles.Contains(r.Style))
-                        {
-                            styles.Add(r.Style);
-                            size += r.Style.Size;
-                            underline += r.Descent / 2;
-                        }
-
-                    size /= styles.Count;
-                    underline /= styles.Count;
-
-                    if (renderer.rightToLeft)
-                        foreach (Run r in cRuns)
-                            unerlines.Add(new LineFColor(
-                                r.Left - r.Width, r.Top + r.BaseLine + underline, r.Left, size * 0.1f * fixScale,
-                                r.Style.Color));
-                    else
-                        foreach (Run r in cRuns)
-                            unerlines.Add(new LineFColor(
-                                r.Left, r.Top + r.BaseLine + underline, r.Left + r.Width, size * 0.1f * fixScale,
-                                r.Style.Color));
-                }
+                        unerlines.Add(new LineFColor(
+                            r.Left - r.Width, r.Top + r.BaseLine + underline, r.Left, size * 0.1f * fixScale,
+                            r.Style.Color));
+                else
+                    foreach (Run r in cRuns)
+                        unerlines.Add(new LineFColor(
+                            r.Left, r.Top + r.BaseLine + underline, r.Left + r.Width, size * 0.1f * fixScale,
+                            r.Style.Color));
             }
+        }
 
-            #endregion Internal Methods
+        #endregion Internal Methods
 
-            #region Private Methods
+        #region Private Methods
 
-            private float CalcWidth()
+        private float CalcWidth()
+        {
+            float width = 0;
+            foreach (Word w in Words)
+                foreach (Run r in w.Runs)
+                    width += r.Width;
+            Word lastWord = Words.Count > 0 ? Words[Words.Count - 1] : null;
+            if (lastWord != null && lastWord.Type == WordType.WhiteSpace)
             {
-                float width = 0;
-                foreach (Word w in Words)
-                    foreach (Run r in w.Runs)
-                        width += r.Width;
-                Word lastWord = Words.Count > 0 ? Words[Words.Count - 1] : null;
-                if (lastWord != null && lastWord.Type == WordType.WhiteSpace)
-                {
-                    foreach (Run r in lastWord.Runs)
-                        width -= r.Width;
-                }
-                return width;
+                foreach (Run r in lastWord.Runs)
+                    width -= r.Width;
             }
+            return width;
+        }
 
-            #endregion Private Methods
+        #endregion Private Methods
+    }
+
+    /// <summary>
+    /// Represents a paragraph.
+    /// </summary>
+    public class Paragraph
+    {
+        #region Private Fields
+
+        private List<Line> lines;
+        private HtmlTextRenderer renderer;
+
+        #endregion Private Fields
+
+        #region Public Properties
+
+        /// <summary>
+        /// Gets a list of text lines.
+        /// </summary>
+        public List<Line> Lines
+        {
+            get { return lines; }
         }
 
         /// <summary>
-        /// Represents a paragraph.
+        /// Gets the renderer.
         /// </summary>
-        public class Paragraph
+        public HtmlTextRenderer Renderer
         {
-            #region Private Fields
+            get { return renderer; }
+        }
 
-            private List<Line> lines;
-            private HtmlTextRenderer renderer;
+        #endregion Public Properties
 
-            #endregion Private Fields
+        #region Public Constructors
 
-            #region Public Properties
+        internal Paragraph(HtmlTextRenderer renderer)
+        {
+            lines = new List<Line>();
+            this.renderer = renderer;
+        }
 
-            /// <summary>
-            /// Gets a list of text lines.
-            /// </summary>
-            public List<Line> Lines
+        #endregion Public Constructors
+
+        #region Public Methods
+
+        /// <inheritdoc/>
+        public override string ToString()
+        {
+            if (Lines.Count == 0) return "Lines[0]";
+            StringBuilder sb = new StringBuilder();
+            sb.AppendFormat("Lines[{0}]", Lines.Count);
+            sb.Append("{");
+            foreach (Line line in Lines)
             {
-                get { return lines; }
+                sb.Append(line);
+                sb.Append(",");
             }
+            sb.Append("}");
+            return sb.ToString();
+        }
 
-            /// <summary>
-            /// Gets the renderer.
-            /// </summary>
-            public HtmlTextRenderer Renderer
+        #endregion Public Methods
+
+        #region Internal Methods
+
+        internal void AlignLines(bool forceJustify)
+        {
+            for (int i = 0; i < Lines.Count; i++)
             {
-                get { return renderer; }
+                HorzAlign align = Renderer.horzAlign;
+                if (align == HorzAlign.Justify && i == Lines.Count - 1 && !forceJustify)
+                    align = HorzAlign.Left;
+                Lines[i].AlignWords(align);
             }
+        }
 
-            #endregion Public Properties
+        #endregion Internal Methods
+    }
 
-            #region Public Constructors
+    /// <summary>
+    /// Represents a base class for runs.
+    /// </summary>
+    public abstract class Run
+    {
+        #region Protected Fields
 
-            internal Paragraph(HtmlTextRenderer renderer)
-            {
-                lines = new List<Line>();
-                this.renderer = renderer;
-            }
+        private protected float baseLine;
+        private protected int charIndex;
+        private protected float descent;
+        private protected float height;
+        private protected float left;
+        private protected HtmlTextRenderer renderer;
+        private protected StyleDescriptor style;
+        private protected float top;
+        private protected float width;
+        private protected Word word;
 
-            #endregion Public Constructors
+        #endregion Protected Fields
 
-            #region Public Methods
+        #region Public Properties
 
-            /// <inheritdoc/>
-            public override string ToString()
-            {
-                if (Lines.Count == 0) return "Lines[0]";
-                StringBuilder sb = new StringBuilder();
-                sb.AppendFormat("Lines[{0}]", Lines.Count);
-                sb.Append("{");
-                foreach (Line line in Lines)
-                {
-                    sb.Append(line);
-                    sb.Append(",");
-                }
-                sb.Append("}");
-                return sb.ToString();
-            }
-
-            #endregion Public Methods
-
-            #region Internal Methods
-
-            internal void AlignLines(bool forceJustify)
-            {
-                for (int i = 0; i < Lines.Count; i++)
-                {
-                    HorzAlign align = Renderer.horzAlign;
-                    if (align == HorzAlign.Justify && i == Lines.Count - 1 && !forceJustify)
-                        align = HorzAlign.Left;
-                    Lines[i].AlignWords(align);
-                }
-            }
-
-            #endregion Internal Methods
+        /// <summary>
+        /// Gets baseline.
+        /// </summary>
+        public float BaseLine
+        {
+            get { return baseLine; }
         }
 
         /// <summary>
-        /// Represents a base class for runs.
+        /// Gets char index.
         /// </summary>
-        public abstract class Run
+        public int CharIndex
         {
-            #region Protected Fields
-
-            private protected float baseLine;
-            private protected int charIndex;
-            private protected float descent;
-            private protected float height;
-            private protected float left;
-            private protected HtmlTextRenderer renderer;
-            private protected StyleDescriptor style;
-            private protected float top;
-            private protected float width;
-            private protected Word word;
-
-            #endregion Protected Fields
-
-            #region Public Properties
-
-            /// <summary>
-            /// Gets baseline.
-            /// </summary>
-            public float BaseLine
-            {
-                get { return baseLine; }
-            }
-
-            /// <summary>
-            /// Gets char index.
-            /// </summary>
-            public int CharIndex
-            {
-                get { return charIndex; }
-            }
-
-            /// <summary>
-            /// Gets descent value.
-            /// </summary>
-            public float Descent
-            {
-                get { return descent; }
-            }
-
-            /// <summary>
-            /// Gets the height.
-            /// </summary>
-            public float Height
-            {
-                get { return height; }
-                internal set { height = value; }
-            }
-
-            /// <summary>
-            /// Gets the left coordinate.
-            /// </summary>
-            public float Left
-            {
-                get { return left; }
-                internal set { left = value; }
-            }
-
-            /// <summary>
-            /// Gets the renderer.
-            /// </summary>
-            public HtmlTextRenderer Renderer
-            {
-                get { return renderer; }
-            }
-
-            /// <summary>
-            /// Gets the style descriptor.
-            /// </summary>
-            public StyleDescriptor Style
-            {
-                get { return style; }
-            }
-
-            /// <summary>
-            /// Gets the top coodinate.
-            /// </summary>
-            public float Top
-            {
-                get { return top; }
-                internal set { top = value; }
-            }
-
-            //public float Underline
-            //{
-            //    get { return FUnderline; }
-            //    set { FUnderline = value; }
-            //}
-
-            //public float UnderlineSize
-            //{
-            //    get { return FUnderlineSize; }
-            //    set { FUnderlineSize = value; }
-            //}
-
-            /// <summary>
-            /// Gets the width.
-            /// </summary>
-            public float Width
-            {
-                get { return width; }
-                internal set { width = value; }
-            }
-
-            /// <summary>
-            /// Gets the word.
-            /// </summary>
-            public Word Word
-            {
-                get { return word; }
-                internal set { word = value; }
-            }
-
-            #endregion Public Properties
-
-            #region Public Constructors
-
-            internal Run(HtmlTextRenderer renderer, Word word, StyleDescriptor style, float left, int charIndex)
-            {
-                this.renderer = renderer;
-                this.word = word;
-                this.style = style;
-                this.left = left;
-                this.charIndex = charIndex;
-            }
-
-            #endregion Public Constructors
-
-            //public virtual void DrawBack(float top, float height)
-            //{
-            //    if (FStyle.BackgroundColor.A > 0)
-            //    {
-            //        using (Brush brush = GetBackgroundBrush())
-            //            FRenderer.FGraphics.FillRectangle(brush, Left, top, Width, height);
-            //    }
-            //}
-
-            #region Public Methods
-
-            internal abstract void Draw();
-
-            internal abstract Run Split(float availableWidth, out Run secondPart);
-
-            #endregion Public Methods
-
-            #region Protected Methods
-
-            /// <summary>
-            /// Gets background brush.
-            /// </summary>
-            /// <returns>The Brush object.</returns>
-            protected Brush GetBackgroundBrush()
-            {
-                return new SolidBrush(style.BackgroundColor);
-            }
-
-            #endregion Protected Methods
-
-            //public virtual void Draw(bool drawContents)
-            //{
-            //    if ((FStyle.FontStyle & FontStyle.Underline) == FontStyle.Underline)
-            //    {
-            //        if (!FRenderer.FUnderLines)
-            //        {
-            //            float top = Top + FUnderline;
-            //            using (Pen pen = new Pen(FStyle.Color, FUnderlineSize * 0.1f))
-            //                if (FRenderer.FRightToLeft)
-            //                    FRenderer.FGraphics.DrawLine(pen, Left - Width, top, Left, top);
-            //                else
-            //                    FRenderer.FGraphics.DrawLine(pen, Left, top, Left + Width, top);
-            //        }
-            //    }
-            //    if ((FStyle.FontStyle & FontStyle.Strikeout) == FontStyle.Strikeout)
-            //    {
-            //        float top = Top + FBaseLine / 3 * 2;
-            //        using (Pen pen = new Pen(FStyle.Color, FStyle.Size * 0.1f))
-            //            if (FRenderer.FRightToLeft)
-            //                FRenderer.FGraphics.DrawLine(pen, Left - Width, top, Left, top);
-            //            else
-            //                FRenderer.FGraphics.DrawLine(pen, Left, top, Left + Width, top);
-            //    }
-            //}
+            get { return charIndex; }
         }
 
         /// <summary>
-        /// Represents the image run.
+        /// Gets descent value.
         /// </summary>
-        public class RunImage : Run
+        public float Descent
         {
-            #region Private Fields
+            get { return descent; }
+        }
 
-            private SKBitmap image;
-            private string src;
+        /// <summary>
+        /// Gets the height.
+        /// </summary>
+        public float Height
+        {
+            get { return height; }
+            internal set { height = value; }
+        }
 
-            #endregion Private Fields
+        /// <summary>
+        /// Gets the left coordinate.
+        /// </summary>
+        public float Left
+        {
+            get { return left; }
+            internal set { left = value; }
+        }
 
-            #region Public Properties
+        /// <summary>
+        /// Gets the renderer.
+        /// </summary>
+        public HtmlTextRenderer Renderer
+        {
+            get { return renderer; }
+        }
 
-            /// <summary>
-            /// Gets the image.
-            /// </summary>
-            public SKBitmap Image { get { return image; } }
+        /// <summary>
+        /// Gets the style descriptor.
+        /// </summary>
+        public StyleDescriptor Style
+        {
+            get { return style; }
+        }
 
-            #endregion Public Properties
+        /// <summary>
+        /// Gets the top coodinate.
+        /// </summary>
+        public float Top
+        {
+            get { return top; }
+            internal set { top = value; }
+        }
 
-            #region Public Constructors
+        //public float Underline
+        //{
+        //    get { return FUnderline; }
+        //    set { FUnderline = value; }
+        //}
 
-            internal RunImage(HtmlTextRenderer renderer, Word word, string src, StyleDescriptor style, float left, int charIndex, float img_width, float img_height) : base(renderer, word, style, left, charIndex)
+        //public float UnderlineSize
+        //{
+        //    get { return FUnderlineSize; }
+        //    set { FUnderlineSize = value; }
+        //}
+
+        /// <summary>
+        /// Gets the width.
+        /// </summary>
+        public float Width
+        {
+            get { return width; }
+            internal set { width = value; }
+        }
+
+        /// <summary>
+        /// Gets the word.
+        /// </summary>
+        public Word Word
+        {
+            get { return word; }
+            internal set { word = value; }
+        }
+
+        #endregion Public Properties
+
+        #region Public Constructors
+
+        internal Run(HtmlTextRenderer renderer, Word word, StyleDescriptor style, float left, int charIndex)
+        {
+            this.renderer = renderer;
+            this.word = word;
+            this.style = style;
+            this.left = left;
+            this.charIndex = charIndex;
+        }
+
+        #endregion Public Constructors
+
+        //public virtual void DrawBack(float top, float height)
+        //{
+        //    if (FStyle.BackgroundColor.A > 0)
+        //    {
+        //        using (Brush brush = GetBackgroundBrush())
+        //            FRenderer.FGraphics.FillRectangle(brush, Left, top, Width, height);
+        //    }
+        //}
+
+        #region Public Methods
+
+        internal abstract void Draw();
+
+        internal abstract Run Split(float availableWidth, out Run secondPart);
+
+        #endregion Public Methods
+
+        #region Protected Methods
+
+        /// <summary>
+        /// Gets background brush.
+        /// </summary>
+        /// <returns>The Brush object.</returns>
+        protected Brush GetBackgroundBrush()
+        {
+            return new SolidBrush(style.BackgroundColor);
+        }
+
+        #endregion Protected Methods
+
+        //public virtual void Draw(bool drawContents)
+        //{
+        //    if ((FStyle.FontStyle & FontStyle.Underline) == FontStyle.Underline)
+        //    {
+        //        if (!FRenderer.FUnderLines)
+        //        {
+        //            float top = Top + FUnderline;
+        //            using (Pen pen = new Pen(FStyle.Color, FUnderlineSize * 0.1f))
+        //                if (FRenderer.FRightToLeft)
+        //                    FRenderer.FGraphics.DrawLine(pen, Left - Width, top, Left, top);
+        //                else
+        //                    FRenderer.FGraphics.DrawLine(pen, Left, top, Left + Width, top);
+        //        }
+        //    }
+        //    if ((FStyle.FontStyle & FontStyle.Strikeout) == FontStyle.Strikeout)
+        //    {
+        //        float top = Top + FBaseLine / 3 * 2;
+        //        using (Pen pen = new Pen(FStyle.Color, FStyle.Size * 0.1f))
+        //            if (FRenderer.FRightToLeft)
+        //                FRenderer.FGraphics.DrawLine(pen, Left - Width, top, Left, top);
+        //            else
+        //                FRenderer.FGraphics.DrawLine(pen, Left, top, Left + Width, top);
+        //    }
+        //}
+    }
+
+    /// <summary>
+    /// Represents the image run.
+    /// </summary>
+    public class RunImage : Run
+    {
+        #region Private Fields
+
+        private SKBitmap image;
+        private string src;
+
+        #endregion Private Fields
+
+        #region Public Properties
+
+        /// <summary>
+        /// Gets the image.
+        /// </summary>
+        public SKBitmap Image { get { return image; } }
+
+        #endregion Public Properties
+
+        #region Public Constructors
+
+        internal RunImage(HtmlTextRenderer renderer, Word word, string src, StyleDescriptor style, float left, int charIndex, float img_width, float img_height) : base(renderer, word, style, left, charIndex)
+        {
+            base.style = new StyleDescriptor(style);
+            this.src = src;
+            //disable for exports because img tag not support strikeouts and underlines
+            base.style.FontStyle &= ~(FontStyle.Strikeout | FontStyle.Underline);
+            byte[] imageBytes = Renderer.cache?.Get(src)?.Stream;
+            image = imageBytes != null && imageBytes.Length > 0 ? ImageHelper.Load(imageBytes) : new SKBitmap(1, 1);
+            Width = image.Width * Renderer.Scale;
+            Height = image.Height * Renderer.Scale;
+            if (img_height > 0)
             {
-                base.style = new StyleDescriptor(style);
-                this.src = src;
-                //disable for exports because img tag not support strikeouts and underlines
-                base.style.FontStyle &= ~(FontStyle.Strikeout | FontStyle.Underline);
-                byte[] imageBytes = Renderer.cache?.Get(src)?.Stream;
-                image = imageBytes != null && imageBytes.Length > 0 ? ImageHelper.Load(imageBytes) : new SKBitmap(1, 1);
-                Width = image.Width * Renderer.Scale;
-                Height = image.Height * Renderer.Scale;
-                if (img_height > 0)
-                {
-                    if (img_width > 0)
-                    {
-                        Width = img_width * Renderer.Scale;
-                        Height = img_height * Renderer.Scale;
-                    }
-                    else
-                    {
-                        Width *= img_height / image.Height;
-                        Height = img_height * Renderer.Scale;
-                    }
-                }
-                else if (img_width > 0)
+                if (img_width > 0)
                 {
                     Width = img_width * Renderer.Scale;
-                    Height *= img_width / image.Width;
+                    Height = img_height * Renderer.Scale;
                 }
-                baseLine = Height;
-                using (SKFont ff = style.GetFont())
+                else
                 {
-                    SKFontMetrics metrics = ff.Metrics;
-                    float height = metrics.Descent - metrics.Ascent + metrics.Leading;
-                    base.descent = metrics.Descent;
+                    Width *= img_height / image.Height;
+                    Height = img_height * Renderer.Scale;
                 }
             }
-
-            #endregion Public Constructors
-
-            #region Public Methods
-
-            internal override void Draw()
+            else if (img_width > 0)
             {
-                if (image != null)
-                {
-                    if (renderer.rightToLeft)
-                        renderer.graphics.DrawImage(SKImage.FromBitmap(image), new SKRect(Left - Width, Top, Left, Top + Height));
-                    else
-                        renderer.graphics.DrawImage(SKImage.FromBitmap(image), new SKRect(Left, Top, Left + Width, Top + Height));
-                }
+                Width = img_width * Renderer.Scale;
+                Height *= img_width / image.Width;
+            }
+            baseLine = Height;
+            using (SKFont ff = style.GetFont())
+            {
+                SKFontMetrics metrics = ff.Metrics;
+                float height = metrics.Descent - metrics.Ascent + metrics.Leading;
+                base.descent = metrics.Descent;
+            }
+        }
+
+        #endregion Public Constructors
+
+        #region Public Methods
+
+        internal override void Draw()
+        {
+            if (image != null)
+            {
+                if (renderer.rightToLeft)
+                    renderer.graphics.DrawImage(SKImage.FromBitmap(image), new SKRect(Left - Width, Top, Left, Top + Height));
+                else
+                    renderer.graphics.DrawImage(SKImage.FromBitmap(image), new SKRect(Left, Top, Left + Width, Top + Height));
+            }
+        }
+
+        internal override Run Split(float availableWidth, out Run secondPart)
+        {
+            secondPart = this;
+            return null;
+        }
+
+        #endregion Public Methods
+
+        #region Internal Methods
+
+        /// <summary>
+        /// Gets the image as a bitmap.
+        /// </summary>
+        /// <param name="width">The bitmap width.</param>
+        /// <param name="height">The bitmap height.</param>
+        /// <returns>The Bitmap object.</returns>
+        public SKBitmap GetBitmap(out float width, out float height)
+        {
+            width = 1;
+            height = 1;
+            if (image == null)
+                return new SKBitmap(1, 1);
+
+            width = image.Width;
+            height = image.Height;
+            float x = 0;
+            float y = 0;
+
+            float scaleX = width / this.Width;
+            float scaleY = height / this.Height;
+
+            if (left < renderer.displayRect.Left)
+            {
+                x = -((renderer.displayRect.Left - left) * scaleX);
+                width += x;
             }
 
-            internal override Run Split(float availableWidth, out Run secondPart)
+            if (top < renderer.displayRect.Top)
+            {
+                y = -((renderer.displayRect.Top - top) * scaleY);
+                height += y;
+            }
+
+            if (left + base.width > renderer.displayRect.Right)
+            {
+                width -= ((left + base.width - renderer.displayRect.Right) * scaleX);
+            }
+
+            if (top + base.height > renderer.displayRect.Bottom)
+            {
+                height -= ((top + base.height - renderer.displayRect.Bottom) * scaleY);
+            }
+
+            if (width < 1) width = 1;
+            if (height < 1) height = 1;
+
+            SKBitmap bmp = new SKBitmap((int)width, (int)height);
+            using SKCanvas canvas = new SKCanvas(bmp);
+            canvas.DrawBitmap(image, x, y);
+            width /= scaleX;
+            height /= scaleY;
+            return bmp;
+        }
+
+        #endregion Internal Methods
+    }
+
+    /// <summary>
+    /// Represents the text run.
+    /// </summary>
+    public class RunText : Run
+    {
+        #region Private Fields
+
+        private List<CharWithIndex> chars;
+        private string text;
+
+        #endregion Private Fields
+
+        #region Public Properties
+
+        /// <summary>
+        /// Gets the text.
+        /// </summary>
+        public string Text { get { return text; } }
+
+        #endregion Public Properties
+
+        #region Public Constructors
+
+        internal RunText(HtmlTextRenderer renderer, Word word, StyleDescriptor style, List<CharWithIndex> text, float left, int charIndex) : base(renderer, word, style, left, charIndex)
+        {
+            using (SKFont ff = style.GetFont())
+            {
+                chars = new List<CharWithIndex>(text);
+
+                this.text = GetString(text);
+
+                if (ff.Typeface?.FamilyName == "Wingdings" || ff.Typeface?.FamilyName == "Webdings")
+                {
+                    this.text = WingdingsToUnicodeConverter.Convert(this.text);
+                }
+
+                if (this.text.Length > 0)
+                {
+                    base.charIndex = text[0].Index;
+                    if (word.Type == WordType.WhiteSpace)
+                    {
+                        width = CalcSpaceWidth(this.text, ff);
+                    }
+                    else
+                    {
+                        width = Renderer.graphics.MeasureString(this.text, ff).Width;
+                    }
+                }
+                SKFontMetrics metrics = ff.Metrics;
+                height = metrics.Descent - metrics.Ascent + metrics.Leading;
+                baseLine = -metrics.Ascent;
+                descent = metrics.Descent;
+                if (style.BaseLine == HtmlTextRenderer.BaseLine.Subscript)
+                    descent += height * 0.45f;
+            }
+        }
+
+        #endregion Public Constructors
+
+        #region Public Methods
+
+        internal float CalcSpaceWidth(string text, SKFont ff)
+        {
+            return Renderer.graphics.MeasureString("1" + text + "2", ff).Width
+                - Renderer.graphics.MeasureString("12", ff).Width;
+        }
+
+        internal override void Draw()
+        {
+            using (SKFont font = style.GetFont())
+            using (SKPaint brush = new SKPaint { Color = Style.Color, IsAntialias = true, Style = SKPaintStyle.Fill })
+            {
+                renderer.graphics.DrawString(text, font, brush, Left, Top, null);
+            }
+        }
+
+        /// <summary>
+        /// Gets brush.
+        /// </summary>
+        /// <returns>The Brush object.</returns>
+        public Brush GetBrush()
+        {
+            return new SolidBrush(Style.Color);
+        }
+
+        internal override Run Split(float availableWidth, out Run secondPart)
+        {
+            int size = chars.Count;
+            if (size == 0)
             {
                 secondPart = this;
                 return null;
             }
 
-            #endregion Public Methods
-
-            #region Internal Methods
-
-            /// <summary>
-            /// Gets the image as a bitmap.
-            /// </summary>
-            /// <param name="width">The bitmap width.</param>
-            /// <param name="height">The bitmap height.</param>
-            /// <returns>The Bitmap object.</returns>
-            public SKBitmap GetBitmap(out float width, out float height)
+            int from = 0;
+            int point = size / 2;
+            int to = size;
+            Run r = null;
+            while (to - from > 1)
             {
-                width = 1;
-                height = 1;
-                if (image == null)
-                    return new SKBitmap(1, 1);
-
-                width = image.Width;
-                height = image.Height;
-                float x = 0;
-                float y = 0;
-
-                float scaleX = width / this.Width;
-                float scaleY = height / this.Height;
-
-                if (left < renderer.displayRect.Left)
+                List<CharWithIndex> list = new List<CharWithIndex>();
+                for (int i = 0; i < point; i++)
+                    list.Add(chars[i]);
+                r = new RunText(renderer, word, style, list, left, charIndex);
+                if (r.Width > availableWidth)
                 {
-                    x = -((renderer.displayRect.Left - left) * scaleX);
-                    width += x;
-                }
-
-                if (top < renderer.displayRect.Top)
-                {
-                    y = -((renderer.displayRect.Top - top) * scaleY);
-                    height += y;
-                }
-
-                if (left + base.width > renderer.displayRect.Right)
-                {
-                    width -= ((left + base.width - renderer.displayRect.Right) * scaleX);
-                }
-
-                if (top + base.height > renderer.displayRect.Bottom)
-                {
-                    height -= ((top + base.height - renderer.displayRect.Bottom) * scaleY);
-                }
-
-                if (width < 1) width = 1;
-                if (height < 1) height = 1;
-
-                SKBitmap bmp = new SKBitmap((int)width, (int)height);
-                using SKCanvas canvas = new SKCanvas(bmp);
-                canvas.DrawBitmap(image, x, y);
-                width /= scaleX;
-                height /= scaleY;
-                return bmp;
-            }
-
-            #endregion Internal Methods
-        }
-
-        /// <summary>
-        /// Represents the text run.
-        /// </summary>
-        public class RunText : Run
-        {
-            #region Private Fields
-
-            private List<CharWithIndex> chars;
-            private string text;
-
-            #endregion Private Fields
-
-            #region Public Properties
-
-            /// <summary>
-            /// Gets the text.
-            /// </summary>
-            public string Text { get { return text; } }
-
-            #endregion Public Properties
-
-            #region Public Constructors
-
-            internal RunText(HtmlTextRenderer renderer, Word word, StyleDescriptor style, List<CharWithIndex> text, float left, int charIndex) : base(renderer, word, style, left, charIndex)
-            {
-                using (SKFont ff = style.GetFont())
-                {
-                    chars = new List<CharWithIndex>(text);
-
-                    this.text = GetString(text);
-
-                    if (ff.Typeface?.FamilyName == "Wingdings" || ff.Typeface?.FamilyName == "Webdings")
+                    if (point == 1 && left == 0)
                     {
-                        this.text = WingdingsToUnicodeConverter.Convert(this.text);
+                        // Single char width is less than availableWidth
+                        // Give up splitting
+                        secondPart = null;
+                        return this;
                     }
-
-                    if (this.text.Length > 0)
-                    {
-                        base.charIndex = text[0].Index;
-                        if (word.Type == WordType.WhiteSpace)
-                        {
-                            width = CalcSpaceWidth(this.text, ff);
-                        }
-                        else
-                        {
-                            width = Renderer.graphics.MeasureString(this.text, ff).Width;
-                        }
-                    }
-                    SKFontMetrics metrics = ff.Metrics;
-                    height = metrics.Descent - metrics.Ascent + metrics.Leading;
-                    baseLine = -metrics.Ascent;
-                    descent = metrics.Descent;
-                    if (style.BaseLine == HtmlTextRenderer.BaseLine.Subscript)
-                        descent += height * 0.45f;
-                }
-            }
-
-            #endregion Public Constructors
-
-            #region Public Methods
-
-            internal float CalcSpaceWidth(string text, SKFont ff)
-            {
-                return Renderer.graphics.MeasureString("1" + text + "2", ff).Width
-                    - Renderer.graphics.MeasureString("12", ff).Width;
-            }
-
-            internal override void Draw()
-            {
-                using (SKFont font = style.GetFont())
-                using (SKPaint brush = new SKPaint { Color = Style.Color, IsAntialias = true, Style = SKPaintStyle.Fill })
-                {
-                    renderer.graphics.DrawString(text, font, brush, Left, Top, null);
-                }
-            }
-
-            /// <summary>
-            /// Gets brush.
-            /// </summary>
-            /// <returns>The Brush object.</returns>
-            public Brush GetBrush()
-            {
-                return new SolidBrush(Style.Color);
-            }
-
-            internal override Run Split(float availableWidth, out Run secondPart)
-            {
-                int size = chars.Count;
-                if (size == 0)
-                {
-                    secondPart = this;
-                    return null;
-                }
-
-                int from = 0;
-                int point = size / 2;
-                int to = size;
-                Run r = null;
-                while (to - from > 1)
-                {
-                    List<CharWithIndex> list = new List<CharWithIndex>();
-                    for (int i = 0; i < point; i++)
-                        list.Add(chars[i]);
-                    r = new RunText(renderer, word, style, list, left, charIndex);
-                    if (r.Width > availableWidth)
-                    {
-                        if (point == 1 && left == 0)
-                        {
-                            // Single char width is less than availableWidth
-                            // Give up splitting
-                            secondPart = null;
-                            return this;
-                        }
-                        to = point;
-                        point = (to + from) / 2;
-                    }
-                    else
-                    {
-                        from = point;
-                        point = (to + from) / 2;
-                    }
-                }
-                if (to < 2)
-                {
-                    secondPart = this;
-                    return null;
+                    to = point;
+                    point = (to + from) / 2;
                 }
                 else
                 {
-                    List<CharWithIndex> list = new List<CharWithIndex>();
-                    for (int i = point; i < size; i++)
-                        list.Add(chars[i]);
-                    secondPart = new RunText(renderer, word, style, list, left + r.Width, charIndex);
-                    list.Clear();
-                    for (int i = 0; i < point; i++)
-                        list.Add(chars[i]);
-                    r = new RunText(renderer, word, style, list, left, charIndex);
-                    return r;
+                    from = point;
+                    point = (to + from) / 2;
                 }
             }
-
-            #endregion Public Methods
-
-            #region Private Methods
-
-            private string GetString(List<CharWithIndex> str)
+            if (to < 2)
             {
-                renderer.cacheString.Clear();
-                foreach (CharWithIndex ch in str)
-                {
-                    renderer.cacheString.Append(ch.Char);
-                }
-                return renderer.cacheString.ToString();
+                secondPart = this;
+                return null;
             }
+            else
+            {
+                List<CharWithIndex> list = new List<CharWithIndex>();
+                for (int i = point; i < size; i++)
+                    list.Add(chars[i]);
+                secondPart = new RunText(renderer, word, style, list, left + r.Width, charIndex);
+                list.Clear();
+                for (int i = 0; i < point; i++)
+                    list.Add(chars[i]);
+                r = new RunText(renderer, word, style, list, left, charIndex);
+                return r;
+            }
+        }
 
-            #endregion Private Methods
+        #endregion Public Methods
+
+        #region Private Methods
+
+        private string GetString(List<CharWithIndex> str)
+        {
+            renderer.cacheString.Clear();
+            foreach (CharWithIndex ch in str)
+            {
+                renderer.cacheString.Append(ch.Char);
+            }
+            return renderer.cacheString.ToString();
+        }
+
+        #endregion Private Methods
+    }
+
+    /// <summary>
+    /// Represents the word.
+    /// </summary>
+    public class Word
+    {
+        #region Private Fields
+
+        private float baseLine;
+        private float descent;
+        private float height;
+        private Line line;
+        private HtmlTextRenderer renderer;
+        private List<Run> runs;
+        private WordType type;
+
+        #endregion Private Fields
+
+        #region Public Properties
+
+        /// <summary>
+        /// Gets baseline.
+        /// </summary>
+        public float BaseLine { get { return baseLine; } }
+
+        /// <summary>
+        /// Gets descent value.
+        /// </summary>
+        public float Descent { get { return descent; } }
+
+        /// <summary>
+        /// Gets the height.
+        /// </summary>
+        public float Height { get { return height; } }
+
+        /// <summary>
+        /// Gets the line.
+        /// </summary>
+        public Line Line
+        {
+            get { return line; }
+            internal set { line = value; }
         }
 
         /// <summary>
-        /// Represents the word.
+        /// Gets the renderer.
         /// </summary>
-        public class Word
+        public HtmlTextRenderer Renderer
         {
-            #region Private Fields
-
-            private float baseLine;
-            private float descent;
-            private float height;
-            private Line line;
-            private HtmlTextRenderer renderer;
-            private List<Run> runs;
-            private WordType type;
-
-            #endregion Private Fields
-
-            #region Public Properties
-
-            /// <summary>
-            /// Gets baseline.
-            /// </summary>
-            public float BaseLine { get { return baseLine; } }
-
-            /// <summary>
-            /// Gets descent value.
-            /// </summary>
-            public float Descent { get { return descent; } }
-
-            /// <summary>
-            /// Gets the height.
-            /// </summary>
-            public float Height { get { return height; } }
-
-            /// <summary>
-            /// Gets the line.
-            /// </summary>
-            public Line Line
-            {
-                get { return line; }
-                internal set { line = value; }
-            }
-
-            /// <summary>
-            /// Gets the renderer.
-            /// </summary>
-            public HtmlTextRenderer Renderer
-            {
-                get { return renderer; }
-            }
-
-            /// <summary>
-            /// Gets a list of runs.
-            /// </summary>
-            public List<Run> Runs
-            {
-                get { return runs; }
-            }
-
-            /// <summary>
-            /// Gets the word type.
-            /// </summary>
-            public WordType Type
-            {
-                get { return type; }
-            }
-
-            #endregion Public Properties
-
-            #region Public Constructors
-
-            internal Word(HtmlTextRenderer renderer, Line line)
-            {
-                this.renderer = renderer;
-                runs = new List<Run>();
-                this.line = line;
-            }
-
-            internal Word(HtmlTextRenderer renderer, Line line, WordType type)
-            {
-                this.renderer = renderer;
-                runs = new List<Run>();
-                this.line = line;
-                this.type = type;
-            }
-
-            #endregion Public Constructors
-
-            #region Internal Methods
-
-            internal void CalcMetrics()
-            {
-                baseLine = 0;
-                descent = 0;
-                foreach (Run run in Runs)
-                {
-                    baseLine = Math.Max(baseLine, run.BaseLine);
-                    descent = Math.Max(descent, run.Descent);
-                }
-                height = baseLine + descent;
-            }
-
-            #endregion Internal Methods
+            get { return renderer; }
         }
 
-        #endregion Public Classes
-
-        #region Internal Classes
-
-        internal class SimpleFastReportHtmlElement
+        /// <summary>
+        /// Gets a list of runs.
+        /// </summary>
+        public List<Run> Runs
         {
-            #region Public Fields
+            get { return runs; }
+        }
 
-            public Dictionary<string, string> attributes;
-            public bool isSelfClosed;
-            public bool isEnd;
-            public string name;
+        /// <summary>
+        /// Gets the word type.
+        /// </summary>
+        public WordType Type
+        {
+            get { return type; }
+        }
 
-            #endregion Public Fields
+        #endregion Public Properties
 
-            #region Private Fields
+        #region Public Constructors
 
-            private Dictionary<string, string> style;
+        internal Word(HtmlTextRenderer renderer, Line line)
+        {
+            this.renderer = renderer;
+            runs = new List<Run>();
+            this.line = line;
+        }
 
-            #endregion Private Fields
+        internal Word(HtmlTextRenderer renderer, Line line, WordType type)
+        {
+            this.renderer = renderer;
+            runs = new List<Run>();
+            this.line = line;
+            this.type = type;
+        }
 
-            #region Public Properties
+        #endregion Public Constructors
 
-            public bool IsSelfClosed
+        #region Internal Methods
+
+        internal void CalcMetrics()
+        {
+            baseLine = 0;
+            descent = 0;
+            foreach (Run run in Runs)
             {
-                get
-                {
-                    switch (name)
-                    {
-                        case "img":
-                        case "br":
-                            return true;
-
-                        default:
-                            return isSelfClosed;
-                    }
-                }
-                set { isSelfClosed = value; }
+                baseLine = Math.Max(baseLine, run.BaseLine);
+                descent = Math.Max(descent, run.Descent);
             }
+            height = baseLine + descent;
+        }
 
-            /// <summary>
-            /// Be care generates dictionary only one time
-            /// </summary>
-            public Dictionary<string, string> Style
+        #endregion Internal Methods
+    }
+
+    #endregion Public Classes
+
+    #region Internal Classes
+
+    internal class SimpleFastReportHtmlElement
+    {
+        #region Public Fields
+
+        public Dictionary<string, string> attributes;
+        public bool isSelfClosed;
+        public bool isEnd;
+        public string name;
+
+        #endregion Public Fields
+
+        #region Private Fields
+
+        private Dictionary<string, string> style;
+
+        #endregion Private Fields
+
+        #region Public Properties
+
+        public bool IsSelfClosed
+        {
+            get
             {
-                get
+                switch (name)
                 {
-                    if (style == null && attributes != null && attributes.ContainsKey("style"))
+                    case "img":
+                    case "br":
+                        return true;
+
+                    default:
+                        return isSelfClosed;
+                }
+            }
+            set { isSelfClosed = value; }
+        }
+
+        /// <summary>
+        /// Be care generates dictionary only one time
+        /// </summary>
+        public Dictionary<string, string> Style
+        {
+            get
+            {
+                if (style == null && attributes != null && attributes.ContainsKey("style"))
+                {
+                    string styleString = attributes["style"];
+                    style = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (string kv in styleString.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
                     {
-                        string styleString = attributes["style"];
-                        style = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                        foreach (string kv in styleString.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                        string[] strs = kv.Split(':');
+                        if (strs.Length == 2)
                         {
-                            string[] strs = kv.Split(':');
-                            if (strs.Length == 2)
-                            {
-                                style[strs[0]] = strs[1];
-                            }
+                            style[strs[0]] = strs[1];
                         }
                     }
-                    return style;
                 }
+                return style;
             }
-
-            #endregion Public Properties
-
-            #region Public Constructors
-
-            public SimpleFastReportHtmlElement(string name)
-            {
-                this.name = name;
-            }
-
-            public SimpleFastReportHtmlElement(string name, Dictionary<string, string> attributes)
-            {
-                this.name = name;
-                this.attributes = attributes;
-            }
-
-            public SimpleFastReportHtmlElement(string name, bool isEnd)
-            {
-                this.name = name;
-                this.isEnd = isEnd;
-            }
-
-            public SimpleFastReportHtmlElement(string name, bool isBegin, Dictionary<string, string> attributes)
-            {
-                this.name = name;
-                this.isEnd = isBegin;
-                this.attributes = attributes;
-            }
-
-            public SimpleFastReportHtmlElement(string name, bool isBegin, bool isSelfClosed)
-            {
-                this.name = name;
-                this.isEnd = isBegin;
-                this.IsSelfClosed = isSelfClosed;
-            }
-
-            public SimpleFastReportHtmlElement(string name, bool isBegin, bool isSelfClosed, Dictionary<string, string> attributes)
-            {
-                this.name = name;
-                this.isEnd = isBegin;
-                this.IsSelfClosed = isSelfClosed;
-                this.attributes = attributes;
-            }
-
-            #endregion Public Constructors
-
-            #region Public Methods
-
-            public override string ToString()
-            {
-                StringBuilder sb = new StringBuilder();
-                sb.Append("<");
-                if (isEnd)
-                    sb.Append("/");
-                sb.Append(name);
-                if (attributes != null)
-                {
-                    foreach (KeyValuePair<string, string> kv in attributes)
-                    {
-                        sb.Append(" ");
-                        sb.Append(kv.Key);
-                        sb.Append("=\"");
-                        sb.Append(kv.Value);
-                        sb.Append("\"");
-                    }
-                }
-                if (IsSelfClosed)
-                    sb.Append('/');
-                sb.Append(">");
-                return sb.ToString();
-            }
-
-            #endregion Public Methods
         }
 
-        internal class SimpleFastReportHtmlReader
+        #endregion Public Properties
+
+        #region Public Constructors
+
+        public SimpleFastReportHtmlElement(string name)
         {
-            #region Private Fields
+            this.name = name;
+        }
 
-            private CharWithIndex @char;
-            private SimpleFastReportHtmlElement element;
-            private int lastPosition;
-            private int position;
-            private string substring;
-            private string text;
+        public SimpleFastReportHtmlElement(string name, Dictionary<string, string> attributes)
+        {
+            this.name = name;
+            this.attributes = attributes;
+        }
 
-            #endregion Private Fields
+        public SimpleFastReportHtmlElement(string name, bool isEnd)
+        {
+            this.name = name;
+            this.isEnd = isEnd;
+        }
 
-            #region Public Properties
+        public SimpleFastReportHtmlElement(string name, bool isBegin, Dictionary<string, string> attributes)
+        {
+            this.name = name;
+            this.isEnd = isBegin;
+            this.attributes = attributes;
+        }
 
-            public CharWithIndex Character
+        public SimpleFastReportHtmlElement(string name, bool isBegin, bool isSelfClosed)
+        {
+            this.name = name;
+            this.isEnd = isBegin;
+            this.IsSelfClosed = isSelfClosed;
+        }
+
+        public SimpleFastReportHtmlElement(string name, bool isBegin, bool isSelfClosed, Dictionary<string, string> attributes)
+        {
+            this.name = name;
+            this.isEnd = isBegin;
+            this.IsSelfClosed = isSelfClosed;
+            this.attributes = attributes;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Methods
+
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append("<");
+            if (isEnd)
+                sb.Append("/");
+            sb.Append(name);
+            if (attributes != null)
             {
-                get
+                foreach (KeyValuePair<string, string> kv in attributes)
                 {
-                    return @char;
+                    sb.Append(" ");
+                    sb.Append(kv.Key);
+                    sb.Append("=\"");
+                    sb.Append(kv.Value);
+                    sb.Append("\"");
                 }
             }
+            if (IsSelfClosed)
+                sb.Append('/');
+            sb.Append(">");
+            return sb.ToString();
+        }
 
-            public SimpleFastReportHtmlElement Element
+        #endregion Public Methods
+    }
+
+    internal class SimpleFastReportHtmlReader
+    {
+        #region Private Fields
+
+        private CharWithIndex @char;
+        private SimpleFastReportHtmlElement element;
+        private int lastPosition;
+        private int position;
+        private string substring;
+        private string text;
+
+        #endregion Private Fields
+
+        #region Public Properties
+
+        public CharWithIndex Character
+        {
+            get
             {
-                get
-                {
-                    return element;
-                }
+                return @char;
             }
+        }
 
-            public bool IsEOF
+        public SimpleFastReportHtmlElement Element
+        {
+            get
             {
-                get
-                {
-                    return position >= text.Length;
-                }
+                return element;
             }
+        }
 
-            public bool IsNotEOF
+        public bool IsEOF
+        {
+            get
             {
-                get
-                {
-                    return position < text.Length;
-                }
+                return position >= text.Length;
             }
+        }
 
-            public int LastPosition
+        public bool IsNotEOF
+        {
+            get
             {
-                get { return lastPosition; }
+                return position < text.Length;
             }
+        }
 
-            public int Position
+        public int LastPosition
+        {
+            get { return lastPosition; }
+        }
+
+        public int Position
+        {
+            get
             {
-                get
-                {
-                    return position;
-                }
-                set
-                {
-                    position = value;
-                }
+                return position;
             }
-
-            #endregion Public Properties
-
-            #region Public Constructors
-
-            public SimpleFastReportHtmlReader(string text)
+            set
             {
-                this.text = text;
+                position = value;
             }
+        }
 
-            #endregion Public Constructors
+        #endregion Public Properties
 
-            #region Public Methods
+        #region Public Constructors
 
-            public static bool IsCanBeCharacterInTagName(char c)
+        public SimpleFastReportHtmlReader(string text)
+        {
+            this.text = text;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Methods
+
+        public static bool IsCanBeCharacterInTagName(char c)
+        {
+            if (c == ':') return true;
+            if ('A' <= c && c <= 'Z') return true;
+            if (c == '_') return true;
+            if ('a' <= c && c <= 'z') return true;
+            if (c == '-') return true;//
+            if (c == '.') return true;//
+            if ('0' <= c && c <= '9') return true;//
+            if (c == '\u00B7') return true;//
+            if ('\u00C0' <= c && c <= '\u00D6') return true;
+            if ('\u00D8' <= c && c <= '\u00F6') return true;
+            if ('\u00F8' <= c && c <= '\u02FF') return true;
+            if ('\u0300' <= c && c <= '\u036F') return true;//
+            if ('\u0370' <= c && c <= '\u037D') return true;
+            if ('\u037F' <= c && c <= '\u1FFF') return true;
+            if ('\u200C' <= c && c <= '\u200D') return true;
+            if ('\u203F' <= c && c <= '\u2040') return true;//
+            if ('\u2070' <= c && c <= '\u218F') return true;
+            if ('\u2C00' <= c && c <= '\u2FEF') return true;
+            if ('\u3001' <= c && c <= '\uD7FF') return true;
+            if ('\uF900' <= c && c <= '\uFDCF') return true;
+            if ('\uFDF0' <= c && c <= '\uFFFD') return true;
+            return false;
+        }
+
+        public static bool IsCanBeFirstCharacterInTagName(char c)
+        {
+            if (c == ':') return true;
+            if ('A' <= c && c <= 'Z') return true;
+            if (c == '_') return true;
+            if ('a' <= c && c <= 'z') return true;
+            if ('\u00C0' <= c && c <= '\u00D6') return true;
+            if ('\u00D8' <= c && c <= '\u00F6') return true;
+            if ('\u00F8' <= c && c <= '\u02FF') return true;
+            if ('\u0370' <= c && c <= '\u037D') return true;
+            if ('\u037F' <= c && c <= '\u1FFF') return true;
+            if ('\u200C' <= c && c <= '\u200D') return true;
+            if ('\u2070' <= c && c <= '\u218F') return true;
+            if ('\u2C00' <= c && c <= '\u2FEF') return true;
+            if ('\u3001' <= c && c <= '\uD7FF') return true;
+            if ('\uF900' <= c && c <= '\uFDCF') return true;
+            if ('\uFDF0' <= c && c <= '\uFFFD') return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Return true if read char
+        /// </summary>
+        /// <returns></returns>
+        public bool Read()
+        {
+            lastPosition = position;
+            switch ((@char = new CharWithIndex(text[position], position)).Char)
             {
-                if (c == ':') return true;
-                if ('A' <= c && c <= 'Z') return true;
-                if (c == '_') return true;
-                if ('a' <= c && c <= 'z') return true;
-                if (c == '-') return true;//
-                if (c == '.') return true;//
-                if ('0' <= c && c <= '9') return true;//
-                if (c == '\u00B7') return true;//
-                if ('\u00C0' <= c && c <= '\u00D6') return true;
-                if ('\u00D8' <= c && c <= '\u00F6') return true;
-                if ('\u00F8' <= c && c <= '\u02FF') return true;
-                if ('\u0300' <= c && c <= '\u036F') return true;//
-                if ('\u0370' <= c && c <= '\u037D') return true;
-                if ('\u037F' <= c && c <= '\u1FFF') return true;
-                if ('\u200C' <= c && c <= '\u200D') return true;
-                if ('\u203F' <= c && c <= '\u2040') return true;//
-                if ('\u2070' <= c && c <= '\u218F') return true;
-                if ('\u2C00' <= c && c <= '\u2FEF') return true;
-                if ('\u3001' <= c && c <= '\uD7FF') return true;
-                if ('\uF900' <= c && c <= '\uFDCF') return true;
-                if ('\uFDF0' <= c && c <= '\uFFFD') return true;
-                return false;
-            }
+                case '&':
+                    if (Converter.FromHtmlEntities(text, ref position, out substring))
+                        @char.Char = substring[0];
+                    position++;
+                    return true;
 
-            public static bool IsCanBeFirstCharacterInTagName(char c)
-            {
-                if (c == ':') return true;
-                if ('A' <= c && c <= 'Z') return true;
-                if (c == '_') return true;
-                if ('a' <= c && c <= 'z') return true;
-                if ('\u00C0' <= c && c <= '\u00D6') return true;
-                if ('\u00D8' <= c && c <= '\u00F6') return true;
-                if ('\u00F8' <= c && c <= '\u02FF') return true;
-                if ('\u0370' <= c && c <= '\u037D') return true;
-                if ('\u037F' <= c && c <= '\u1FFF') return true;
-                if ('\u200C' <= c && c <= '\u200D') return true;
-                if ('\u2070' <= c && c <= '\u218F') return true;
-                if ('\u2C00' <= c && c <= '\u2FEF') return true;
-                if ('\u3001' <= c && c <= '\uD7FF') return true;
-                if ('\uF900' <= c && c <= '\uFDCF') return true;
-                if ('\uFDF0' <= c && c <= '\uFFFD') return true;
-                return false;
-            }
-
-            /// <summary>
-            /// Return true if read char
-            /// </summary>
-            /// <returns></returns>
-            public bool Read()
-            {
-                lastPosition = position;
-                switch ((@char = new CharWithIndex(text[position], position)).Char)
-                {
-                    case '&':
-                        if (Converter.FromHtmlEntities(text, ref position, out substring))
-                            @char.Char = substring[0];
-                        position++;
-                        return true;
-
-                    case '<':
-                        element = GetElement(text, ref position);
-                        position++;
-                        if (element != null)
-                            switch (element.name)
-                            {
-                                case "br":
-                                    @char = new CharWithIndex('\n', lastPosition);
-                                    return true;
-
-                                default:
-                                    return false;
-                            }
-                        return true;
-                }
-                position++;
-                return true;
-            }
-
-            #endregion Public Methods
-
-            #region Private Methods
-
-            private SimpleFastReportHtmlElement GetElement(string line, ref int index)
-            {
-                int to = line.Length - 1;
-                int i = index + 1;
-                bool closed = false;
-                if (i <= to)
-                    if (closed = line[i] == '/')
-                        i++;
-                if (i <= to)
-                    if (!IsCanBeFirstCharacterInTagName(line[i]))
-                        return null;
-                for (i++; i <= to && line[i] != ' ' && line[i] != '>' && line[i] != '/'; i++)
-                {
-                    if (!IsCanBeCharacterInTagName(line[i]))
-                        return null;
-                }
-                if (i <= to)
-                {
-                    string tagName = line.Substring(index + (closed ? 2 : 1), i - index - (closed ? 2 : 1));
-                    Dictionary<string, string> attrs = null;
-                    if (!IsAvailableTagName(tagName))
-                        return null;
-                    if (line[i] == ' ')
-                    {
-                        //read attributes
-                        for (; i <= to && line[i] != '>' && line[i] != '/'; i++)
+                case '<':
+                    element = GetElement(text, ref position);
+                    position++;
+                    if (element != null)
+                        switch (element.name)
                         {
-                            for (; i <= to && line[i] == ' '; i++) ;
-                            if (line[i] == '>' || line[i] == '/') i--;
-                            else
-                            {
+                            case "br":
+                                @char = new CharWithIndex('\n', lastPosition);
+                                return true;
+
+                            default:
+                                return false;
+                        }
+                    return true;
+            }
+            position++;
+            return true;
+        }
+
+        #endregion Public Methods
+
+        #region Private Methods
+
+        private SimpleFastReportHtmlElement GetElement(string line, ref int index)
+        {
+            int to = line.Length - 1;
+            int i = index + 1;
+            bool closed = false;
+            if (i <= to)
+                if (closed = line[i] == '/')
+                    i++;
+            if (i <= to)
+                if (!IsCanBeFirstCharacterInTagName(line[i]))
+                    return null;
+            for (i++; i <= to && line[i] != ' ' && line[i] != '>' && line[i] != '/'; i++)
+            {
+                if (!IsCanBeCharacterInTagName(line[i]))
+                    return null;
+            }
+            if (i <= to)
+            {
+                string tagName = line.Substring(index + (closed ? 2 : 1), i - index - (closed ? 2 : 1));
+                Dictionary<string, string> attrs = null;
+                if (!IsAvailableTagName(tagName))
+                    return null;
+                if (line[i] == ' ')
+                {
+                    //read attributes
+                    for (; i <= to && line[i] != '>' && line[i] != '/'; i++)
+                    {
+                        for (; i <= to && line[i] == ' '; i++) ;
+                        if (line[i] == '>' || line[i] == '/') i--;
+                        else
+                        {
+                            if (!IsCanBeFirstCharacterInTagName(line[i]))
+                                return null;
+                            int attrNameStartIndex = i;
+                            for (i++; i <= to && line[i] != '='; i++)
                                 if (!IsCanBeFirstCharacterInTagName(line[i]))
                                     return null;
-                                int attrNameStartIndex = i;
-                                for (i++; i <= to && line[i] != '='; i++)
-                                    if (!IsCanBeFirstCharacterInTagName(line[i]))
-                                        return null;
-                                int attrNameEndIndex = i; //index of =
-                                i++;
-                                if (i <= to && line[i] == '"')
-                                {//begin attr
-                                    int attrValueStartIndex = i + 1;
-                                    for (i++; i <= to && line[i] != '"'; i++)
+                            int attrNameEndIndex = i; //index of =
+                            i++;
+                            if (i <= to && line[i] == '"')
+                            {//begin attr
+                                int attrValueStartIndex = i + 1;
+                                for (i++; i <= to && line[i] != '"'; i++)
+                                {
+                                    switch (line[i])
                                     {
-                                        switch (line[i])
-                                        {
-                                            case '<': return null;
-                                            case '>': return null;
-                                        }
+                                        case '<': return null;
+                                        case '>': return null;
                                     }
-                                    if (i <= to)
-                                    {
-                                        string attrName = line.Substring(attrNameStartIndex, attrNameEndIndex - attrNameStartIndex);
-                                        string attrValue = line.Substring(attrValueStartIndex, i - attrValueStartIndex);
-                                        if (attrs == null) attrs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                                        attrs[attrName] = attrValue;
-                                    }
+                                }
+                                if (i <= to)
+                                {
+                                    string attrName = line.Substring(attrNameStartIndex, attrNameEndIndex - attrNameStartIndex);
+                                    string attrValue = line.Substring(attrValueStartIndex, i - attrValueStartIndex);
+                                    if (attrs == null) attrs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                                    attrs[attrName] = attrValue;
                                 }
                             }
                         }
                     }
-                    if (i <= to)
+                }
+                if (i <= to)
+                {
+                    if (line[i] == '>')
                     {
-                        if (line[i] == '>')
-                        {
-                            index = i;
-                            return new SimpleFastReportHtmlElement(tagName, closed, false, attrs);
-                        }
-                        if (line[i] == '/' && i < to && line[i + 1] == '>')
-                        {
-                            index = i + 1;
-                            return new SimpleFastReportHtmlElement(tagName, closed, true, attrs);
-                        }
+                        index = i;
+                        return new SimpleFastReportHtmlElement(tagName, closed, false, attrs);
                     }
-                }
-                return null;
-            }
-
-            private bool IsAvailableTagName(string tagName)
-            {
-                switch (tagName)
-                {
-                    case "b":
-                    case "br":
-                    case "i":
-                    case "u":
-                    case "sub":
-                    case "sup":
-                    case "img":
-                    //case "font":
-                    case "strike":
-                    case "span":
-                        return true;
-                }
-                return false;
-            }
-
-            #endregion Private Methods
-        }
-
-        /// <summary>
-        /// Represents a style used in HtmlTags mode. Color does not affect the equals function.
-        /// </summary>
-        public class StyleDescriptor
-        {
-            #region Private Fields
-
-            private static readonly SKColor DefaultColor = SKColors.Transparent;
-            private SKColor backgroundColor;
-            private BaseLine baseLine;
-            private SKColor color;
-            private FontFamily font;
-            private FontStyle fontStyle;
-            private float size;
-
-            #endregion Private Fields
-
-            #region Public Properties
-
-            /// <summary>
-            /// Gets the background color.
-            /// </summary>
-            public SKColor BackgroundColor
-            {
-                get { return backgroundColor; }
-                internal set { backgroundColor = value; }
-            }
-
-            /// <summary>
-            /// Gets the baseline.
-            /// </summary>
-            public BaseLine BaseLine
-            {
-                get { return baseLine; }
-                internal set { baseLine = value; }
-            }
-
-            /// <summary>
-            /// Gets the text color.
-            /// </summary>
-            public SKColor Color
-            {
-                get { return color; }
-                internal set { color = value; }
-            }
-
-            /// <summary>
-            /// Gets the base font.
-            /// </summary>
-            public FontFamily Font
-            {
-                get { return font; }
-                internal set { font = value; }
-            }
-
-            /// <summary>
-            /// Gets the font style.
-            /// </summary>
-            public FontStyle FontStyle
-            {
-                get { return fontStyle; }
-                internal set { fontStyle = value; }
-            }
-
-            /// <summary>
-            /// Gets the font size.
-            /// </summary>
-            public float Size
-            {
-                get { return size; }
-                internal set { size = value; }
-            }
-
-            #endregion Public Properties
-
-            #region Public Constructors
-
-            internal StyleDescriptor(FontStyle fontStyle, SKColor color, BaseLine baseLine, FontFamily font, float size)
-            {
-                this.fontStyle = fontStyle;
-                this.color = color;
-                this.baseLine = baseLine;
-                this.font = font;
-                this.size = size;
-                backgroundColor = DefaultColor;
-            }
-
-            internal StyleDescriptor(StyleDescriptor styleDescriptor)
-            {
-                fontStyle = styleDescriptor.fontStyle;
-                color = styleDescriptor.color;
-                baseLine = styleDescriptor.baseLine;
-                font = styleDescriptor.font;
-                size = styleDescriptor.size;
-                backgroundColor = styleDescriptor.backgroundColor;
-            }
-
-            #endregion Public Constructors
-
-            #region Public Methods
-
-            /// <inheritdoc/>
-            public override bool Equals(object obj)
-            {
-                StyleDescriptor descriptor = obj as StyleDescriptor;
-                return descriptor != null &&
-                       baseLine == descriptor.baseLine &&
-                       font == descriptor.font &&
-                       fontStyle == descriptor.fontStyle &&
-                       size == descriptor.size;
-            }
-
-            /// <summary>
-            /// returns true if objects realy equals
-            /// </summary>
-            /// <param name="obj"></param>
-            /// <returns></returns>
-            public bool FullEquals(StyleDescriptor obj)
-            {
-                return obj != null && GetHashCode() == obj.GetHashCode() &&
-                    this.Equals(obj) &&
-                    color.Equals(obj.color) &&
-                    backgroundColor.Equals(obj.backgroundColor);
-            }
-
-            /// <summary>
-            /// Gets the actual font for this run.
-            /// </summary>
-            /// <returns>The Font object.</returns>
-            public SKFont GetFont()
-            {
-                float fontSize = size;
-                if (baseLine != BaseLine.Normal)
-                    fontSize *= 0.6f;
-
-                FontStyle fontStyle = FontStyle;
-                fontStyle = fontStyle & ~FontStyle.Underline & ~FontStyle.Strikeout;
-                return DrawUtils.CreateFont(font?.Name, fontSize, fontStyle);
-            }
-
-            /// <inheritdoc/>
-            public override int GetHashCode()
-            {
-                int hashCode = -1631016721;
-                unchecked
-                {
-                    hashCode = hashCode * -1521134295 + baseLine.GetHashCode();
-                    hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(font.Name);
-                    hashCode = hashCode * -1521134295 + fontStyle.GetHashCode();
-                    hashCode = hashCode * -1521134295 + size.GetHashCode();
-                }
-                return hashCode;
-            }
-
-            /// <summary>
-            /// Converts the run to html string.
-            /// </summary>
-            /// <param name="sb">The string builder.</param>
-            /// <param name="close">Whether to close style tags.</param>
-            public void ToHtml(FastString sb, bool close)
-            {
-                float fontsize = size / DrawUtils.ScreenDpiFX;
-                if (close)
-                {
-                    switch (baseLine)
+                    if (line[i] == '/' && i < to && line[i + 1] == '>')
                     {
-                        case BaseLine.Subscript: sb.Append("</sub>"); break;
-                        case BaseLine.Superscript: sb.Append("</sup>"); break;
-                    }
-                    sb.Append("</span>");
-
-                    if ((fontStyle & FontStyle.Strikeout) == FontStyle.Strikeout) sb.Append("</strike>");
-                    if ((fontStyle & FontStyle.Underline) == FontStyle.Underline) sb.Append("</u>");
-                    if ((fontStyle & FontStyle.Italic) == FontStyle.Italic) sb.Append("</i>");
-                    if ((fontStyle & FontStyle.Bold) == FontStyle.Bold) sb.Append("</b>");
-
-                }
-                else
-                {
-                    if ((fontStyle & FontStyle.Bold) == FontStyle.Bold) sb.Append("<b>");
-                    if ((fontStyle & FontStyle.Italic) == FontStyle.Italic) sb.Append("<i>");
-                    if ((fontStyle & FontStyle.Underline) == FontStyle.Underline) sb.Append("<u>");
-                    if ((fontStyle & FontStyle.Strikeout) == FontStyle.Strikeout) sb.Append("<strike>");
-
-                    sb.Append("<span style=\"");
-                    if (backgroundColor.Alpha > 0) sb.Append(String.Format(CultureInfo, "background-color:rgba({0},{1},{2},{3});", backgroundColor.Red, backgroundColor.Green, backgroundColor.Blue, ((float)backgroundColor.Alpha) / 255f));
-                    if (color.Alpha > 0) sb.Append(String.Format(CultureInfo, "color:rgba({0},{1},{2},{3});", color.Red, color.Green, color.Blue, ((float)color.Alpha) / 255f));
-                    if (font != null) { sb.Append("font-family:"); sb.Append("\'"+font.Name+"\'"); sb.Append(";"); }
-                    if (fontsize > 0) { sb.Append("font-size:"); sb.Append(fontsize.ToString(CultureInfo)); sb.Append("pt;"); }
-
-                    sb.Append("\">");
-                    switch (baseLine)
-                    {
-                        case BaseLine.Subscript: sb.Append("<sub>"); break;
-                        case BaseLine.Superscript: sb.Append("<sup>"); break;
+                        index = i + 1;
+                        return new SimpleFastReportHtmlElement(tagName, closed, true, attrs);
                     }
                 }
             }
-
-            #endregion Public Methods
+            return null;
         }
 
-        private class OwnHashSet<T>
+        private bool IsAvailableTagName(string tagName)
         {
-            private Dictionary<T, object> internalDictionary;
-            private object FHashSetObject;
-            public int Count { get { return internalDictionary.Count; } }
-
-            public OwnHashSet()
+            switch (tagName)
             {
-                internalDictionary = new Dictionary<T, object>();
-                FHashSetObject = new object();
+                case "b":
+                case "br":
+                case "i":
+                case "u":
+                case "sub":
+                case "sup":
+                case "img":
+                //case "font":
+                case "strike":
+                case "span":
+                    return true;
             }
-
-            public void Clear()
-            {
-                internalDictionary.Clear();
-            }
-
-            public bool Contains(T value)
-            {
-                return internalDictionary.ContainsKey(value);
-            }
-
-            public void Add(T value)
-            {
-                internalDictionary.Add(value, FHashSetObject);
-            }
-        }
-        #endregion Internal Classes
-
-        #region IDisposable Support
-
-        private bool disposedValue = false;
-
-        /// <summary>
-        /// Disposes the object.
-        /// </summary>
-        /// <param name="disposing">true if disposing manually.</param>
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposedValue)
-            {
-                if (disposing)
-                {
-                    format.Dispose();
-                    format = null;
-                }
-
-                disposedValue = true;
-            }
+            return false;
         }
 
-        /// <summary>
-        /// Disposes the object.
-        /// </summary>
-        public void Dispose()
-        {
-            Dispose(true);
-        }
-
-        #endregion IDisposable Support
+        #endregion Private Methods
     }
 
     /// <summary>
-    /// Class that converts strings with Wingdings characters to Unicode strings.
+    /// Represents a style used in HtmlTags mode. Color does not affect the equals function.
     /// </summary>
-    public static class WingdingsToUnicodeConverter
+    public class StyleDescriptor
     {
+        #region Private Fields
+
+        private static readonly SKColor DefaultColor = SKColors.Transparent;
+        private SKColor backgroundColor;
+        private BaseLine baseLine;
+        private SKColor color;
+        private FontFamily font;
+        private FontStyle fontStyle;
+        private float size;
+
+        #endregion Private Fields
+
+        #region Public Properties
+
         /// <summary>
-        /// Converts string with Wingdings characters to its Unicode analog.
+        /// Gets the background color.
         /// </summary>
-        /// <param name="str">The string that should be converted.</param>
-        /// <returns></returns>
-        public static string Convert(string str)
+        public SKColor BackgroundColor
         {
-            char[] chars = str.ToCharArray();
-            for (int i = 0; i < chars.Length; i++)
+            get { return backgroundColor; }
+            internal set { backgroundColor = value; }
+        }
+
+        /// <summary>
+        /// Gets the baseline.
+        /// </summary>
+        public BaseLine BaseLine
+        {
+            get { return baseLine; }
+            internal set { baseLine = value; }
+        }
+
+        /// <summary>
+        /// Gets the text color.
+        /// </summary>
+        public SKColor Color
+        {
+            get { return color; }
+            internal set { color = value; }
+        }
+
+        /// <summary>
+        /// Gets the base font.
+        /// </summary>
+        public FontFamily Font
+        {
+            get { return font; }
+            internal set { font = value; }
+        }
+
+        /// <summary>
+        /// Gets the font style.
+        /// </summary>
+        public FontStyle FontStyle
+        {
+            get { return fontStyle; }
+            internal set { fontStyle = value; }
+        }
+
+        /// <summary>
+        /// Gets the font size.
+        /// </summary>
+        public float Size
+        {
+            get { return size; }
+            internal set { size = value; }
+        }
+
+        #endregion Public Properties
+
+        #region Public Constructors
+
+        internal StyleDescriptor(FontStyle fontStyle, SKColor color, BaseLine baseLine, FontFamily font, float size)
+        {
+            this.fontStyle = fontStyle;
+            this.color = color;
+            this.baseLine = baseLine;
+            this.font = font;
+            this.size = size;
+            backgroundColor = DefaultColor;
+        }
+
+        internal StyleDescriptor(StyleDescriptor styleDescriptor)
+        {
+            fontStyle = styleDescriptor.fontStyle;
+            color = styleDescriptor.color;
+            baseLine = styleDescriptor.baseLine;
+            font = styleDescriptor.font;
+            size = styleDescriptor.size;
+            backgroundColor = styleDescriptor.backgroundColor;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Methods
+
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            StyleDescriptor descriptor = obj as StyleDescriptor;
+            return descriptor != null &&
+                   baseLine == descriptor.baseLine &&
+                   font == descriptor.font &&
+                   fontStyle == descriptor.fontStyle &&
+                   size == descriptor.size;
+        }
+
+        /// <summary>
+        /// returns true if objects realy equals
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public bool FullEquals(StyleDescriptor obj)
+        {
+            return obj != null && GetHashCode() == obj.GetHashCode() &&
+                this.Equals(obj) &&
+                color.Equals(obj.color) &&
+                backgroundColor.Equals(obj.backgroundColor);
+        }
+
+        /// <summary>
+        /// Gets the actual font for this run.
+        /// </summary>
+        /// <returns>The Font object.</returns>
+        public SKFont GetFont()
+        {
+            float fontSize = size;
+            if (baseLine != BaseLine.Normal)
+                fontSize *= 0.6f;
+
+            FontStyle fontStyle = FontStyle;
+            fontStyle = fontStyle & ~FontStyle.Underline & ~FontStyle.Strikeout;
+            return DrawUtils.CreateFont(font?.Name, fontSize, fontStyle);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            int hashCode = -1631016721;
+            unchecked
             {
-                if (chars[i] >= 0x20 && chars[i] <= 0xFF)
+                hashCode = hashCode * -1521134295 + baseLine.GetHashCode();
+                hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(font.Name);
+                hashCode = hashCode * -1521134295 + fontStyle.GetHashCode();
+                hashCode = hashCode * -1521134295 + size.GetHashCode();
+            }
+            return hashCode;
+        }
+
+        /// <summary>
+        /// Converts the run to html string.
+        /// </summary>
+        /// <param name="sb">The string builder.</param>
+        /// <param name="close">Whether to close style tags.</param>
+        public void ToHtml(FastString sb, bool close)
+        {
+            float fontsize = size / DrawUtils.ScreenDpiFX;
+            if (close)
+            {
+                switch (baseLine)
                 {
-                    chars[i] = (char)(0xF000 + chars[i]);
+                    case BaseLine.Subscript: sb.Append("</sub>"); break;
+                    case BaseLine.Superscript: sb.Append("</sup>"); break;
+                }
+                sb.Append("</span>");
+
+                if ((fontStyle & FontStyle.Strikeout) == FontStyle.Strikeout) sb.Append("</strike>");
+                if ((fontStyle & FontStyle.Underline) == FontStyle.Underline) sb.Append("</u>");
+                if ((fontStyle & FontStyle.Italic) == FontStyle.Italic) sb.Append("</i>");
+                if ((fontStyle & FontStyle.Bold) == FontStyle.Bold) sb.Append("</b>");
+
+            }
+            else
+            {
+                if ((fontStyle & FontStyle.Bold) == FontStyle.Bold) sb.Append("<b>");
+                if ((fontStyle & FontStyle.Italic) == FontStyle.Italic) sb.Append("<i>");
+                if ((fontStyle & FontStyle.Underline) == FontStyle.Underline) sb.Append("<u>");
+                if ((fontStyle & FontStyle.Strikeout) == FontStyle.Strikeout) sb.Append("<strike>");
+
+                sb.Append("<span style=\"");
+                if (backgroundColor.Alpha > 0) sb.Append(String.Format(CultureInfo, "background-color:rgba({0},{1},{2},{3});", backgroundColor.Red, backgroundColor.Green, backgroundColor.Blue, ((float)backgroundColor.Alpha) / 255f));
+                if (color.Alpha > 0) sb.Append(String.Format(CultureInfo, "color:rgba({0},{1},{2},{3});", color.Red, color.Green, color.Blue, ((float)color.Alpha) / 255f));
+                if (font != null) { sb.Append("font-family:"); sb.Append("\'" + font.Name + "\'"); sb.Append(";"); }
+                if (fontsize > 0) { sb.Append("font-size:"); sb.Append(fontsize.ToString(CultureInfo)); sb.Append("pt;"); }
+
+                sb.Append("\">");
+                switch (baseLine)
+                {
+                    case BaseLine.Subscript: sb.Append("<sub>"); break;
+                    case BaseLine.Superscript: sb.Append("<sup>"); break;
                 }
             }
-            return new string(chars);
         }
+
+        #endregion Public Methods
+    }
+
+    private class OwnHashSet<T>
+    {
+        private Dictionary<T, object> internalDictionary;
+        private object FHashSetObject;
+        public int Count { get { return internalDictionary.Count; } }
+
+        public OwnHashSet()
+        {
+            internalDictionary = new Dictionary<T, object>();
+            FHashSetObject = new object();
+        }
+
+        public void Clear()
+        {
+            internalDictionary.Clear();
+        }
+
+        public bool Contains(T value)
+        {
+            return internalDictionary.ContainsKey(value);
+        }
+
+        public void Add(T value)
+        {
+            internalDictionary.Add(value, FHashSetObject);
+        }
+    }
+    #endregion Internal Classes
+
+    #region IDisposable Support
+
+    private bool disposedValue = false;
+
+    /// <summary>
+    /// Disposes the object.
+    /// </summary>
+    /// <param name="disposing">true if disposing manually.</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!disposedValue)
+        {
+            if (disposing)
+            {
+                format.Dispose();
+                format = null;
+            }
+
+            disposedValue = true;
+        }
+    }
+
+    /// <summary>
+    /// Disposes the object.
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+    }
+
+    #endregion IDisposable Support
+}
+
+/// <summary>
+/// Class that converts strings with Wingdings characters to Unicode strings.
+/// </summary>
+public static class WingdingsToUnicodeConverter
+{
+    /// <summary>
+    /// Converts string with Wingdings characters to its Unicode analog.
+    /// </summary>
+    /// <param name="str">The string that should be converted.</param>
+    /// <returns></returns>
+    public static string Convert(string str)
+    {
+        char[] chars = str.ToCharArray();
+        for (int i = 0; i < chars.Length; i++)
+        {
+            if (chars[i] >= 0x20 && chars[i] <= 0xFF)
+            {
+                chars[i] = (char)(0xF000 + chars[i]);
+            }
+        }
+        return new string(chars);
     }
 }

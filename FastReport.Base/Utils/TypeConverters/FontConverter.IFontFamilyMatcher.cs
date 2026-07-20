@@ -1,30 +1,30 @@
 ﻿using System.ComponentModel;
+
 using SkiaSharp;
 
-namespace FastReport.TypeConverters
+namespace FastReport.TypeConverters;
+
+public partial class FontConverter : TypeConverter
 {
-    public partial class FontConverter : TypeConverter
+    public static IFontFamilyMatcher FontFamilyMatcher { get; set; } = new DefaultFontFamilyMatcher();
+
+    public interface IFontFamilyMatcher
     {
-        public static IFontFamilyMatcher FontFamilyMatcher { get; set; } = new DefaultFontFamilyMatcher();
+        SKTypeface GetFontFamilyOrDefault(string name);
+    }
 
-        public interface IFontFamilyMatcher
+    private class DefaultFontFamilyMatcher : IFontFamilyMatcher
+    {
+        public SKTypeface GetFontFamilyOrDefault(string name)
         {
-            SKTypeface GetFontFamilyOrDefault(string name);
-        }
-
-        private class DefaultFontFamilyMatcher : IFontFamilyMatcher
-        {
-            public SKTypeface GetFontFamilyOrDefault(string name)
+            if (!string.IsNullOrEmpty(name))
             {
-                if (!string.IsNullOrEmpty(name))
-                {
-                    SKTypeface matched = SKTypeface.FromFamilyName(name);
-                    if (matched != null)
-                        return matched;
-                }
-
-                return SKTypeface.Default;
+                SKTypeface matched = SKTypeface.FromFamilyName(name);
+                if (matched != null)
+                    return matched;
             }
+
+            return SKTypeface.Default;
         }
     }
 }

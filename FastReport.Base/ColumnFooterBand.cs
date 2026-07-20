@@ -1,40 +1,39 @@
 using System.ComponentModel;
 
-namespace FastReport
+namespace FastReport;
+
+/// <summary>
+/// This class represents a column footer band.
+/// </summary>
+public class ColumnFooterBand : BandBase
 {
+    #region Properties
     /// <summary>
-    /// This class represents a column footer band.
+    /// This property is not relevant to this class.
     /// </summary>
-    public class ColumnFooterBand : BandBase
+    [Browsable(false)]
+    public new bool StartNewPage
     {
-        #region Properties
-        /// <summary>
-        /// This property is not relevant to this class.
-        /// </summary>
-        [Browsable(false)]
-        public new bool StartNewPage
-        {
-            get { return base.StartNewPage; }
-            set { base.StartNewPage = value; }
-        }
+        get { return base.StartNewPage; }
+        set { base.StartNewPage = value; }
+    }
 
-        /// <summary>
-        /// This property is not relevant to this class.
-        /// </summary>
-        [Browsable(false)]
-        public new bool PrintOnBottom
-        {
-            get { return base.PrintOnBottom; }
-            set { base.PrintOnBottom = value; }
-        }
-        #endregion
+    /// <summary>
+    /// This property is not relevant to this class.
+    /// </summary>
+    [Browsable(false)]
+    public new bool PrintOnBottom
+    {
+        get { return base.PrintOnBottom; }
+        set { base.PrintOnBottom = value; }
+    }
+    #endregion
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ColumnFooterBand"/> class with default settings.
-        /// </summary>
-        public ColumnFooterBand()
-        {
-            FlagUseStartNewPage = false;
-        }
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ColumnFooterBand"/> class with default settings.
+    /// </summary>
+    public ColumnFooterBand()
+    {
+        FlagUseStartNewPage = false;
     }
 }

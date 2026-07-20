@@ -1,8 +1,10 @@
-﻿using FastReport.Utils;
-using SkiaSharp;
-using System;
+﻿using System;
 using System.Globalization;
 using System.IO;
+
+using FastReport.Utils;
+
+using SkiaSharp;
 
 namespace FastReport.Export.Html;
 

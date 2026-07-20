@@ -1,22 +1,24 @@
-﻿using FastReport.Utils;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Web;
+
+using FastReport.Utils;
+using FastReport.Web.Application;
 using FastReport.Web.Application.Localizations;
 
-namespace FastReport.Web
+namespace FastReport.Web;
+
+partial class WebReport
 {
-     partial class WebReport
-     {
 
-        internal string template_SvgExportSettings()
-        {
-            var localizationSvg = new SvgExportSettingsLocalization(Res);
-            var localizationPageSelector = new PageSelectorLocalization(Res);
+    internal string template_SvgExportSettings()
+    {
+        var localizationSvg = new SvgExportSettingsLocalization(Res);
+        var localizationPageSelector = new PageSelectorLocalization(Res);
 
-            return $@"
+        return $@"
 <div class=""modalcontainer modalcontainer--11"" data-target=""svg"">
 	<div class=""fr-popup-content-export-parameters"">
         <div class=""fr-popup-content-title"">
@@ -60,6 +62,5 @@ namespace FastReport.Web
         <button class=""fr-popup-content-btn-submit"" {CreateOnClickEvent("frActions", "SVGExport")} id=""okButton"">OK</button>
     </div>
 </div>";
-        }
     }
 }

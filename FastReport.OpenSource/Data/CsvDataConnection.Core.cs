@@ -1,17 +1,16 @@
-﻿namespace FastReport.Data
+﻿namespace FastReport.Data;
+
+/// <summary>
+/// Datasource for stored procedure.
+/// </summary>
+partial class CsvDataConnection : DataConnectionBase
 {
     /// <summary>
-    /// Datasource for stored procedure.
+    /// Does nothing
     /// </summary>
-    partial class CsvDataConnection : DataConnectionBase
+    private string CheckForChangeConnection(CsvConnectionStringBuilder builder)
     {
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        private string CheckForChangeConnection(CsvConnectionStringBuilder builder)
-        {
-            ConnectionString = builder.ToString();
-            return ConnectionString;
-        }
+        ConnectionString = builder.ToString();
+        return ConnectionString;
     }
 }

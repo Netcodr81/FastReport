@@ -1,14 +1,13 @@
-﻿namespace FastReport.Data
+﻿namespace FastReport.Data;
+
+partial class TableDataSource
 {
-    partial class TableDataSource
-    {
-        #region Private Methods
+    #region Private Methods
 
-        /// <summary>
-        /// Does nothing
-        /// </summary>
-        partial void TryToLoadData();
+    /// <summary>
+    /// Does nothing
+    /// </summary>
+    partial void TryToLoadData();
 
-        #endregion Private Methods
-    }
+    #endregion Private Methods
 }
